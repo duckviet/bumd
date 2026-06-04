@@ -1,0 +1,17 @@
+{
+  "name": "bumd",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "lint": "DATABASE_URL=postgresql://bumd:bumd@localhost:5432/bumd prisma validate --schema apps/backend/prisma/schema.prisma && tsc -b --noEmit",
+    "test": "pnpm build && node --test tests/schema-contract.test.mjs tests/versions-endpoint.test.mjs tests/cli-deploy.test.mjs",
+    "build": "DATABASE_URL=postgresql://bumd:bumd@localhost:5432/bumd prisma validate --schema apps/backend/prisma/schema.prisma && tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "prisma": "6.19.2",
+    "typescript": "5.9.3"
+  }
+}

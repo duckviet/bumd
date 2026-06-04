@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  owner
+  admin
+  member
+  guest
+}
+
+enum DocVisibility {
+  public
+  private
+}
+
+enum SourceFormat {
+  openapi
+  asyncapi
+}
+
+enum VersionStatus {
+  queued
+  processing
+  ready
+  failed
+}
+
+enum VersionArtifactKind {
+  normalized_spec
+  render_payload
+  search_document
+}
+
+enum DiffClassification {
+  none
+  non_breaking
+  breaking
+}
+
+enum WebhookDeliveryStatus {
+  queued
+  delivered
+  retrying
+  failed
+}
+
+enum ProcessingJobType {
+  parse
+  diff
+  render
+  search
+  webhooks
+}
+
+enum ProcessingJobStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+model Organization {
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  name              String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  docs              Doc[]
+  memberships       Membership[]
+  apiTokens         ApiToken[]
+  webhooks          Webhook[]
+  branches          Branch[]
+  versions          Version[]
+  versionArtifacts  VersionArtifact[]
+  diffs             Diff[]
+  webhookDeliveries WebhookDelivery[]
+  processingJobs    ProcessingJob[]
+}
+
+model Membership {
+  id             String         @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MembershipRole
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Doc {
+  id              String          @id @default(cuid())
+  organizationId  String
+  slug            String
+  name            String
+  visibility      DocVisibility
+  defaultBranchId String?
+  themeConfig     Json?
+  customDomain    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultBranch   Branch?         @relation("DocDefaultBranch", fields: [defaultBranchId], references: [id], onDelete: SetNull)
+  branches        Branch[]        @relation("DocBranches")
+  versions        Version[]
+  diffs           Diff[]
+  processingJobs  ProcessingJob[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([defaultBranchId])
+}
+
+model Branch {
+  id             String          @id @default(cuid())
+  organizationId String
+  docId          String
+  name           String
+  slug           String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  doc            Doc             @relation("DocBranches", fields: [docId], references: [id], onDelete: Cascade)
+  defaultForDocs Doc[]           @relation("DocDefaultBranch")
+  versions       Version[]
+  diffs          Diff[]
+  processingJobs ProcessingJob[]
+
+  @@unique([docId, slug])
+  @@index([organizationId])
+  @@index([docId])
+}
+
+model Version {
+  id                String            @id @default(cuid())
+  organizationId    String
+  docId             String
+  branchId          String
+  sequenceNumber    Int
+  sha256            String
+  sourceFormat      SourceFormat
+  rawSpecObjectKey  String
+  status            VersionStatus     @default(queued)
+  validationSummary Json?
+  createdByUserId   String?
+  createdByTokenId  String?
+  createdAt         DateTime          @default(now())
+  readyAt           DateTime?
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  doc               Doc               @relation(fields: [docId], references: [id], onDelete: Cascade)
+  branch            Branch            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdByToken    ApiToken?         @relation(fields: [createdByTokenId], references: [id], onDelete: SetNull)
+  artifacts         VersionArtifact[]
+  baseDiffs         Diff[]            @relation("DiffBaseVersion")
+  headDiff          Diff?             @relation("DiffHeadVersion")
+  processingJobs    ProcessingJob[]
+
+  @@unique([docId, branchId, sha256])
+  @@unique([branchId, sequenceNumber])
+  @@index([organizationId])
+  @@index([docId])
+  @@index([branchId])
+  @@index([createdByUserId])
+  @@index([createdByTokenId])
+  @@index([status])
+}
+
+model VersionArtifact {
+  id             String              @id @default(cuid())
+  organizationId String
+  versionId      String
+  kind           VersionArtifactKind
+  objectKey      String
+  contentSha256  String
+  createdAt      DateTime            @default(now())
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  version        Version             @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([versionId])
+  @@index([kind])
+  @@index([contentSha256])
+}
+
+model Diff {
+  id             String             @id @default(cuid())
+  organizationId String
+  docId          String
+  branchId       String
+  baseVersionId  String
+  headVersionId  String             @unique
+  classification DiffClassification
+  summary        Json
+  changes        Json
+  createdAt      DateTime           @default(now())
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  doc            Doc                @relation(fields: [docId], references: [id], onDelete: Cascade)
+  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  baseVersion    Version            @relation("DiffBaseVersion", fields: [baseVersionId], references: [id], onDelete: Restrict)
+  headVersion    Version            @relation("DiffHeadVersion", fields: [headVersionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([docId])
+  @@index([branchId])
+  @@index([baseVersionId])
+  @@index([classification])
+}
+
+model Webhook {
+  id             String            @id @default(cuid())
+  organizationId String
+  url            String
+  description    String?
+  secretRef      String
+  enabled        Boolean           @default(true)
+  eventTypes     String[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries     WebhookDelivery[]
+
+  @@index([organizationId])
+  @@index([enabled])
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  organizationId String
+  webhookId      String
+  eventId        String
+  eventType      String
+  payload        Json
+  status         WebhookDeliveryStatus @default(queued)
+  attemptCount   Int                   @default(0)
+  lastStatusCode Int?
+  lastError      String?
+  nextAttemptAt  DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  webhook        Webhook               @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([webhookId])
+  @@index([eventId])
+  @@index([status])
+  @@index([nextAttemptAt])
+}
+
+model ApiToken {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  tokenHash      String
+  tokenPrefix    String         @unique
+  role           MembershipRole
+  scopes         String[]
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions       Version[]
+
+  @@index([organizationId])
+  @@index([role])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model ProcessingJob {
+  id             String              @id @default(cuid())
+  organizationId String
+  docId          String
+  branchId       String
+  versionId      String
+  jobKey         String              @unique
+  type           ProcessingJobType
+  status         ProcessingJobStatus @default(queued)
+  progress       Json?
+  error          Json?
+  attemptCount   Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  doc            Doc                 @relation(fields: [docId], references: [id], onDelete: Cascade)
+  branch         Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  version        Version             @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([docId])
+  @@index([branchId])
+  @@index([versionId])
+  @@index([type])
+  @@index([status])
+}
