@@ -89,6 +89,24 @@ test("schema defines required enums and immutable version identity constraints",
   assert.match(versionBlock, /@@unique\(\[branchId,\s*sequenceNumber\]/u);
 });
 
+test("schema stores diff payloads and supports initial branch diffs", () => {
+  const schema = readSchema();
+  const diffBlock = modelBlock(schema, "Diff");
+  const migration = readFileSync(
+    new URL("../apps/backend/prisma/migrations/20260605010000_diff_payload_fields/migration.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(diffBlock, /\n\s+baseVersionId\s+String\?/u);
+  assert.match(diffBlock, /\n\s+hasBreaking\s+Boolean\s+@default\(false\)\s+@map\("has_breaking"\)/u);
+  assert.match(diffBlock, /\n\s+diffJson\s+Json\s+@map\("diff_json"\)/u);
+  assert.match(diffBlock, /\n\s+diffMarkdown\s+String\s+@map\("diff_markdown"\)/u);
+  assert.match(migration, /ADD COLUMN "has_breaking" BOOLEAN NOT NULL DEFAULT false/u);
+  assert.match(migration, /ADD COLUMN "diff_json" JSONB NOT NULL/u);
+  assert.match(migration, /ADD COLUMN "diff_markdown" TEXT NOT NULL/u);
+  assert.match(migration, /ALTER COLUMN "baseVersionId" DROP NOT NULL/u);
+});
+
 test("schema stores secrets as references or hashes and never raw token values", () => {
   const schema = readSchema();
   const apiTokenBlock = modelBlock(schema, "ApiToken");
@@ -99,6 +117,14 @@ test("schema stores secrets as references or hashes and never raw token values",
   assert.doesNotMatch(apiTokenBlock, /\n\s+token\s+String\b/u);
   assert.match(webhookBlock, /\n\s+secretRef\s+String\b/u);
   assert.doesNotMatch(webhookBlock, /\n\s+secret\s+String\b/u);
+});
+
+test("schema records webhook delivery attempt status code and success", () => {
+  const schema = readSchema();
+  const deliveryBlock = modelBlock(schema, "WebhookDelivery");
+
+  assert.match(deliveryBlock, /\n\s+statusCode\s+Int\?\s+@map\("status_code"\)/u);
+  assert.match(deliveryBlock, /\n\s+success\s+Boolean\s+@default\(false\)/u);
 });
 
 test("migration creates PostgreSQL tables, enums, foreign keys, and unique constraints", () => {

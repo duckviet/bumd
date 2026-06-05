@@ -67,14 +67,26 @@ export type DeployJobData = {
   readonly versionId: string;
 };
 
+export type PersistedDiffRecord = {
+  readonly versionId: string;
+  readonly baseVersionId: string | null;
+  readonly classification: DiffClassification;
+  readonly hasBreaking: boolean;
+  readonly diffJson: unknown;
+  readonly diffMarkdown: string;
+};
+
 export type WorkerResult = {
   readonly steps: readonly ["parse", "validate", "diff", "webhook"];
   readonly version: VersionRecord;
   readonly diff: {
     readonly classification: DiffClassification;
+    readonly hasBreaking: boolean;
+    readonly diffJson: unknown;
+    readonly markdown: string;
   };
   readonly webhooks: readonly {
-    readonly type: "version.created" | "version.failed" | "diff.breaking_detected";
+    readonly type: WebhookEventType;
   }[];
 };
-
+import type { WebhookEventType } from "../webhooks/webhook-types.js";

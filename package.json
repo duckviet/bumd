@@ -6,7 +6,7 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "lint": "DATABASE_URL=postgresql://bumd:bumd@localhost:5432/bumd prisma validate --schema apps/backend/prisma/schema.prisma && tsc -b --noEmit",
-    "test": "pnpm build && node --test tests/schema-contract.test.mjs tests/versions-endpoint.test.mjs tests/cli-deploy.test.mjs",
+    "test": "pnpm build && node --test tests/schema-contract.test.mjs tests/versions-endpoint.test.mjs tests/diff-engine.test.mjs tests/versions-worker-diff.test.mjs tests/webhook-dispatcher.test.mjs tests/cli-deploy.test.mjs",
     "build": "DATABASE_URL=postgresql://bumd:bumd@localhost:5432/bumd prisma validate --schema apps/backend/prisma/schema.prisma && tsc -b"
   },
   "devDependencies": {

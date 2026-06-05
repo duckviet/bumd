@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { DiffClassification, VersionStatus, type DeployJobRecord, type SourceFormat, type VersionRecord } from "./deploy-types.js";
+import type { WebhookStore } from "../webhooks/webhook-ports.js";
+import type { RegisteredWebhookInput, WebhookDeliveryAttempt, WebhookEndpoint, WebhookEventType } from "../webhooks/webhook-types.js";
+import {
+  VersionStatus,
+  type DeployJobRecord,
+  type DiffClassification,
+  type PersistedDiffRecord,
+  type SourceFormat,
+  type VersionRecord,
+} from "./deploy-types.js";
 import type { DeployStore } from "./deploy-ports.js";
 
 type MutableVersion = VersionRecord & {
@@ -8,16 +17,16 @@ type MutableVersion = VersionRecord & {
   readyAt?: string;
 };
 
-type WebhookType = "version.created" | "version.failed" | "diff.breaking_detected";
-
 @Injectable()
-export class InMemoryDeployStore implements DeployStore {
+export class InMemoryDeployStore implements DeployStore, WebhookStore {
   private readonly versions = new Map<string, MutableVersion>();
   private readonly rawSpecs = new Map<string, string>();
   private readonly jobs = new Map<string, DeployJobRecord>();
-  private readonly diffs = new Map<string, DiffClassification>();
-  private readonly webhooks: { readonly versionId: string; readonly type: WebhookType }[] = [];
+  private readonly diffs = new Map<string, PersistedDiffRecord>();
+  private readonly webhookEndpoints: WebhookEndpoint[] = [];
+  private readonly deliveryAttempts: WebhookDeliveryAttempt[] = [];
   private nextSequenceNumber = 1;
+  private nextWebhookId = 1;
 
   public async findVersionByHash(input: {
     readonly docSlug: string;
@@ -101,18 +110,65 @@ export class InMemoryDeployStore implements DeployStore {
     readonly kind: "normalized_spec";
     readonly contentSha256: string;
   }): Promise<void> {
-    this.diffs.set(`${input.versionId}:${input.kind}:${input.contentSha256}`, DiffClassification.None);
+    void input;
   }
 
   public async recordDiff(input: {
     readonly versionId: string;
+    readonly baseVersionId: string | null;
     readonly classification: DiffClassification;
+    readonly hasBreaking: boolean;
+    readonly diffJson: unknown;
+    readonly diffMarkdown: string;
   }): Promise<void> {
-    this.diffs.set(input.versionId, input.classification);
+    this.diffs.set(input.versionId, input);
   }
 
-  public async recordWebhook(input: { readonly versionId: string; readonly type: WebhookType }): Promise<void> {
-    this.webhooks.push(input);
+  public diffForVersion(versionId: string): PersistedDiffRecord | null {
+    return this.diffs.get(versionId) ?? null;
+  }
+
+  public registerWebhook(input: RegisteredWebhookInput): WebhookEndpoint {
+    const endpoint: WebhookEndpoint = {
+      id: `wh_${this.nextWebhookId}`,
+      organizationId: input.organizationId,
+      url: input.url,
+      secret: input.secret,
+      enabled: true,
+      eventTypes: input.eventTypes,
+    };
+    this.nextWebhookId += 1;
+    this.webhookEndpoints.push(endpoint);
+    return endpoint;
+  }
+
+  public async listSubscribedWebhooks(input: {
+    readonly organizationId: string;
+    readonly eventType: WebhookEventType;
+  }): Promise<readonly WebhookEndpoint[]> {
+    return this.webhookEndpoints.filter(
+      (webhook) =>
+        webhook.organizationId === input.organizationId &&
+        webhook.enabled &&
+        webhook.eventTypes.includes(input.eventType),
+    );
+  }
+
+  public async getWebhookEndpoint(webhookId: string): Promise<WebhookEndpoint | null> {
+    return this.webhookEndpoints.find((webhook) => webhook.id === webhookId) ?? null;
+  }
+
+  public async recordDeliveryAttempt(input: Omit<WebhookDeliveryAttempt, "id">): Promise<WebhookDeliveryAttempt> {
+    const attempt: WebhookDeliveryAttempt = {
+      id: `del_${this.deliveryAttempts.length + 1}`,
+      ...input,
+    };
+    this.deliveryAttempts.push(attempt);
+    return attempt;
+  }
+
+  public webhookDeliveries(): readonly WebhookDeliveryAttempt[] {
+    return this.deliveryAttempts;
   }
 
   public async markJobCompleted(versionId: string): Promise<void> {
@@ -140,4 +196,3 @@ export class InMemoryDeployStore implements DeployStore {
 export function hashText(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
-

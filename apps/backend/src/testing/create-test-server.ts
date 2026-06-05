@@ -3,9 +3,12 @@ import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { AppModule } from "../app.module.js";
+import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
+import type { RegisteredWebhookInput, WebhookDeliveryAttempt, WebhookEndpoint } from "../webhooks/webhook-types.js";
+import { WebhookDeliveryWorker } from "../webhooks/webhook-dispatcher.js";
 import { InMemoryDeployQueue } from "../versions/in-memory-deploy-queue.js";
 import { InMemoryDeployStore } from "../versions/in-memory-deploy-store.js";
-import type { DeployJobData, WorkerResult } from "../versions/deploy-types.js";
+import type { DeployJobData, PersistedDiffRecord, WorkerResult } from "../versions/deploy-types.js";
 import { VersionsWorker } from "../versions/versions-worker.js";
 
 export type TestServer = {
@@ -17,6 +20,12 @@ export type TestServer = {
   }) => Promise<LightMyRequestResponse>;
   readonly processDeployJobs: () => Promise<WorkerResult>;
   readonly deployJobCount: () => number;
+  readonly diffForVersion: (versionId: string) => PersistedDiffRecord;
+  readonly registerWebhook: (input: RegisteredWebhookInput) => WebhookEndpoint;
+  readonly processWebhookJobs: () => Promise<void>;
+  readonly webhookDeliveries: () => readonly WebhookDeliveryAttempt[];
+  readonly webhookQueuedJobs: () => readonly unknown[];
+  readonly failNextWebhookEnqueue: () => void;
   readonly enableAutoProcessing: () => void;
   readonly close: () => Promise<void>;
 };
@@ -29,8 +38,10 @@ export async function createTestServer(): Promise<TestServer> {
   await app.getHttpAdapter().getInstance().ready();
 
   const queue = app.get(InMemoryDeployQueue);
+  const webhookQueue = app.get(InMemoryWebhookQueue);
   const store = app.get(InMemoryDeployStore);
   const worker = app.get(VersionsWorker);
+  const webhookWorker = app.get(WebhookDeliveryWorker);
   let lastWorkerResult: WorkerResult | null = null;
 
   async function process(data: DeployJobData): Promise<void> {
@@ -59,6 +70,18 @@ export async function createTestServer(): Promise<TestServer> {
       return lastWorkerResult;
     },
     deployJobCount: () => store.deployJobCount(),
+    diffForVersion: (versionId) => {
+      const diff = store.diffForVersion(versionId);
+      if (diff === null) {
+        throw new Error("deploy_processing_failed");
+      }
+      return diff;
+    },
+    registerWebhook: (input) => store.registerWebhook(input),
+    processWebhookJobs: () => webhookQueue.drain((job) => webhookWorker.process(job)),
+    webhookDeliveries: () => store.webhookDeliveries(),
+    webhookQueuedJobs: () => webhookQueue.queuedJobs(),
+    failNextWebhookEnqueue: () => webhookQueue.failNextEnqueue(),
     enableAutoProcessing: () => {
       queue.enableAutoProcessing(process);
     },

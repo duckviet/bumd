@@ -1,7 +1,9 @@
-import type { DeployJobData, DeployJobRecord, DiffClassification, SourceFormat, VersionRecord } from "./deploy-types.js";
+import type { DiffEngineResult } from "@bumd/diff-engine";
+import type { DeployJobData, DeployJobRecord, DiffClassification, PersistedDiffRecord, SourceFormat, VersionRecord } from "./deploy-types.js";
 
 export const DEPLOY_STORE = Symbol("DEPLOY_STORE");
 export const DEPLOY_QUEUE = Symbol("DEPLOY_QUEUE");
+export const DEPLOY_DIFF_ENGINE = Symbol("DEPLOY_DIFF_ENGINE");
 
 export type DeployStore = {
   readonly findVersionByHash: (input: {
@@ -29,12 +31,13 @@ export type DeployStore = {
   }) => Promise<void>;
   readonly recordDiff: (input: {
     readonly versionId: string;
+    readonly baseVersionId: string | null;
     readonly classification: DiffClassification;
+    readonly hasBreaking: boolean;
+    readonly diffJson: unknown;
+    readonly diffMarkdown: string;
   }) => Promise<void>;
-  readonly recordWebhook: (input: {
-    readonly versionId: string;
-    readonly type: "version.created" | "version.failed" | "diff.breaking_detected";
-  }) => Promise<void>;
+  readonly diffForVersion: (versionId: string) => PersistedDiffRecord | null;
   readonly markJobCompleted: (versionId: string) => Promise<void>;
   readonly deployJobCount: () => number;
 };
@@ -43,3 +46,10 @@ export type DeployQueue = {
   readonly enqueueDeploy: (data: DeployJobData) => Promise<DeployJobRecord>;
 };
 
+export type DeployDiffEngine = {
+  readonly compareOpenApiSpecs: (input: {
+    readonly baseSpec: string;
+    readonly revisionSpec: string;
+  }) => Promise<DiffEngineResult>;
+  readonly initialDiff: () => DiffEngineResult;
+};

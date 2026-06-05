@@ -196,16 +196,19 @@ model Diff {
   organizationId String
   docId          String
   branchId       String
-  baseVersionId  String
+  baseVersionId  String?
   headVersionId  String             @unique
   classification DiffClassification
+  hasBreaking    Boolean            @default(false) @map("has_breaking")
+  diffJson       Json               @map("diff_json")
+  diffMarkdown   String             @map("diff_markdown")
   summary        Json
   changes        Json
   createdAt      DateTime           @default(now())
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   doc            Doc                @relation(fields: [docId], references: [id], onDelete: Cascade)
   branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  baseVersion    Version            @relation("DiffBaseVersion", fields: [baseVersionId], references: [id], onDelete: Restrict)
+  baseVersion    Version?           @relation("DiffBaseVersion", fields: [baseVersionId], references: [id], onDelete: Restrict)
   headVersion    Version            @relation("DiffHeadVersion", fields: [headVersionId], references: [id], onDelete: Restrict)
 
   @@index([organizationId])
@@ -242,6 +245,8 @@ model WebhookDelivery {
   status         WebhookDeliveryStatus @default(queued)
   attemptCount   Int                   @default(0)
   lastStatusCode Int?
+  statusCode     Int?                  @map("status_code")
+  success        Boolean               @default(false)
   lastError      String?
   nextAttemptAt  DateTime?
   createdAt      DateTime              @default(now())

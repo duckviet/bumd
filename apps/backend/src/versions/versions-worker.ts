@@ -1,12 +1,19 @@
 import { createHash } from "node:crypto";
+import type { DiffEngineResult } from "@bumd/diff-engine";
 import { Inject, Injectable } from "@nestjs/common";
 import { parse as parseYaml } from "yaml";
 import { DiffClassification, SourceFormat, type DeployJobData, type VersionRecord, type WorkerResult } from "./deploy-types.js";
-import { DEPLOY_STORE, type DeployStore } from "./deploy-ports.js";
+import { DEPLOY_DIFF_ENGINE, DEPLOY_STORE, type DeployDiffEngine, type DeployStore } from "./deploy-ports.js";
+import { WebhookDispatcher } from "../webhooks/webhook-dispatcher.js";
+import { WebhookEventType, type WebhookEventPayload } from "../webhooks/webhook-types.js";
 
 @Injectable()
 export class VersionsWorker {
-  public constructor(@Inject(DEPLOY_STORE) private readonly store: DeployStore) {}
+  public constructor(
+    @Inject(DEPLOY_STORE) private readonly store: DeployStore,
+    @Inject(DEPLOY_DIFF_ENGINE) private readonly diffEngine: DeployDiffEngine,
+    private readonly webhookDispatcher: WebhookDispatcher,
+  ) {}
 
   public async process(data: DeployJobData): Promise<WorkerResult> {
     const processingVersion = await this.store.markVersionProcessing(data.versionId);
@@ -14,18 +21,18 @@ export class VersionsWorker {
       const parsed = await this.parse(processingVersion);
       await this.validate(processingVersion, parsed);
       const diff = await this.diff(processingVersion);
-      await this.webhook(processingVersion, diff.classification);
       const version = await this.store.markVersionReady(data.versionId);
+      const webhooks = await this.webhook(version);
       await this.store.markJobCompleted(data.versionId);
       return {
         steps: ["parse", "validate", "diff", "webhook"],
         version,
         diff,
-        webhooks: [{ type: "version.created" }],
+        webhooks,
       };
     } catch (error) {
-      await this.store.markVersionFailed(data.versionId);
-      await this.store.recordWebhook({ versionId: data.versionId, type: "version.failed" });
+      const failedVersion = await this.store.markVersionFailed(data.versionId);
+      await this.enqueueEvent(failedVersion, WebhookEventType.VersionFailed, {});
       throw error;
     }
   }
@@ -60,19 +67,99 @@ export class VersionsWorker {
     }
   }
 
-  private async diff(version: VersionRecord): Promise<{ readonly classification: DiffClassification }> {
+  private async diff(version: VersionRecord): Promise<WorkerResult["diff"]> {
     const previous = await this.store.previousReadyVersion(version);
-    const classification = previous === null ? DiffClassification.None : DiffClassification.NonBreaking;
-    await this.store.recordDiff({ versionId: version.id, classification });
-    return { classification };
+    const result = await this.compareWithPrevious(version, previous);
+    const classification = toDeployClassification(result);
+    await this.store.recordDiff({
+      versionId: version.id,
+      baseVersionId: previous?.id ?? null,
+      classification,
+      hasBreaking: result.hasBreaking,
+      diffJson: result.diffJson,
+      diffMarkdown: result.markdown,
+    });
+    return {
+      classification,
+      hasBreaking: result.hasBreaking,
+      diffJson: result.diffJson,
+      markdown: result.markdown,
+    };
   }
 
-  private async webhook(version: VersionRecord, classification: DiffClassification): Promise<void> {
-    await this.store.recordWebhook({ versionId: version.id, type: "version.created" });
-    if (classification === DiffClassification.Breaking) {
-      await this.store.recordWebhook({ versionId: version.id, type: "diff.breaking_detected" });
+  private async compareWithPrevious(version: VersionRecord, previous: VersionRecord | null): Promise<DiffEngineResult> {
+    if (previous === null) {
+      return this.diffEngine.initialDiff();
+    }
+    switch (version.sourceFormat) {
+      case SourceFormat.OpenApi:
+        return this.diffEngine.compareOpenApiSpecs({
+          baseSpec: await this.store.getRawSpec(previous.id),
+          revisionSpec: await this.store.getRawSpec(version.id),
+        });
+      case SourceFormat.AsyncApi:
+        return this.diffEngine.initialDiff();
+      default:
+        return assertNever(version.sourceFormat);
     }
   }
+
+  private async webhook(version: VersionRecord): Promise<WorkerResult["webhooks"]> {
+    const events: { readonly type: WebhookEventType }[] = [];
+    await this.enqueueEvent(version, WebhookEventType.VersionCreated, {});
+    events.push({ type: WebhookEventType.VersionCreated });
+    const diff = this.store.diffForVersion(version.id);
+    if (diff?.hasBreaking === true) {
+      await this.enqueueEvent(version, WebhookEventType.DiffBreakingDetected, {
+        diff: {
+          hasBreaking: diff.hasBreaking,
+          markdown: diff.diffMarkdown,
+        },
+      });
+      events.push({ type: WebhookEventType.DiffBreakingDetected });
+    }
+    return events;
+  }
+
+  private async enqueueEvent(
+    version: VersionRecord,
+    type: WebhookEventType,
+    data: WebhookEventPayload["data"],
+  ): Promise<void> {
+    try {
+      await this.webhookDispatcher.enqueueEvent({
+        id: `evt_${version.id}_${type}`,
+        type,
+        createdAt: new Date().toISOString(),
+        organization: { id: version.organizationId, slug: version.organizationId },
+        doc: { id: version.docId, slug: version.docId },
+        branch: { id: version.branchId, slug: version.branchId },
+        version: { id: version.id, sha256: version.sha256, status: version.status },
+        data,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        return;
+      }
+      throw error;
+    }
+  }
+}
+
+function toDeployClassification(result: DiffEngineResult): DiffClassification {
+  switch (result.classification) {
+    case "none":
+      return DiffClassification.None;
+    case "breaking":
+      return DiffClassification.Breaking;
+    case "warning":
+    case "non-breaking":
+      return DiffClassification.NonBreaking;
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`unexpected_variant:${value}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

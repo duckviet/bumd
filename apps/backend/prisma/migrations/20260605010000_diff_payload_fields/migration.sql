@@ -1,0 +1,7 @@
+ALTER TABLE "Diff" ADD COLUMN "has_breaking" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Diff" ADD COLUMN "diff_json" JSONB NOT NULL DEFAULT '{"changes":[]}'::jsonb;
+ALTER TABLE "Diff" ADD COLUMN "diff_markdown" TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE "Diff" DROP CONSTRAINT "Diff_baseVersionId_fkey";
+ALTER TABLE "Diff" ALTER COLUMN "baseVersionId" DROP NOT NULL;
+ALTER TABLE "Diff" ADD CONSTRAINT "Diff_baseVersionId_fkey" FOREIGN KEY ("baseVersionId") REFERENCES "Version"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

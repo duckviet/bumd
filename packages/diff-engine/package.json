@@ -1,0 +1,23 @@
+{
+  "name": "@bumd/diff-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "bumd-diff-engine": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "diff": "node dist/index.js"
+  },
+  "dependencies": {
+    "yaml": "2.8.2"
+  }
+}

@@ -50,6 +50,7 @@ Before changing code or documentation, read:
 - API tokens must be stored only as argon2 hashes plus non-secret prefixes.
 - Webhook secrets must be stored through an approved secret-storage or encrypted-at-rest mechanism.
 - Test fixtures must use obvious fake values such as `test_token_not_secret`.
+- Secret-leak tests must assert against both stdout AND stderr.
 
 ## NestJS Backend Rules
 
@@ -108,6 +109,7 @@ Before changing code or documentation, read:
 - Use clear exit codes for CI.
 - Do not print raw tokens in normal command output.
 - PR comments should summarize breaking changes first, then non-breaking changes, then unknown changes.
+- Keep routes aligned between CLI and backend to avoid route mismatch (e.g., `/v1/versions` vs nested deploy route).
 
 ## Required Commands
 
