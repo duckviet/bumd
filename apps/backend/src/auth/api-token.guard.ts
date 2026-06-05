@@ -43,10 +43,14 @@ export class ApiTokenGuard implements CanActivate {
 
 function extractToken(authorization: string | undefined): string | null {
   const [scheme, token, extra] = authorization?.split(" ") ?? [];
-  if (scheme !== "Token" || token === undefined || token.trim() === "" || extra !== undefined) {
+  if (!isApiTokenScheme(scheme) || token === undefined || token.trim() === "" || extra !== undefined) {
     return null;
   }
   return token;
+}
+
+function isApiTokenScheme(value: string | undefined): boolean {
+  return value === "Bearer" || value === "Token";
 }
 
 function isExpired(expiresAt: string | null): boolean {

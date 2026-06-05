@@ -6,6 +6,12 @@
   "bin": {
     "bumd": "./dist/index.js"
   },
+  "exports": {
+    "./deploy": {
+      "types": "./dist/deploy/index.d.ts",
+      "default": "./dist/deploy/index.js"
+    }
+  },
   "oclif": {
     "commands": "./dist/commands"
   },

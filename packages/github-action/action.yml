@@ -1,0 +1,68 @@
+name: Bumd
+description: Deploy specs and publish API diffs with Bumd
+inputs:
+  command:
+    description: deploy for push workflows or diff for pull_request workflows
+    required: true
+  api_url:
+    description: Bumd backend API base URL
+    required: true
+  org:
+    description: Organization slug
+    required: true
+  doc:
+    description: Documentation slug
+    required: true
+  branch:
+    description: Branch slug
+    required: false
+    default: main
+  file:
+    description: OpenAPI or AsyncAPI spec file path
+    required: true
+  source_format:
+    description: Spec format, openapi or asyncapi
+    required: false
+  backend_token:
+    description: Bumd API token
+    required: true
+  github_token:
+    description: GitHub token used for pull request comments
+    required: false
+  version_id:
+    description: Existing version id to fetch a stored diff
+    required: false
+  base_version_id:
+    description: Optional base version id for diff preview
+    required: false
+  head_version_id:
+    description: Optional head version id for diff preview
+    required: false
+  fail_on_breaking:
+    description: Exit non-zero when breaking changes are detected
+    required: false
+    default: "false"
+  sticky_comment:
+    description: Create or update a single sticky pull request comment
+    required: false
+    default: "true"
+outputs:
+  version_id:
+    description: Created or reused version id
+  job_id:
+    description: Backend processing job id for a new deploy
+  skipped:
+    description: Whether deploy skipped an unchanged version
+  local_sha256:
+    description: Locally computed spec SHA-256
+  public_url:
+    description: URL for the deployed version
+  classification:
+    description: Diff classification
+  has_breaking:
+    description: Whether the diff contains breaking changes
+  comment_id:
+    description: Pull request comment id
+runs:
+  using: node20
+  main: dist/index.js

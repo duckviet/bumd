@@ -1,0 +1,22 @@
+{
+  "name": "@bumd/github-action",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "bundle": "rm -rf dist && ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "test": "node --test ../../tests/github-action.test.mjs"
+  },
+  "dependencies": {
+    "@actions/core": "1.11.1",
+    "@actions/github": "6.0.1",
+    "@bumd/cli": "workspace:*",
+    "ky": "1.14.0",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "0.38.4"
+  }
+}

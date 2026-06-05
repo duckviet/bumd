@@ -36,10 +36,14 @@ async function createToken(harness, input = {}) {
 }
 
 async function deployWithToken(harness, token, payload = deployPayload()) {
+  return deployWithAuthorization(harness, token === null ? null : `Token ${token}`, payload);
+}
+
+async function deployWithAuthorization(harness, authorization, payload = deployPayload()) {
   return harness.inject({
     method: "POST",
     url: "/v1/orgs/acme/docs/payments/branches/main/deploys",
-    headers: token === null ? {} : { Authorization: `Token ${token}` },
+    headers: authorization === null ? {} : { Authorization: authorization },
     payload,
   });
 }
@@ -126,6 +130,20 @@ test("valid API token deploys with resolved tenant context and updates last used
     assert.equal(harness.versionMetadata(body.version.id).createdByTokenId, created.id);
     const metadata = harness.apiTokenMetadata(created.id);
     assert.equal(metadata.lastUsedAt === null, false);
+  } finally {
+    await harness.close();
+  }
+});
+
+test("valid API token also deploys with documented bearer scheme", async () => {
+  const harness = await createHarness();
+
+  try {
+    const created = await createToken(harness);
+    const response = await deployWithAuthorization(harness, `Bearer ${created.token}`);
+
+    assert.equal(response.statusCode, 202, response.payload);
+    assert.equal(JSON.parse(response.payload).version.status, "queued");
   } finally {
     await harness.close();
   }
