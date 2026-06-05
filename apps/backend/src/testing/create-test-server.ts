@@ -3,6 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { AppModule } from "../app.module.js";
+import type { CreateApiTokenInput, IssuedApiToken } from "../auth/auth-types.js";
 import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
 import type { RegisteredWebhookInput, WebhookDeliveryAttempt, WebhookEndpoint } from "../webhooks/webhook-types.js";
 import { WebhookDeliveryWorker } from "../webhooks/webhook-dispatcher.js";
@@ -26,6 +27,9 @@ export type TestServer = {
   readonly webhookDeliveries: () => readonly WebhookDeliveryAttempt[];
   readonly webhookQueuedJobs: () => readonly unknown[];
   readonly failNextWebhookEnqueue: () => void;
+  readonly issueApiToken: (input: CreateApiTokenInput) => Promise<IssuedApiToken>;
+  readonly apiTokenMetadata: (tokenId: string) => ReturnType<InMemoryDeployStore["apiTokenMetadata"]>;
+  readonly versionMetadata: (versionId: string) => ReturnType<InMemoryDeployStore["versionMetadata"]>;
   readonly enableAutoProcessing: () => void;
   readonly close: () => Promise<void>;
 };
@@ -82,6 +86,9 @@ export async function createTestServer(): Promise<TestServer> {
     webhookDeliveries: () => store.webhookDeliveries(),
     webhookQueuedJobs: () => webhookQueue.queuedJobs(),
     failNextWebhookEnqueue: () => webhookQueue.failNextEnqueue(),
+    issueApiToken: (input) => store.issueApiToken(input),
+    apiTokenMetadata: (tokenId) => store.apiTokenMetadata(tokenId),
+    versionMetadata: (versionId) => store.versionMetadata(versionId),
     enableAutoProcessing: () => {
       queue.enableAutoProcessing(process);
     },

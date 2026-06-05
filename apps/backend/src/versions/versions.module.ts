@@ -1,4 +1,10 @@
 import { Module } from "@nestjs/common";
+import { AdminSessionGuard } from "../auth/admin-session.guard.js";
+import { ApiTokenCrypto } from "../auth/api-token-crypto.js";
+import { ApiTokenGuard } from "../auth/api-token.guard.js";
+import { ApiTokensController } from "../auth/api-tokens.controller.js";
+import { API_TOKEN_STORE } from "../auth/auth-ports.js";
+import { createApiTokenStore } from "../auth/database-api-token-store.js";
 import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
 import { createWebhookStore } from "../webhooks/database-webhook-store.js";
 import { KyWebhookHttpClient } from "../webhooks/webhook-http-client.js";
@@ -15,8 +21,11 @@ import { VersionsService } from "./versions.service.js";
 import { VersionsWorker } from "./versions-worker.js";
 
 @Module({
-  controllers: [VersionsController, DeploysController],
+  controllers: [VersionsController, DeploysController, ApiTokensController],
   providers: [
+    ApiTokenCrypto,
+    AdminSessionGuard,
+    ApiTokenGuard,
     VersionsService,
     VersionsWorker,
     OasdiffDeployDiffEngine,
@@ -28,6 +37,7 @@ import { VersionsWorker } from "./versions-worker.js";
     WebhookDeliveryWorker,
     WebhookWorkerBootstrap,
     { provide: DEPLOY_STORE, useExisting: InMemoryDeployStore },
+    { provide: API_TOKEN_STORE, inject: [InMemoryDeployStore, ApiTokenCrypto], useFactory: createApiTokenStore },
     { provide: DEPLOY_QUEUE, useExisting: InMemoryDeployQueue },
     { provide: DEPLOY_DIFF_ENGINE, useExisting: OasdiffDeployDiffEngine },
     { provide: WEBHOOK_STORE, inject: [InMemoryDeployStore], useFactory: createWebhookStore },

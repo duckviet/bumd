@@ -14,11 +14,17 @@ function specBase64(spec) {
 }
 
 async function deploy(harness, spec) {
+  const token = await harness.issueApiToken({
+    organizationId: "acme",
+    name: `ci-${Date.now()}`,
+    role: "member",
+    scopes: ["docs:deploy"],
+  });
   const response = await harness.inject({
     method: "POST",
     url: "/v1/versions",
     headers: {
-      Authorization: "Bearer test_token_not_secret",
+      Authorization: `Token ${token.token}`,
     },
     payload: {
       orgSlug: "acme",
@@ -289,7 +295,12 @@ test("failed versions enqueue version.failed without dispatching inline", async 
     const response = await harness.inject({
       method: "POST",
       url: "/v1/versions",
-      headers: { Authorization: "Bearer test_token_not_secret" },
+      headers: { Authorization: `Token ${(await harness.issueApiToken({
+        organizationId: "acme",
+        name: "ci-failed",
+        role: "member",
+        scopes: ["docs:deploy"],
+      })).token}` },
       payload: {
         orgSlug: "acme",
         docSlug: "payments",

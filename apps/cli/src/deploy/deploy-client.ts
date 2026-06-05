@@ -32,7 +32,7 @@ export async function postDeploy(input: {
       .post(deployUrl(input), {
         json: input.body,
         headers: {
-          Authorization: `Bearer ${input.token}`,
+          Authorization: `Token ${input.token}`,
         },
         timeout: 10_000,
         retry: {

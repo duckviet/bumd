@@ -6,15 +6,26 @@ async function createHarness() {
   return module.createTestServer();
 }
 
+async function deployToken(harness) {
+  const token = await harness.issueApiToken({
+    organizationId: "acme",
+    name: "ci",
+    role: "member",
+    scopes: ["docs:deploy"],
+  });
+  return token.token;
+}
+
 test("POST /v1/versions returns 202 and queues parse validate diff webhook work", async () => {
   const harness = await createHarness();
 
   try {
+    const token = await deployToken(harness);
     const response = await harness.inject({
       method: "POST",
       url: "/v1/versions",
       headers: {
-        Authorization: "Bearer test_token_not_secret",
+        Authorization: `Token ${token}`,
       },
       payload: {
         orgSlug: "acme",
@@ -47,6 +58,7 @@ test("POST /v1/versions returns 200 skipped for unchanged sha256 and does not du
   const harness = await createHarness();
 
   try {
+    const token = await deployToken(harness);
     const payload = {
       orgSlug: "acme",
       docSlug: "payments",
@@ -59,13 +71,13 @@ test("POST /v1/versions returns 200 skipped for unchanged sha256 and does not du
     const first = await harness.inject({
       method: "POST",
       url: "/v1/versions",
-      headers: { Authorization: "Bearer test_token_not_secret" },
+      headers: { Authorization: `Token ${token}` },
       payload,
     });
     const second = await harness.inject({
       method: "POST",
       url: "/v1/versions",
-      headers: { Authorization: "Bearer test_token_not_secret" },
+      headers: { Authorization: `Token ${token}` },
       payload,
     });
 
@@ -85,11 +97,12 @@ test("POST /v1/versions returns 400 for malformed deploy bodies", async () => {
   const harness = await createHarness();
 
   try {
+    const token = await deployToken(harness);
     const response = await harness.inject({
       method: "POST",
       url: "/v1/versions",
       headers: {
-        Authorization: "Bearer test_token_not_secret",
+        Authorization: `Token ${token}`,
       },
       payload: {
         orgSlug: "acme",
@@ -114,11 +127,12 @@ test("POST /v1/versions worker accepts YAML OpenAPI specs", async () => {
   const harness = await createHarness();
 
   try {
+    const token = await deployToken(harness);
     const response = await harness.inject({
       method: "POST",
       url: "/v1/versions",
       headers: {
-        Authorization: "Bearer test_token_not_secret",
+        Authorization: `Token ${token}`,
       },
       payload: {
         orgSlug: "acme",

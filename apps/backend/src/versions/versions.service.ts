@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { Inject, Injectable } from "@nestjs/common";
 import { ZodError } from "zod";
+import { ApiTokenRole, ApiTokenScope, type ApiTokenAuthContext } from "../auth/auth-types.js";
 import { DeployError } from "./deploy-errors.js";
 import { DEPLOY_QUEUE, DEPLOY_STORE, type DeployQueue, type DeployStore } from "./deploy-ports.js";
 import { parseDeployRequest } from "./deploy-request.schema.js";
@@ -14,11 +15,7 @@ export class VersionsService {
     @Inject(DEPLOY_QUEUE) private readonly queue: DeployQueue,
   ) {}
 
-  public async deploy(input: unknown, authorization: string | undefined): Promise<DeployResult> {
-    if (authorization !== "Bearer test_token_not_secret") {
-      throw new DeployError("unauthorized", "Missing or invalid API token", 401);
-    }
-
+  public async deploy(input: unknown, auth: ApiTokenAuthContext): Promise<DeployResult> {
     let request;
     try {
       request = parseDeployRequest(input);
@@ -29,9 +26,20 @@ export class VersionsService {
       throw error;
     }
 
+    if (!auth.scopes.includes(ApiTokenScope.DocsDeploy)) {
+      throw new DeployError("forbidden", "API token is missing docs:deploy scope", 403);
+    }
+    if (!canDeploy(auth.role)) {
+      throw new DeployError("forbidden", "API token role cannot deploy", 403);
+    }
+    if (auth.organizationId !== request.orgSlug) {
+      throw new DeployError("forbidden", "API token cannot access this organization", 403);
+    }
+
     const rawSpec = Buffer.from(request.specBase64, "base64").toString("utf8");
     const sha256 = hashText(rawSpec);
     const existing = await this.store.findVersionByHash({
+      orgSlug: request.orgSlug,
       docSlug: request.docSlug,
       branchSlug: request.branchSlug,
       sha256,
@@ -48,9 +56,20 @@ export class VersionsService {
       sha256,
       sourceFormat: request.sourceFormat,
       rawSpec,
+      createdByTokenId: auth.tokenId,
     });
     await this.queue.enqueueDeploy({ versionId: created.version.id });
     return { kind: "created", version: created.version, job: created.job };
   }
 }
 
+function canDeploy(role: ApiTokenRole): boolean {
+  switch (role) {
+    case ApiTokenRole.Owner:
+    case ApiTokenRole.Admin:
+    case ApiTokenRole.Member:
+      return true;
+    case ApiTokenRole.Guest:
+      return false;
+  }
+}

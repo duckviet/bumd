@@ -7,6 +7,7 @@ export const DEPLOY_DIFF_ENGINE = Symbol("DEPLOY_DIFF_ENGINE");
 
 export type DeployStore = {
   readonly findVersionByHash: (input: {
+    readonly orgSlug: string;
     readonly docSlug: string;
     readonly branchSlug: string;
     readonly sha256: string;
@@ -18,6 +19,7 @@ export type DeployStore = {
     readonly sha256: string;
     readonly sourceFormat: SourceFormat;
     readonly rawSpec: string;
+    readonly createdByTokenId: string;
   }) => Promise<{ readonly version: VersionRecord; readonly job: DeployJobRecord }>;
   readonly getRawSpec: (versionId: string) => Promise<string>;
   readonly previousReadyVersion: (version: VersionRecord) => Promise<VersionRecord | null>;

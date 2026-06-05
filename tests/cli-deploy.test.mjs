@@ -56,7 +56,7 @@ test("deploy command posts base64 spec with bearer auth and prints structured JS
   const server = await withServer((request, response) => {
     assert.equal(request.method, "POST");
     assert.equal(request.url, "/v1/orgs/acme/docs/payments/branches/main/deploys");
-    assert.equal(request.headers.authorization, "Bearer test_token_not_secret");
+    assert.equal(request.headers.authorization, "Token test_token_not_secret");
     response.writeHead(202, { "content-type": "application/json" });
     response.end(JSON.stringify({
       skipped: false,
