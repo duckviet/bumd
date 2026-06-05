@@ -21,6 +21,7 @@ export type DeployStore = {
     readonly rawSpec: string;
     readonly createdByTokenId: string;
   }) => Promise<{ readonly version: VersionRecord; readonly job: DeployJobRecord }>;
+  readonly getVersion: (versionId: string) => Promise<VersionRecord>;
   readonly getRawSpec: (versionId: string) => Promise<string>;
   readonly previousReadyVersion: (version: VersionRecord) => Promise<VersionRecord | null>;
   readonly markVersionProcessing: (versionId: string) => Promise<VersionRecord>;

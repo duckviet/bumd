@@ -78,7 +78,7 @@ export type PersistedDiffRecord = {
 };
 
 export type WorkerResult = {
-  readonly steps: readonly ["parse", "validate", "diff", "webhook"];
+  readonly steps: readonly ["parse", "validate", "diff", "search", "webhook"];
   readonly version: VersionRecord;
   readonly diff: {
     readonly classification: DiffClassification;

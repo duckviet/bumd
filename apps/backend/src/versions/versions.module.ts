@@ -6,6 +6,14 @@ import { ApiTokensController } from "../auth/api-tokens.controller.js";
 import { API_TOKEN_STORE } from "../auth/auth-ports.js";
 import { createApiTokenStore } from "../auth/database-api-token-store.js";
 import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
+import { InMemorySearchIndex } from "../search/in-memory-search-index.js";
+import { SearchController } from "../search/search.controller.js";
+import { createSearchIndex } from "../search/search-index-provider.js";
+import { SEARCH_INDEX } from "../search/search-types.js";
+import { KyTryItOutHttpClient } from "../try-it-out/try-it-out-http-client.js";
+import { TRY_IT_OUT_HTTP_CLIENT } from "../try-it-out/try-it-out-types.js";
+import { TryItOutController } from "../try-it-out/try-it-out.controller.js";
+import { TryItOutService } from "../try-it-out/try-it-out.service.js";
 import { createWebhookStore } from "../webhooks/database-webhook-store.js";
 import { KyWebhookHttpClient } from "../webhooks/webhook-http-client.js";
 import { WebhookDeliveryWorker, WebhookDispatcher } from "../webhooks/webhook-dispatcher.js";
@@ -21,7 +29,7 @@ import { VersionsService } from "./versions.service.js";
 import { VersionsWorker } from "./versions-worker.js";
 
 @Module({
-  controllers: [VersionsController, DeploysController, ApiTokensController],
+  controllers: [VersionsController, DeploysController, ApiTokensController, SearchController, TryItOutController],
   providers: [
     ApiTokenCrypto,
     AdminSessionGuard,
@@ -32,7 +40,10 @@ import { VersionsWorker } from "./versions-worker.js";
     InMemoryDeployStore,
     InMemoryDeployQueue,
     InMemoryWebhookQueue,
+    InMemorySearchIndex,
     KyWebhookHttpClient,
+    KyTryItOutHttpClient,
+    TryItOutService,
     WebhookDispatcher,
     WebhookDeliveryWorker,
     WebhookWorkerBootstrap,
@@ -40,10 +51,12 @@ import { VersionsWorker } from "./versions-worker.js";
     { provide: API_TOKEN_STORE, inject: [InMemoryDeployStore, ApiTokenCrypto], useFactory: createApiTokenStore },
     { provide: DEPLOY_QUEUE, useExisting: InMemoryDeployQueue },
     { provide: DEPLOY_DIFF_ENGINE, useExisting: OasdiffDeployDiffEngine },
+    { provide: SEARCH_INDEX, inject: [InMemorySearchIndex], useFactory: createSearchIndex },
+    { provide: TRY_IT_OUT_HTTP_CLIENT, useExisting: KyTryItOutHttpClient },
     { provide: WEBHOOK_STORE, inject: [InMemoryDeployStore], useFactory: createWebhookStore },
     { provide: WEBHOOK_QUEUE, inject: [InMemoryWebhookQueue], useFactory: createWebhookQueue },
     { provide: WEBHOOK_HTTP_CLIENT, useExisting: KyWebhookHttpClient },
   ],
-  exports: [VersionsWorker, InMemoryDeployQueue, InMemoryDeployStore, InMemoryWebhookQueue, WebhookDeliveryWorker],
+  exports: [VersionsWorker, InMemoryDeployQueue, InMemoryDeployStore, InMemoryWebhookQueue, InMemorySearchIndex, WebhookDeliveryWorker],
 })
 export class VersionsModule {}

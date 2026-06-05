@@ -45,7 +45,7 @@ test("POST /v1/versions returns 202 and queues parse validate diff webhook work"
     assert.match(body.version.sha256, /^[a-f0-9]{64}$/u);
 
     const workerResult = await harness.processDeployJobs();
-    assert.deepEqual(workerResult.steps, ["parse", "validate", "diff", "webhook"]);
+    assert.deepEqual(workerResult.steps, ["parse", "validate", "diff", "search", "webhook"]);
     assert.equal(workerResult.version.status, "ready");
     assert.equal(workerResult.diff.classification, "none");
     assert.equal(workerResult.webhooks[0].type, "version.created");

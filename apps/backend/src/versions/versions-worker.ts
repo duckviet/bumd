@@ -6,12 +6,15 @@ import { DiffClassification, SourceFormat, type DeployJobData, type VersionRecor
 import { DEPLOY_DIFF_ENGINE, DEPLOY_STORE, type DeployDiffEngine, type DeployStore } from "./deploy-ports.js";
 import { WebhookDispatcher } from "../webhooks/webhook-dispatcher.js";
 import { WebhookEventType, type WebhookEventPayload } from "../webhooks/webhook-types.js";
+import { SEARCH_INDEX, type SearchIndex } from "../search/search-types.js";
+import { extractOpenApiSearchDocuments } from "../search/openapi-search-extractor.js";
 
 @Injectable()
 export class VersionsWorker {
   public constructor(
     @Inject(DEPLOY_STORE) private readonly store: DeployStore,
     @Inject(DEPLOY_DIFF_ENGINE) private readonly diffEngine: DeployDiffEngine,
+    @Inject(SEARCH_INDEX) private readonly searchIndex: SearchIndex,
     private readonly webhookDispatcher: WebhookDispatcher,
   ) {}
 
@@ -22,10 +25,11 @@ export class VersionsWorker {
       await this.validate(processingVersion, parsed);
       const diff = await this.diff(processingVersion);
       const version = await this.store.markVersionReady(data.versionId);
+      await this.search(version, parsed);
       const webhooks = await this.webhook(version);
       await this.store.markJobCompleted(data.versionId);
       return {
-        steps: ["parse", "validate", "diff", "webhook"],
+        steps: ["parse", "validate", "diff", "search", "webhook"],
         version,
         diff,
         webhooks,
@@ -119,6 +123,17 @@ export class VersionsWorker {
       events.push({ type: WebhookEventType.DiffBreakingDetected });
     }
     return events;
+  }
+
+  private async search(version: VersionRecord, parsed: unknown): Promise<void> {
+    const documents = version.sourceFormat === SourceFormat.OpenApi ? extractOpenApiSearchDocuments(version, parsed) : [];
+    await this.searchIndex.replaceVersionDocuments({
+      organizationId: version.organizationId,
+      docId: version.docId,
+      branchId: version.branchId,
+      versionId: version.id,
+      documents,
+    });
   }
 
   private async enqueueEvent(

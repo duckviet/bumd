@@ -4,6 +4,7 @@
     { "path": "packages/diff-engine/tsconfig.json" },
     { "path": "apps/backend/tsconfig.json" },
     { "path": "apps/cli/tsconfig.json" },
-    { "path": "packages/github-action/tsconfig.json" }
+    { "path": "packages/github-action/tsconfig.json" },
+    { "path": "apps/frontend/tsconfig.json" }
   ]
 }

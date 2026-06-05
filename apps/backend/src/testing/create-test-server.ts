@@ -14,7 +14,7 @@ import { VersionsWorker } from "../versions/versions-worker.js";
 
 export type TestServer = {
   readonly inject: (input: {
-    readonly method: "POST";
+    readonly method: "GET" | "POST";
     readonly url: string;
     readonly headers?: Record<string, string>;
     readonly payload?: Record<string, unknown>;

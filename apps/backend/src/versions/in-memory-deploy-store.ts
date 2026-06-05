@@ -98,6 +98,10 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
     return rawSpec;
   }
 
+  public async getVersion(versionId: string): Promise<VersionRecord> {
+    return this.versionMetadata(versionId);
+  }
+
   public async previousReadyVersion(version: VersionRecord): Promise<VersionRecord | null> {
     const candidates = [...this.versions.values()].filter(
       (candidate) =>
