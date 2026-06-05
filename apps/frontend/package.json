@@ -11,14 +11,19 @@
   },
   "dependencies": {
     "next": "16.2.2",
+    "next-auth": "5.0.0-beta.25",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "zod": "4.1.12"
   },
   "devDependencies": {
+    "@simplewebauthn/server": "^9.0.3",
+    "@simplewebauthn/types": "^9.0.1",
     "@tailwindcss/postcss": "4.1.18",
+    "@types/nodemailer": "^6.4.17",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "nodemailer": "^6.9.16",
     "tailwindcss": "4.1.18"
   }
 }

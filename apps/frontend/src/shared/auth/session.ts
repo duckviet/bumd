@@ -1,6 +1,11 @@
-import { cookies } from "next/headers";
+import { getCurrentSession, getMembershipForOrg } from "./rbac";
 
 export async function hasPortalSession(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return cookieStore.has("bumd_session");
+  return (await getCurrentSession()) !== null;
 }
+
+export async function hasPortalAccess(organizationSlug: string): Promise<boolean> {
+  return (await getMembershipForOrg(organizationSlug)) !== null;
+}
+
+export { getCurrentSession, getMembershipForOrg, requireOrgRole, requireUserSession } from "./rbac";

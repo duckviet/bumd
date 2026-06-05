@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const monorepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const nextConfig: NextConfig = {
+  typedRoutes: false,
   turbopack: {
     root: monorepoRoot,
   },
