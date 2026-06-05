@@ -1,0 +1,47 @@
+import { redirect } from "next/navigation";
+import { createDashboardDoc } from "../../../../../entities/dashboard/dashboard-store";
+import { requireDashboardManage } from "../dashboard-helpers";
+
+type RouteContext = {
+  readonly params: Promise<{
+    readonly org: string;
+  }>;
+};
+
+export async function GET(_request: Request, context: RouteContext): Promise<Response> {
+  const { org } = await context.params;
+  await requireDashboardManage(org);
+  return htmlResponse(newDocForm(org, null));
+}
+
+export async function POST(request: Request, context: RouteContext): Promise<Response> {
+  const { org } = await context.params;
+  await requireDashboardManage(org);
+  const form = await request.formData();
+  const result = createDashboardDoc(org, {
+    name: stringValue(form.get("name")),
+    slug: stringValue(form.get("slug")),
+    visibility: stringValue(form.get("visibility")),
+    theme: stringValue(form.get("theme")),
+  });
+  if (result.kind !== "created") {
+    return htmlResponse(newDocForm(org, result.kind), 400);
+  }
+  redirect(`/app/${org}/docs/${result.doc.slug}`);
+}
+
+function newDocForm(organizationSlug: string, error: string | null): string {
+  return `<!doctype html><html><body><main><h1>New doc</h1>${error === null ? "" : `<p>${escapeHtml(error)}</p>`}<form method="post" action="/app/${escapeHtml(organizationSlug)}/docs/new"><label>Name <input name="name"></label><label>Slug <input name="slug"></label><label>Visibility <select name="visibility"><option value="public">public</option><option value="private">private</option></select></label><label>Theme <input name="theme" value="classic"></label><button type="submit">Create doc</button></form><a href="/app/${escapeHtml(organizationSlug)}/docs">Docs</a></main></body></html>`;
+}
+
+function htmlResponse(body: string, status = 200): Response {
+  return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+function stringValue(value: FormDataEntryValue | null): string {
+  return typeof value === "string" ? value : "";
+}
+
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}

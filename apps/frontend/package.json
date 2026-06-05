@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test ../../tests/frontend-doc-portal.test.mjs"
+    "test": "node --test --test-concurrency=1 ../../tests/frontend-doc-portal.test.mjs ../../tests/frontend-dashboard.test.mjs"
   },
   "dependencies": {
     "next": "16.2.2",
