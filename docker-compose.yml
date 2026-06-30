@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER: bumd
+      POSTGRES_PASSWORD: bumd
+      POSTGRES_DB: bumd
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bumd -d bumd"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  db-adminer:
+    image: adminer
+    ports:
+      - "8087:8080"
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+
+volumes:
+  pgdata:

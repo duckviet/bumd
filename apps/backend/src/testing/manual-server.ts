@@ -6,7 +6,7 @@ import { InMemoryDeployQueue } from "../versions/in-memory-deploy-queue.js";
 import { VersionsWorker } from "../versions/versions-worker.js";
 
 const port = Number.parseInt(process.env["PORT"] ?? "3100", 10);
-const app = await NestFactory.create(AppModule, new FastifyAdapter(), { logger: false });
+const app = await NestFactory.create(AppModule, new FastifyAdapter(), { logger: ["error", "warn", "log", "debug"] });
 const queue = app.get(InMemoryDeployQueue);
 const worker = app.get(VersionsWorker);
 

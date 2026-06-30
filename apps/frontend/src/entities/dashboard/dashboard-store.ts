@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { getDb } from "../../shared/db";
+import { randomUUID } from "node:crypto";
 
 export const DocVisibility = {
   Public: "public",
@@ -37,21 +39,6 @@ export type DashboardDoc = {
   readonly createdAt: string;
 };
 
-type MutableDashboardDoc = {
-  organizationSlug: string;
-  slug: string;
-  name: string;
-  visibility: DocVisibility;
-  theme: string;
-  publicUrl: string;
-  versions: DashboardVersion[];
-  createdAt: string;
-};
-
-type DashboardState = {
-  readonly docs: MutableDashboardDoc[];
-};
-
 const createDocSchema = z.object({
   name: z.string().trim().min(1).max(100),
   slug: z.string().trim().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
@@ -67,55 +54,182 @@ const updateSettingsSchema = z.object({
 export type CreateDocInput = z.infer<typeof createDocSchema>;
 export type UpdateDocSettingsInput = z.infer<typeof updateSettingsSchema>;
 
-declare global {
-  var __bumdDashboardState: DashboardState | undefined;
+function mapVersionRowToDashboardVersion(row: Record<string, unknown>): DashboardVersion {
+  const status = row["status"] as VersionStatus;
+  const createdAt = row["createdAt"] as Date;
+  const readyAt = row["readyAt"] as Date | null;
+  return {
+    id: row["id"] as string,
+    label: `v${row["sequenceNumber"] as number}`,
+    sequenceNumber: row["sequenceNumber"] as number,
+    status,
+    sha256: row["sha256"] as string,
+    createdAt: createdAt.toISOString(),
+    readyAt: readyAt !== null ? readyAt.toISOString() : null,
+  };
 }
 
-export function listDashboardDocs(organizationSlug: string): readonly DashboardDoc[] {
-  return dashboardState().docs.filter((doc) => doc.organizationSlug === organizationSlug).map(readonlyDoc);
+function mapDocRowToDashboardDoc(row: Record<string, unknown>, organizationSlug: string, versions: DashboardVersion[]): DashboardDoc {
+  let theme = "classic";
+  const themeConfig = row["themeConfig"];
+  if (themeConfig !== null && typeof themeConfig === "object" && !Array.isArray(themeConfig)) {
+    const config = themeConfig as Record<string, unknown>;
+    if (typeof config["theme"] === "string") {
+      theme = config["theme"];
+    }
+  }
+  const createdAt = row["createdAt"] as Date;
+  return {
+    organizationSlug,
+    slug: row["slug"] as string,
+    name: row["name"] as string,
+    visibility: row["visibility"] as DocVisibility,
+    theme,
+    publicUrl: `/${organizationSlug}/${row["slug"] as string}`,
+    versions,
+    createdAt: createdAt.toISOString(),
+  };
 }
 
-export function getDashboardDoc(organizationSlug: string, docSlug: string): DashboardDoc | null {
-  const doc = dashboardState().docs.find((candidate) => candidate.organizationSlug === organizationSlug && candidate.slug === docSlug);
-  return doc === undefined ? null : readonlyDoc(doc);
+export async function listDashboardDocs(organizationSlug: string): Promise<readonly DashboardDoc[]> {
+  const db = getDb();
+  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [organizationSlug]);
+  if (orgRes.rows.length === 0) {
+    return [];
+  }
+  const orgId = orgRes.rows[0]["id"] as string;
+
+  const docsRes = await db.query(
+    'SELECT * FROM "Doc" WHERE "organizationId" = $1 ORDER BY "createdAt" DESC',
+    [orgId]
+  );
+
+  const docs: DashboardDoc[] = [];
+  for (const row of docsRes.rows) {
+    const versionsRes = await db.query(
+      'SELECT * FROM "Version" WHERE "docId" = $1 ORDER BY "sequenceNumber" DESC',
+      [row["id"] as string]
+    );
+    const versions = versionsRes.rows.map(mapVersionRowToDashboardVersion);
+    docs.push(mapDocRowToDashboardDoc(row, organizationSlug, versions));
+  }
+  return docs;
 }
 
-export function createDashboardDoc(organizationSlug: string, input: unknown): { readonly kind: "created"; readonly doc: DashboardDoc } | { readonly kind: "duplicate" | "invalid" } {
+export async function getDashboardDoc(organizationSlug: string, docSlug: string): Promise<DashboardDoc | null> {
+  const db = getDb();
+  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [organizationSlug]);
+  if (orgRes.rows.length === 0) {
+    return null;
+  }
+  const orgId = orgRes.rows[0]["id"] as string;
+
+  const docRes = await db.query(
+    'SELECT * FROM "Doc" WHERE "organizationId" = $1 AND slug = $2',
+    [orgId, docSlug]
+  );
+  if (docRes.rows.length === 0) {
+    return null;
+  }
+  const docRow = docRes.rows[0];
+
+  const versionsRes = await db.query(
+    'SELECT * FROM "Version" WHERE "docId" = $1 ORDER BY "sequenceNumber" DESC',
+    [docRow["id"] as string]
+  );
+  const versions = versionsRes.rows.map(mapVersionRowToDashboardVersion);
+  return mapDocRowToDashboardDoc(docRow, organizationSlug, versions);
+}
+
+export async function createDashboardDoc(organizationSlug: string, input: unknown): Promise<{ readonly kind: "created"; readonly doc: DashboardDoc } | { readonly kind: "duplicate" | "invalid" }> {
   const parsed = createDocSchema.safeParse(input);
   if (!parsed.success) {
     return { kind: "invalid" };
   }
-  const state = dashboardState();
-  const existing = state.docs.find((doc) => doc.organizationSlug === organizationSlug && doc.slug === parsed.data.slug);
-  if (existing !== undefined) {
+  const db = getDb();
+
+  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [organizationSlug]);
+  if (orgRes.rows.length === 0) {
+    return { kind: "invalid" };
+  }
+  const orgId = orgRes.rows[0]["id"] as string;
+
+  const duplicate = await db.query(
+    'SELECT id FROM "Doc" WHERE "organizationId" = $1 AND slug = $2',
+    [orgId, parsed.data.slug]
+  );
+  if (duplicate.rows.length > 0) {
     return { kind: "duplicate" };
   }
-  const doc: MutableDashboardDoc = {
+
+  const docId = `doc_${parsed.data.slug}_${randomUUID().slice(0, 8)}`;
+  const themeConfig = { theme: parsed.data.theme };
+
+  await db.query(
+    'INSERT INTO "Doc" (id, "organizationId", slug, name, visibility, "themeConfig", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())',
+    [docId, orgId, parsed.data.slug, parsed.data.name, parsed.data.visibility, JSON.stringify(themeConfig)]
+  );
+
+  const doc: DashboardDoc = {
     organizationSlug,
     slug: parsed.data.slug,
     name: parsed.data.name,
-    visibility: parsed.data.visibility,
+    visibility: parsed.data.visibility as DocVisibility,
     theme: parsed.data.theme,
     publicUrl: `/${organizationSlug}/${parsed.data.slug}`,
     versions: [],
     createdAt: new Date().toISOString(),
   };
-  state.docs.push(doc);
-  return { kind: "created", doc: readonlyDoc(doc) };
+
+  return { kind: "created", doc };
 }
 
-export function updateDashboardDocSettings(organizationSlug: string, docSlug: string, input: unknown): { readonly kind: "updated"; readonly doc: DashboardDoc } | { readonly kind: "missing" | "invalid" } {
+export async function updateDashboardDocSettings(organizationSlug: string, docSlug: string, input: unknown): Promise<{ readonly kind: "updated"; readonly doc: DashboardDoc } | { readonly kind: "missing" | "invalid" }> {
   const parsed = updateSettingsSchema.safeParse(input);
   if (!parsed.success) {
     return { kind: "invalid" };
   }
-  const doc = dashboardState().docs.find((candidate) => candidate.organizationSlug === organizationSlug && candidate.slug === docSlug);
-  if (doc === undefined) {
+  const db = getDb();
+
+  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [organizationSlug]);
+  if (orgRes.rows.length === 0) {
     return { kind: "missing" };
   }
-  doc.visibility = parsed.data.visibility;
-  doc.theme = parsed.data.theme;
-  return { kind: "updated", doc: readonlyDoc(doc) };
+  const orgId = orgRes.rows[0]["id"] as string;
+
+  const docRes = await db.query(
+    'SELECT * FROM "Doc" WHERE "organizationId" = $1 AND slug = $2',
+    [orgId, docSlug]
+  );
+  if (docRes.rows.length === 0) {
+    return { kind: "missing" };
+  }
+  const docRow = docRes.rows[0];
+
+  const themeConfig = { theme: parsed.data.theme };
+  await db.query(
+    'UPDATE "Doc" SET visibility = $1, "themeConfig" = $2, "updatedAt" = NOW() WHERE id = $3',
+    [parsed.data.visibility, JSON.stringify(themeConfig), docRow["id"] as string]
+  );
+
+  const versionsRes = await db.query(
+    'SELECT * FROM "Version" WHERE "docId" = $1 ORDER BY "sequenceNumber" DESC',
+    [docRow["id"] as string]
+  );
+  const versions = versionsRes.rows.map(mapVersionRowToDashboardVersion);
+
+  const updatedDoc: DashboardDoc = {
+    organizationSlug,
+    slug: docSlug,
+    name: docRow["name"] as string,
+    visibility: parsed.data.visibility as DocVisibility,
+    theme: parsed.data.theme,
+    publicUrl: `/${organizationSlug}/${docSlug}`,
+    versions,
+    createdAt: (docRow["createdAt"] as Date).toISOString(),
+  };
+
+  return { kind: "updated", doc: updatedDoc };
 }
 
 function latestFirst(versions: readonly DashboardVersion[]): readonly DashboardVersion[] {
@@ -128,58 +242,4 @@ export function latestVersion(doc: DashboardDoc): DashboardVersion | null {
 
 export function versionHistory(doc: DashboardDoc): readonly DashboardVersion[] {
   return latestFirst(doc.versions);
-}
-
-function readonlyDoc(doc: MutableDashboardDoc): DashboardDoc {
-  return { ...doc, versions: [...doc.versions] };
-}
-
-function dashboardState(): DashboardState {
-  if (globalThis.__bumdDashboardState !== undefined) {
-    return globalThis.__bumdDashboardState;
-  }
-  const state: DashboardState = { docs: seedDocs() };
-  globalThis.__bumdDashboardState = state;
-  return state;
-}
-
-function seedDocs(): MutableDashboardDoc[] {
-  return [
-    {
-      organizationSlug: "acme",
-      slug: "payments",
-      name: "Payments API",
-      visibility: DocVisibility.Public,
-      theme: "classic",
-      publicUrl: "/acme/payments",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      versions: [
-        version("ver_payments_1", "v1", 1, VersionStatus.Ready, "2026-01-01T00:00:00.000Z", "1111"),
-        version("ver_payments_2", "v2", 2, VersionStatus.Ready, "2026-02-01T00:00:00.000Z", "2222"),
-        version("ver_payments_3", "v3", 3, VersionStatus.Processing, "2026-03-01T00:00:00.000Z", "3333"),
-      ],
-    },
-    {
-      organizationSlug: "other",
-      slug: "other-api",
-      name: "Other API",
-      visibility: DocVisibility.Private,
-      theme: "contrast",
-      publicUrl: "/other/other-api",
-      createdAt: "2026-01-15T00:00:00.000Z",
-      versions: [version("ver_other_1", "v1", 1, VersionStatus.Ready, "2026-01-15T00:00:00.000Z", "aaaa")],
-    },
-  ];
-}
-
-function version(id: string, label: string, sequenceNumber: number, status: VersionStatus, createdAt: string, sha256: string): DashboardVersion {
-  return {
-    id,
-    label,
-    sequenceNumber,
-    status,
-    sha256,
-    createdAt,
-    readyAt: status === VersionStatus.Ready ? createdAt : null,
-  };
 }

@@ -5,20 +5,22 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prisma:validate": "DATABASE_URL=postgresql://bumd:bumd@localhost:5432/bumd prisma validate --schema prisma/schema.prisma"
+    "dev:server": "node --env-file=../../.env dist/testing/manual-server.js",
+    "prisma:validate": "DATABASE_URL=postgresql://bumd:bumd@localhost:5436/bumd prisma validate --schema prisma/schema.prisma"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1076.0",
     "@bumd/diff-engine": "workspace:*",
     "@nestjs/common": "11.1.6",
     "@nestjs/core": "11.1.6",
     "@nestjs/platform-fastify": "11.1.6",
     "@prisma/client": "6.19.2",
+    "@types/pg": "8.15.6",
     "argon2": "0.44.0",
     "bullmq": "5.65.1",
     "fastify": "5.6.2",
     "ky": "1.14.0",
     "pg": "8.16.3",
-    "@types/pg": "8.15.6",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "yaml": "2.8.2",

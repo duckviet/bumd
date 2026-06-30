@@ -36,6 +36,7 @@ const Credentials = providerFactory(credentialsModule);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  secret: process.env["AUTH_SECRET"] ?? "test_auth_secret_not_secret_32_chars",
   session: { strategy: "jwt" },
   providers: [
     Credentials({

@@ -24,7 +24,7 @@ async function getOpenPort() {
 }
 
 function startFrontend(port) {
-  const child = spawn("pnpm", ["--filter", "@bumd/frontend", "dev", "--hostname", HOST, "--port", String(port)], {
+  const child = spawn("pnpm", ["--filter", "@bumd/frontend", "start", "--hostname", HOST, "--port", String(port)], {
     cwd: new URL("..", import.meta.url),
     detached: process.platform !== "win32",
     env: {
@@ -35,6 +35,8 @@ function startFrontend(port) {
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
+  child.stdout.pipe(process.stdout);
+  child.stderr.pipe(process.stderr);
   return { baseUrl: `http://${HOST}:${port}`, stop: () => stopChild(child), wait: () => waitUntilReady(child, `http://${HOST}:${port}`) };
 }
 
@@ -56,6 +58,7 @@ async function waitUntilReady(child, baseUrl) {
     if (child.exitCode !== null) throw new Error(`frontend exited with ${child.exitCode}`);
     try {
       await fetch(baseUrl, { redirect: "manual" });
+      await new Promise((resolve) => setTimeout(resolve, 500));
       return;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 250));

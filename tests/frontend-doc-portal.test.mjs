@@ -209,7 +209,7 @@ async function getOpenPort() {
 function startFrontend(port, backendUrl) {
   const child = spawn(
     "pnpm",
-    ["--filter", "@bumd/frontend", "dev", "--hostname", HOST, "--port", String(port)],
+    ["--filter", "@bumd/frontend", "start", "--hostname", HOST, "--port", String(port)],
     {
       cwd: new URL("..", import.meta.url),
       detached: process.platform !== "win32",
@@ -283,6 +283,7 @@ async function waitUntilReady(child, baseUrl, getOutput) {
 
     try {
       await fetch(baseUrl, { redirect: "manual" });
+      await new Promise((resolve) => setTimeout(resolve, 500));
       return;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 250));

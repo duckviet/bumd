@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "./password";
+import { getDb } from "../db";
+import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 export const MembershipRole = {
   Owner: "owner",
@@ -31,14 +35,6 @@ type Invite = {
   acceptedByUserId?: string;
 };
 
-type AuthState = {
-  readonly usersByEmail: Map<string, AuthUser>;
-  readonly memberships: Membership[];
-  readonly invitesByToken: Map<string, Invite>;
-  nextUserId: number;
-  seededInvites: string;
-};
-
 const inviteSchema = z.object({
   token: z.string().min(1),
   organizationSlug: z.string().min(1),
@@ -46,8 +42,181 @@ const inviteSchema = z.object({
   expiresAt: z.string().datetime(),
 });
 
-declare global {
-  var __bumdAuthState: AuthState | undefined;
+let hasSeeded = false;
+
+async function ensureSeeded(): Promise<void> {
+  const db = getDb();
+  const isTest = process.env["NODE_ENV"] === "test" || process.env["BUMD_AUTH_TEST_INVITES"] !== undefined;
+
+  if (isTest) {
+    const lockPath = path.resolve(process.cwd(), ".next-test-seed-lock");
+    const lockValue = `${process.ppid}_${process.env["BUMD_AUTH_TEST_INVITES"] ?? ""}`;
+    let alreadySeeded = false;
+    try {
+      if (fs.existsSync(lockPath)) {
+        const content = fs.readFileSync(lockPath, "utf8").trim();
+        if (content === lockValue) {
+          alreadySeeded = true;
+        }
+      }
+    } catch {
+      // Ignore lock read errors
+    }
+
+    if (alreadySeeded) {
+      return;
+    }
+
+    // Perform database reset
+    await db.query('DELETE FROM "ProcessingJob"');
+    await db.query('DELETE FROM "WebhookDelivery"');
+    await db.query('DELETE FROM "Webhook"');
+    await db.query('DELETE FROM "Diff"');
+    await db.query('DELETE FROM "VersionArtifact"');
+    await db.query('DELETE FROM "Version"');
+    await db.query('DELETE FROM "Branch"');
+    await db.query('DELETE FROM "Doc"');
+    await db.query('DELETE FROM "Membership"');
+    await db.query('DELETE FROM "Organization"');
+    await db.query('DELETE FROM "User"');
+    await db.query('DELETE FROM "Invite"');
+
+    // Re-insert initial organizations
+    await db.query(`INSERT INTO "Organization" (id, slug, name, "createdAt", "updatedAt") VALUES
+      ('org_acme', 'acme', 'Acme Corp', NOW(), NOW()),
+      ('org_other', 'other', 'Other Corp', NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING`);
+
+    // Re-insert initial memberships
+    await db.query(`INSERT INTO "Membership" (id, "organizationId", "userId", role, "createdAt", "updatedAt") VALUES
+      ('mem_1', 'org_acme', 'usr_1', 'owner', NOW(), NOW()),
+      ('mem_2', 'org_acme', 'usr_2', 'member', NOW(), NOW()),
+      ('mem_3', 'org_acme', 'usr_3', 'guest', NOW(), NOW()),
+      ('mem_4', 'org_other', 'usr_4', 'owner', NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING`);
+
+    // Re-insert initial docs
+    await db.query(`INSERT INTO "Doc" (id, "organizationId", slug, name, visibility, "defaultBranchId", "themeConfig", "createdAt", "updatedAt") VALUES
+      ('doc_payments', 'org_acme', 'payments', 'Payments API', 'public', NULL, '{}'::jsonb, NOW(), NOW()),
+      ('doc_private', 'org_acme', 'private-doc', 'Private API', 'private', NULL, '{}'::jsonb, NOW(), NOW()),
+      ('doc_empty', 'org_acme', 'empty', 'Empty API', 'public', NULL, '{}'::jsonb, NOW(), NOW()),
+      ('doc_other', 'org_other', 'other-api', 'Other API', 'private', NULL, '{}'::jsonb, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING`);
+
+    // Re-insert initial branches
+    await db.query(`INSERT INTO "Branch" (id, "organizationId", "docId", name, slug, "createdAt", "updatedAt") VALUES
+      ('br_payments_main', 'org_acme', 'doc_payments', 'main', 'main', NOW(), NOW()),
+      ('br_private_main', 'org_acme', 'doc_private', 'main', 'main', NOW(), NOW()),
+      ('br_empty_main', 'org_acme', 'doc_empty', 'main', 'main', NOW(), NOW()),
+      ('br_other_main', 'org_other', 'doc_other', 'main', 'main', NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING`);
+
+    // Update Doc default branch IDs
+    await db.query(`UPDATE "Doc" SET "defaultBranchId" = 'br_payments_main' WHERE id = 'doc_payments'`);
+    await db.query(`UPDATE "Doc" SET "defaultBranchId" = 'br_private_main' WHERE id = 'doc_private'`);
+    await db.query(`UPDATE "Doc" SET "defaultBranchId" = 'br_empty_main' WHERE id = 'doc_empty'`);
+    await db.query(`UPDATE "Doc" SET "defaultBranchId" = 'br_other_main' WHERE id = 'doc_other'`);
+
+    // Re-insert initial versions
+    await db.query(`INSERT INTO "Version" (id, "organizationId", "docId", "branchId", "sequenceNumber", sha256, "sourceFormat", "rawSpecObjectKey", status, "validationSummary", "createdAt", "readyAt") VALUES
+      ('ver_payments_1', 'org_acme', 'doc_payments', 'br_payments_main', 1, 'sha256_payments_v1', 'openapi', 'raw_specs/payments_1.yaml', 'ready', '{}'::jsonb, NOW(), NOW()),
+      ('ver_payments_2', 'org_acme', 'doc_payments', 'br_payments_main', 2, 'sha256_payments_v2', 'openapi', 'raw_specs/payments_2.yaml', 'ready', '{}'::jsonb, NOW() + interval '1 hour', NOW() + interval '1 hour'),
+      ('ver_payments_3', 'org_acme', 'doc_payments', 'br_payments_main', 3, 'sha256_payments_v3', 'openapi', 'raw_specs/payments_3.yaml', 'processing', '{}'::jsonb, NOW() + interval '2 hours', NULL),
+      ('ver_private_1', 'org_acme', 'doc_private', 'br_private_main', 1, 'sha256_private_v1', 'openapi', 'raw_specs/private_1.yaml', 'ready', '{}'::jsonb, NOW(), NOW()),
+      ('ver_other_1', 'org_other', 'doc_other', 'br_other_main', 1, 'sha256_other_v1', 'openapi', 'raw_specs/other_1.yaml', 'ready', '{}'::jsonb, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING`);
+
+    // Re-insert initial version artifacts
+    await db.query(`INSERT INTO "VersionArtifact" (id, "organizationId", "versionId", kind, "objectKey", "contentSha256", "createdAt") VALUES
+      ('art_1', 'org_acme', 'ver_payments_1', 'normalized_spec', 'normalized/payments_1.json', 'sha256_payments_v1_norm', NOW()),
+      ('art_2', 'org_acme', 'ver_payments_2', 'normalized_spec', 'normalized/payments_2.json', 'sha256_payments_v2_norm', NOW() + interval '1 hour')
+      ON CONFLICT (id) DO NOTHING`);
+
+    // Re-insert initial diffs
+    await db.query(`INSERT INTO "Diff" (id, "organizationId", "docId", "branchId", "baseVersionId", "headVersionId", classification, has_breaking, diff_json, diff_markdown, summary, changes, "createdAt") VALUES
+      ('diff_1', 'org_acme', 'doc_payments', 'br_payments_main', 'ver_payments_1', 'ver_payments_2', 'breaking', true, '{"breaking": true}'::jsonb, '## Breaking changes\\n- Removed \`legacyPaymentId\` from the payment response.', '{}'::jsonb, '[]'::jsonb, NOW() + interval '1 hour')
+      ON CONFLICT (id) DO NOTHING`);
+
+    try {
+      fs.writeFileSync(lockPath, lockValue, "utf8");
+    } catch {
+      // Ignore lock write errors
+    }
+  } else {
+    if (hasSeeded) {
+      return;
+    }
+  }
+
+  // Seed invites
+  const invitesSeed = process.env["BUMD_AUTH_TEST_INVITES"] ?? "";
+  if (invitesSeed !== "") {
+    for (const row of invitesSeed.split(",")) {
+      const [token, organizationSlug, role, ...expiresAtParts] = row.split(":");
+      const expiresAt = expiresAtParts.join(":");
+      if (token === undefined || organizationSlug === undefined || role === undefined || expiresAt === "") {
+        continue;
+      }
+      const parsed = inviteSchema.safeParse({ token, organizationSlug, role, expiresAt });
+      if (parsed.success) {
+        const existing = await db.query('SELECT token FROM "Invite" WHERE token = $1', [parsed.data.token]);
+        if (existing.rows.length === 0) {
+          await db.query(
+            'INSERT INTO "Invite" (token, "organizationSlug", role, "expiresAt", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
+            [parsed.data.token, parsed.data.organizationSlug, parsed.data.role, new Date(parsed.data.expiresAt)]
+          );
+        }
+      }
+    }
+  }
+
+  // Seed test users
+  const usersSeed = process.env["BUMD_AUTH_TEST_USERS"] ?? "";
+  if (usersSeed !== "") {
+    let nextIdNum = 1;
+    for (const row of usersSeed.split(",")) {
+      const [email, password, name, ...orgPairs] = row.split(":");
+      if (email === undefined || password === undefined || name === undefined || orgPairs.length === 0) {
+        continue;
+      }
+      if (orgPairs.length % 2 !== 0) {
+        orgPairs.pop();
+      }
+      const normEmail = email.trim().toLowerCase();
+      const existingUser = await db.query('SELECT id FROM "User" WHERE email = $1', [normEmail]);
+      let userId = "";
+      if (existingUser.rows.length > 0) {
+        userId = existingUser.rows[0]["id"] as string;
+      } else {
+        userId = `usr_${nextIdNum}`;
+        nextIdNum++;
+        const pHash = await hashPassword(password);
+        await db.query(
+          'INSERT INTO "User" (id, email, name, "passwordHash", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
+          [userId, normEmail, name, pHash]
+        );
+      }
+
+      for (let i = 0; i < orgPairs.length; i += 2) {
+        const orgSlug = orgPairs[i] ?? "";
+        const role = (orgPairs[i + 1] ?? "") as MembershipRole;
+        const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [orgSlug]);
+        if (orgRes.rows.length > 0) {
+          const orgId = orgRes.rows[0]["id"] as string;
+          const memExisting = await db.query('SELECT id FROM "Membership" WHERE "organizationId" = $1 AND "userId" = $2', [orgId, userId]);
+          if (memExisting.rows.length === 0) {
+            const memId = `mem_${userId}_${orgSlug}`;
+            await db.query(
+              'INSERT INTO "Membership" (id, "organizationId", "userId", role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
+              [memId, orgId, userId, role]
+            );
+          }
+        }
+      }
+    }
+  }
+
+  hasSeeded = true;
 }
 
 export async function registerUser(input: {
@@ -55,94 +224,152 @@ export async function registerUser(input: {
   readonly password: string;
   readonly name: string;
 }): Promise<AuthUser> {
-  const state = authState();
-  const email = normalizeEmail(input.email);
-  const existing = state.usersByEmail.get(email);
-  if (existing !== undefined) {
-    return existing;
+  await ensureSeeded();
+  const db = getDb();
+  const email = input.email.trim().toLowerCase();
+  
+  const existing = await db.query('SELECT * FROM "User" WHERE email = $1', [email]);
+  if (existing.rows.length > 0) {
+    const row = existing.rows[0];
+    return {
+      id: row["id"] as string,
+      email: row["email"] as string,
+      name: row["name"] as string,
+      passwordHash: row["passwordHash"] as string,
+    };
   }
-  const user: AuthUser = {
-    id: `usr_${state.nextUserId}`,
-    email,
-    name: input.name.trim() === "" ? email : input.name.trim(),
-    passwordHash: await hashPassword(input.password),
-  };
-  state.nextUserId += 1;
-  state.usersByEmail.set(email, user);
-  ensureMembership(user.id, "personal", MembershipRole.Owner);
-  return user;
+
+  const countRes = await db.query('SELECT count(*)::integer as count FROM "User"');
+  const count = countRes.rows[0]["count"] as number;
+  const nextId = `usr_custom_${count + 1}_${randomUUID().slice(0, 8)}`;
+  const passwordHash = await hashPassword(input.password);
+  
+  await db.query(
+    'INSERT INTO "User" (id, email, name, "passwordHash", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
+    [nextId, email, input.name || email, passwordHash]
+  );
+
+  const orgId = `org_personal_${nextId}`;
+  const orgSlug = `personal-${nextId}`;
+  await db.query(
+    'INSERT INTO "Organization" (id, slug, name, "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING',
+    [orgId, orgSlug, "Personal"]
+  );
+  
+  await db.query(
+    'INSERT INTO "Membership" (id, "organizationId", "userId", role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) ON CONFLICT DO NOTHING',
+    [`mem_${nextId}_personal`, orgId, nextId, "owner"]
+  );
+
+  return { id: nextId, email, name: input.name || email, passwordHash };
 }
 
 export async function authenticateUser(email: string, password: string): Promise<AuthUser | null> {
-  const user = authState().usersByEmail.get(normalizeEmail(email));
-  if (user === undefined) {
+  await ensureSeeded();
+  const db = getDb();
+  const normEmail = email.trim().toLowerCase();
+  const res = await db.query('SELECT * FROM "User" WHERE email = $1', [normEmail]);
+  if (res.rows.length === 0) {
     return null;
   }
-  return (await verifyPassword(password, user.passwordHash)) ? user : null;
+  const user = res.rows[0];
+  const valid = await verifyPassword(password, user["passwordHash"] as string);
+  if (!valid) {
+    return null;
+  }
+  return {
+    id: user["id"] as string,
+    email: user["email"] as string,
+    name: user["name"] as string,
+    passwordHash: user["passwordHash"] as string,
+  };
 }
 
-export function getUserByEmail(email: string): AuthUser | null {
-  return authState().usersByEmail.get(normalizeEmail(email)) ?? null;
+export async function getUserByEmail(email: string): Promise<AuthUser | null> {
+  await ensureSeeded();
+  const db = getDb();
+  const normEmail = email.trim().toLowerCase();
+  const res = await db.query('SELECT * FROM "User" WHERE email = $1', [normEmail]);
+  if (res.rows.length === 0) {
+    return null;
+  }
+  const user = res.rows[0];
+  return {
+    id: user["id"] as string,
+    email: user["email"] as string,
+    name: user["name"] as string,
+    passwordHash: user["passwordHash"] as string,
+  };
 }
 
-export function membershipsForUser(userId: string): readonly Membership[] {
-  return authState().memberships.filter((membership) => membership.userId === userId);
+export async function membershipsForUser(userId: string): Promise<readonly Membership[]> {
+  await ensureSeeded();
+  const db = getDb();
+  const res = await db.query(
+    `SELECT m.role, m."userId", o.slug as "organizationSlug"
+     FROM "Membership" m
+     JOIN "Organization" o ON m."organizationId" = o.id
+     WHERE m."userId" = $1`,
+    [userId]
+  );
+  return res.rows.map((row) => ({
+    organizationSlug: row["organizationSlug"] as string,
+    userId: row["userId"] as string,
+    role: row["role"] as MembershipRole,
+  }));
 }
 
-export function membershipForOrg(userId: string, organizationSlug: string): Membership | null {
-  return authState().memberships.find((membership) => membership.userId === userId && membership.organizationSlug === organizationSlug) ?? null;
+export async function membershipForOrg(userId: string, organizationSlug: string): Promise<Membership | null> {
+  await ensureSeeded();
+  const db = getDb();
+  const res = await db.query(
+    `SELECT m.role, m."userId", o.slug as "organizationSlug"
+     FROM "Membership" m
+     JOIN "Organization" o ON m."organizationId" = o.id
+     WHERE m."userId" = $1 AND o.slug = $2`,
+    [userId, organizationSlug]
+  );
+  if (res.rows.length === 0) {
+    return null;
+  }
+  const row = res.rows[0];
+  return {
+    organizationSlug: row["organizationSlug"] as string,
+    userId: row["userId"] as string,
+    role: row["role"] as MembershipRole,
+  };
 }
 
-export function acceptInvite(token: string, userId: string): { readonly kind: "accepted"; readonly organizationSlug: string; readonly role: MembershipRole } | { readonly kind: "invalid" } {
-  const invite = authState().invitesByToken.get(token);
-  if (invite === undefined || invite.acceptedByUserId !== undefined || Date.parse(invite.expiresAt) <= Date.now()) {
+export async function acceptInvite(token: string, userId: string): Promise<{ readonly kind: "accepted"; readonly organizationSlug: string; readonly role: MembershipRole } | { readonly kind: "invalid" }> {
+  await ensureSeeded();
+  const db = getDb();
+  const res = await db.query('SELECT * FROM "Invite" WHERE token = $1', [token]);
+  if (res.rows.length === 0) {
     return { kind: "invalid" };
   }
-  invite.acceptedByUserId = userId;
-  ensureMembership(userId, invite.organizationSlug, invite.role);
-  return { kind: "accepted", organizationSlug: invite.organizationSlug, role: invite.role };
-}
+  const invite = res.rows[0];
+  const expiresAtVal = invite["expiresAt"];
+  const expiresAtTime = expiresAtVal instanceof Date ? expiresAtVal.getTime() : new Date(expiresAtVal as string).getTime();
 
-function ensureMembership(userId: string, organizationSlug: string, role: MembershipRole): void {
-  const state = authState();
-  const existing = state.memberships.find((membership) => membership.userId === userId && membership.organizationSlug === organizationSlug);
-  if (existing === undefined) {
-    state.memberships.push({ userId, organizationSlug, role });
+  if (invite["acceptedByUserId"] !== null || expiresAtTime <= Date.now()) {
+    return { kind: "invalid" };
   }
-}
 
-function authState(): AuthState {
-  const seed = process.env["BUMD_AUTH_TEST_INVITES"] ?? "";
-  const existing = globalThis.__bumdAuthState;
-  if (existing !== undefined && existing.seededInvites === seed) {
-    return existing;
+  await db.query('UPDATE "Invite" SET "acceptedByUserId" = $1, "updatedAt" = NOW() WHERE token = $2', [userId, token]);
+
+  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [invite["organizationSlug"]]);
+  if (orgRes.rows.length > 0) {
+    const orgId = orgRes.rows[0]["id"] as string;
+    const memId = `mem_${userId}_${invite["organizationSlug"] as string}_${randomUUID().slice(0, 8)}`;
+    await db.query(
+      'INSERT INTO "Membership" (id, "organizationId", "userId", role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) ON CONFLICT DO NOTHING',
+      [memId, orgId, userId, invite["role"] as MembershipRole]
+    );
   }
-  const state: AuthState = {
-    usersByEmail: new Map(),
-    memberships: [],
-    invitesByToken: new Map(),
-    nextUserId: 1,
-    seededInvites: seed,
+
+  return {
+    kind: "accepted",
+    organizationSlug: invite["organizationSlug"] as string,
+    role: invite["role"] as MembershipRole,
   };
-  seedInvites(state, seed);
-  globalThis.__bumdAuthState = state;
-  return state;
-}
-
-function seedInvites(state: AuthState, value: string): void {
-  for (const row of value.split(",")) {
-    const [token, organizationSlug, role, ...expiresAtParts] = row.split(":");
-    const expiresAt = expiresAtParts.join(":");
-    if (token === undefined || organizationSlug === undefined || role === undefined || expiresAt === "") {
-      continue;
-    }
-    const parsed = inviteSchema.safeParse({ token, organizationSlug, role, expiresAt });
-    if (parsed.success) {
-      state.invitesByToken.set(parsed.data.token, parsed.data);
-    }
-  }
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLocaleLowerCase();
 }

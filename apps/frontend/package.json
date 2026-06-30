@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test --test-concurrency=1 ../../tests/frontend-doc-portal.test.mjs ../../tests/frontend-dashboard.test.mjs"
   },
   "dependencies": {
     "next": "16.2.2",
     "next-auth": "5.0.0-beta.25",
+    "pg": "8.16.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "zod": "4.1.12"
@@ -21,6 +23,7 @@
     "@simplewebauthn/types": "^9.0.1",
     "@tailwindcss/postcss": "4.1.18",
     "@types/nodemailer": "^6.4.17",
+    "@types/pg": "8.15.6",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "nodemailer": "^6.9.16",

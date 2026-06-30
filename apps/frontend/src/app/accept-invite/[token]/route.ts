@@ -15,7 +15,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     const path = new URL(request.url).pathname;
     redirect(`/login?callbackUrl=${encodeURIComponent(path)}`);
   }
-  const result = acceptInvite(token, session.userId);
+  const result = await acceptInvite(token, session.userId);
   if (result.kind === "invalid") {
     return new Response("Invite is invalid or expired.", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
   }

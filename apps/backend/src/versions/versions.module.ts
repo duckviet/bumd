@@ -27,8 +27,10 @@ import { InMemoryDeployStore } from "./in-memory-deploy-store.js";
 import { DeploysController, VersionsController } from "./versions.controller.js";
 import { VersionsService } from "./versions.service.js";
 import { VersionsWorker } from "./versions-worker.js";
+import { StorageModule } from "../storage/storage.module.js";
 
 @Module({
+  imports: [StorageModule],
   controllers: [VersionsController, DeploysController, ApiTokensController, SearchController, TryItOutController],
   providers: [
     ApiTokenCrypto,

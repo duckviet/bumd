@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getDashboardDoc, updateDashboardDocSettings } from "../../../../../../entities/dashboard/dashboard-store";
 import { requireDashboardManage } from "../../dashboard-helpers";
+import { styledHtmlPage } from "../../../../../../shared/ui/styled-html";
+
 
 type RouteContext = {
   readonly params: Promise<{
@@ -12,7 +14,7 @@ type RouteContext = {
 export async function GET(_request: Request, context: RouteContext): Promise<Response> {
   const { org, doc: docSlug } = await context.params;
   await requireDashboardManage(org);
-  const doc = getDashboardDoc(org, docSlug);
+  const doc = await getDashboardDoc(org, docSlug);
   if (doc === null) {
     notFound();
   }
@@ -23,7 +25,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const { org, doc: docSlug } = await context.params;
   await requireDashboardManage(org);
   const form = await request.formData();
-  const result = updateDashboardDocSettings(org, docSlug, {
+  const result = await updateDashboardDocSettings(org, docSlug, {
     visibility: stringValue(form.get("visibility")),
     theme: stringValue(form.get("theme")),
   });
@@ -31,7 +33,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     notFound();
   }
   if (result.kind === "invalid") {
-    const doc = getDashboardDoc(org, docSlug);
+    const doc = await getDashboardDoc(org, docSlug);
     if (doc === null) {
       notFound();
     }
@@ -41,7 +43,8 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 }
 
 function settingsForm(organizationSlug: string, docSlug: string, visibility: string, theme: string, error: string | null): string {
-  return `<!doctype html><html><body><main><h1>Settings</h1>${error === null ? "" : `<p>${escapeHtml(error)}</p>`}<form method="post" action="/app/${escapeHtml(organizationSlug)}/docs/${escapeHtml(docSlug)}/settings"><label>Visibility <select name="visibility"><option value="public"${visibility === "public" ? " selected" : ""}>public</option><option value="private"${visibility === "private" ? " selected" : ""}>private</option></select></label><label>Theme <input name="theme" value="${escapeHtml(theme)}"></label><button type="submit">Save settings</button></form><a href="/app/${escapeHtml(organizationSlug)}/docs/${escapeHtml(docSlug)}">Overview</a></main></body></html>`;
+  const content = `<h1>Settings</h1>${error === null ? "" : `<p class="error-msg">${escapeHtml(error)}</p>`}<form method="post" action="/app/${escapeHtml(organizationSlug)}/docs/${escapeHtml(docSlug)}/settings"><label>Visibility <select name="visibility"><option value="public"${visibility === "public" ? " selected" : ""}>public</option><option value="private"${visibility === "private" ? " selected" : ""}>private</option></select></label><label>Theme <input name="theme" value="${escapeHtml(theme)}" required></label><button type="submit">Save settings</button></form><a href="/app/${escapeHtml(organizationSlug)}/docs/${escapeHtml(docSlug)}">Overview</a>`;
+  return styledHtmlPage("Settings", `${organizationSlug} / ${docSlug}`, content);
 }
 
 function htmlResponse(body: string, status = 200): Response {

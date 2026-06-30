@@ -29,24 +29,24 @@ export function SearchBox({
   }
 
   return (
-    <section className="border-b border-[#1f2523]/15 bg-[#fffdf7] px-6 py-4" data-testid="doc-search">
+    <section className="border-b border-chalk bg-paper/50 px-8 py-5 max-w-7xl mx-auto" data-testid="doc-search">
       <form action="/api/search" onSubmit={(event) => void submit(event)}>
         <input name="orgSlug" type="hidden" value={orgSlug} />
         <input name="docSlug" type="hidden" value={docSlug} />
         <input name="branchSlug" type="hidden" value={branchSlug} />
         <input name="versionId" type="hidden" value={versionId} />
-        <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-[#65706b]" htmlFor="doc-search-query">
+        <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate font-inter" htmlFor="doc-search-query">
           Search
         </label>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex gap-3">
           <input
-            className="min-w-0 flex-1 rounded border border-[#1f2523]/20 bg-white px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-chalk bg-white px-4 py-2 text-sm focus:border-signal-orange outline-none transition-colors"
             id="doc-search-query"
             name="q"
-            placeholder="operationId, path, tag"
+            placeholder="Search operationId, path, tag..."
             type="search"
           />
-          <button className="rounded bg-[#1f2523] px-3 py-2 text-sm font-semibold text-white" type="submit">
+          <button className="rounded-full bg-carbon px-6 py-2 text-sm font-semibold text-white hover:bg-graphite transition-colors cursor-pointer" type="submit">
             Search
           </button>
         </div>
@@ -58,11 +58,12 @@ export function SearchBox({
 
 export function SearchResults({ results }: { readonly results: SearchResponse }): React.ReactElement {
   return (
-    <ul className="space-y-2">
+    <ul className="mt-4 space-y-2.5 bg-fog p-4 rounded-lg border border-chalk">
       {results.hits.map((hit) => (
-        <li key={`${hit.method}:${hit.path}`}>
-          <a className="text-sm underline" href={`#${hit.anchor}`}>
-            {hit.operationId}
+        <li key={`${hit.method}:${hit.path}`} className="flex items-center gap-2">
+          <span className="rounded bg-carbon px-2 py-0.5 font-mono text-[10px] text-white uppercase">{hit.method}</span>
+          <a className="text-sm font-medium text-signal-orange hover:underline" href={`#${hit.anchor}`}>
+            {hit.operationId} <span className="text-xs text-slate font-mono font-normal">({hit.path})</span>
           </a>
         </li>
       ))}

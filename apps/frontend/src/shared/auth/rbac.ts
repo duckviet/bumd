@@ -15,15 +15,16 @@ export async function getCurrentSession(): Promise<CurrentSession | null> {
   if (email === undefined || email === null) {
     return null;
   }
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (user === null) {
     return null;
   }
+  const memberships = await membershipsForUser(user.id);
   return {
     userId: user.id,
     email: user.email,
     name: user.name,
-    memberships: membershipsForUser(user.id),
+    memberships,
   };
 }
 
@@ -40,7 +41,7 @@ export async function requireOrgRole(organizationSlug: string, allowedRoles: rea
   readonly membership: Membership;
 }> {
   const session = await requireUserSession(`/app/${organizationSlug}`);
-  const membership = membershipForOrg(session.userId, organizationSlug);
+  const membership = await membershipForOrg(session.userId, organizationSlug);
   if (membership === null || !allowedRoles.includes(membership.role)) {
     redirect("/app");
   }
@@ -52,6 +53,6 @@ export async function getMembershipForOrg(organizationSlug: string): Promise<Mem
   if (session === null) {
     return null;
   }
-  return membershipForOrg(session.userId, organizationSlug);
+  return await membershipForOrg(session.userId, organizationSlug);
 }
 

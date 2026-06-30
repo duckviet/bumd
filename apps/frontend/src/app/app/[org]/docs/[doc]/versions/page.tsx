@@ -12,7 +12,7 @@ type PageProps = {
 export default async function VersionHistoryPage({ params }: PageProps): Promise<React.ReactElement> {
   const { org, doc: docSlug } = await params;
   const { session, membership } = await requireDashboardRead(org);
-  const doc = getDashboardDoc(org, docSlug);
+  const doc = await getDashboardDoc(org, docSlug);
   if (doc === null) {
     notFound();
   }

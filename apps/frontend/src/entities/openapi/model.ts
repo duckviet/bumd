@@ -2,12 +2,16 @@ import { z } from "zod";
 
 const schemaObject = z.record(z.string(), z.unknown());
 
-const parameterSchema = z.object({
-  name: z.string(),
-  in: z.string(),
-  required: z.boolean().optional(),
-  schema: schemaObject.optional(),
-});
+const parameterSchema = z.union([
+  z.object({
+    name: z.string(),
+    in: z.string(),
+    required: z.boolean().optional(),
+    schema: schemaObject.optional(),
+    description: z.string().optional(),
+  }),
+  z.object({ $ref: z.string() }),
+]);
 
 const operationSchema = z.object({
   operationId: z.string().optional(),
@@ -18,7 +22,19 @@ const operationSchema = z.object({
   responses: z.record(z.string(), z.unknown()).optional(),
 });
 
-const pathItemSchema = z.record(z.string(), operationSchema);
+const HTTP_METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "trace"] as const;
+type HttpMethod = (typeof HTTP_METHODS)[number];
+
+const pathItemSchema = z.object({
+  get: operationSchema.optional(),
+  put: operationSchema.optional(),
+  post: operationSchema.optional(),
+  delete: operationSchema.optional(),
+  options: operationSchema.optional(),
+  head: operationSchema.optional(),
+  patch: operationSchema.optional(),
+  trace: operationSchema.optional(),
+}).catchall(z.unknown());
 
 const openApiSchema = z.object({
   info: z.object({
@@ -71,23 +87,29 @@ export function parseOpenApiDocument(spec: Record<string, unknown>): ApiDocument
   };
 }
 
-function operationsFromPaths(paths: Record<string, Record<string, z.infer<typeof operationSchema>>>): readonly ApiOperation[] {
-  return Object.entries(paths).flatMap(([path, item]) => Object.entries(item).map(([method, operation]) => {
-    const id = operation.operationId ?? `${method}-${path.replace(/[^a-z0-9]+/giu, "-")}`;
-    return {
-      id,
-      method: method.toUpperCase(),
-      path,
-      summary: operation.summary ?? id,
-      description: typeof operation.description === "string" ? operation.description : "",
-      tags: Array.isArray(operation.tags) ? operation.tags.filter((tag): tag is string => typeof tag === "string") : [],
-      parameters: (operation.parameters ?? []).map((parameter) => ({
-        name: parameter.name,
-        location: parameter.in,
-        required: parameter.required ?? false,
-      })),
-    };
-  }));
+function operationsFromPaths(paths: Record<string, z.infer<typeof pathItemSchema>>): readonly ApiOperation[] {
+  return Object.entries(paths).flatMap(([path, item]) =>
+    HTTP_METHODS.flatMap((method) => {
+      const operation = item[method];
+      if (operation === undefined || typeof operation !== "object") return [];
+      const id = operation.operationId ?? `${method}-${path.replace(/[^a-z0-9]+/giu, "-")}`;
+      return [{
+        id,
+        method: method.toUpperCase(),
+        path,
+        summary: operation.summary ?? id,
+        description: typeof operation.description === "string" ? operation.description : "",
+        tags: Array.isArray(operation.tags) ? operation.tags.filter((tag): tag is string => typeof tag === "string") : [],
+        parameters: (operation.parameters ?? [])
+          .filter((parameter): parameter is Extract<typeof parameter, { name: string }> => "name" in parameter)
+          .map((parameter) => ({
+            name: parameter.name,
+            location: parameter.in,
+            required: parameter.required ?? false,
+          })),
+      }];
+    })
+  );
 }
 
 function schemasFromComponents(schemas: Record<string, Record<string, unknown>>): readonly ApiSchemaSummary[] {

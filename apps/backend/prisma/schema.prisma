@@ -310,3 +310,22 @@ model ProcessingJob {
   @@index([type])
   @@index([status])
 }
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Invite {
+  token            String   @id
+  organizationSlug String
+  role             String
+  expiresAt        DateTime
+  acceptedByUserId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

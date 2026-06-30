@@ -32,8 +32,40 @@ bumd/
 Trước khi bắt đầu, hãy đảm bảo bạn đã cài đặt các công cụ sau:
 - **Node.js**: Phiên bản `24.x` trở lên.
 - **pnpm**: Phiên bản `10.12.1` trở lên (được cấu hình trong `package.json`).
-- **PostgreSQL**: Cơ sở dữ liệu chính. Mặc định kết nối tới: `postgresql://bumd:bumd@localhost:5432/bumd`.
+- **PostgreSQL**: Cơ sở dữ liệu chính. Mặc định kết nối tới: `postgresql://bumd:bumd@localhost:5436/bumd`.
 - **oasdiff**: Công cụ so sánh OpenAPI viết bằng Go (tùy chọn, diff-engine sẽ tự động bỏ qua nếu không tìm thấy binary trong PATH).
+
+---
+
+## 🐳 Cài đặt cơ sở dữ liệu với Docker
+
+Dự án sử dụng **PostgreSQL** làm cơ sở dữ liệu chính và **Redis** cho hàng đợi BullMQ (tùy chọn, fallback về in-memory nếu không có).
+
+Chạy lệnh sau tại thư mục gốc của dự án để khởi động cả hai dịch vụ:
+
+```bash
+docker compose up -d
+```
+
+Sau khi container sẵn sàng, chạy Prisma migrations để tạo bảng và dữ liệu mẫu:
+
+```bash
+DATABASE_URL=postgresql://bumd:bumd@localhost:5436/bumd \
+  npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
+```
+
+Dữ liệu mẫu (organizations, docs, branches, API tokens) sẽ được tự động nạp qua migration `insert_mock_data`.
+
+### Kiểm tra kết nối
+
+```bash
+# PostgreSQL
+docker compose exec postgres psql -U bumd -d bumd -c '\dt'
+
+# Redis
+docker compose exec redis redis-cli ping
+# → PONG
+```
 
 ---
 

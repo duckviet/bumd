@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ApiTokenCrypto } from "../auth/api-token-crypto.js";
 import type { ApiTokenStore } from "../auth/auth-ports.js";
 import { type ApiTokenRecord, type CreateApiTokenInput, type IssuedApiToken } from "../auth/auth-types.js";
@@ -14,6 +14,7 @@ import {
   type VersionRecord,
 } from "./deploy-types.js";
 import type { DeployStore } from "./deploy-ports.js";
+import { OBJECT_STORE, type ObjectStore } from "../storage/object-store-port.js";
 
 type MutableVersion = VersionRecord & {
   status: VersionRecord["status"];
@@ -23,7 +24,6 @@ type MutableVersion = VersionRecord & {
 @Injectable()
 export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenStore {
   private readonly versions = new Map<string, MutableVersion>();
-  private readonly rawSpecs = new Map<string, string>();
   private readonly jobs = new Map<string, DeployJobRecord>();
   private readonly diffs = new Map<string, PersistedDiffRecord>();
   private readonly apiTokens = new Map<string, ApiTokenRecord>();
@@ -32,8 +32,12 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
   private nextSequenceNumber = 1;
   private nextWebhookId = 1;
   private nextApiTokenId = 1;
+  private readonly logger = new Logger(InMemoryDeployStore.name);
 
-  public constructor(private readonly tokenCrypto: ApiTokenCrypto) {}
+  public constructor(
+    private readonly tokenCrypto: ApiTokenCrypto,
+    @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+  ) {}
 
   public async findVersionByHash(input: {
     readonly orgSlug: string;
@@ -85,17 +89,16 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
     };
     this.nextSequenceNumber += 1;
     this.versions.set(versionId, version);
-    this.rawSpecs.set(versionId, input.rawSpec);
     this.jobs.set(versionId, job);
+    this.logger.log(`createQueuedVersion: uploading spec to R2 key=${version.rawSpecObjectKey}`);
+    await this.objectStore.put(version.rawSpecObjectKey, input.rawSpec);
+    this.logger.log(`createQueuedVersion: version ${versionId} queued, job ${job.id}`);
     return { version, job };
   }
 
   public async getRawSpec(versionId: string): Promise<string> {
-    const rawSpec = this.rawSpecs.get(versionId);
-    if (rawSpec === undefined) {
-      throw new Error("deploy_processing_failed");
-    }
-    return rawSpec;
+    const version = this.versionMetadata(versionId);
+    return this.objectStore.get(version.rawSpecObjectKey);
   }
 
   public async getVersion(versionId: string): Promise<VersionRecord> {
