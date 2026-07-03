@@ -170,6 +170,10 @@ function toDeployClassification(result: DiffEngineResult): DiffClassification {
     case "warning":
     case "non-breaking":
       return DiffClassification.NonBreaking;
+    default: {
+      const _exhaustive: never = result.classification;
+      throw new Error(`Unknown diff classification: ${String(_exhaustive)}`);
+    }
   }
 }
 

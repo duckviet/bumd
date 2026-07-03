@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b tsconfig.json",
     "dev:server": "node --env-file=../../.env dist/testing/manual-server.js",
     "prisma:validate": "DATABASE_URL=postgresql://bumd:bumd@localhost:5436/bumd prisma validate --schema prisma/schema.prisma"
   },
