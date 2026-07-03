@@ -27,7 +27,7 @@ const changeSummarySchema = z.object({
   id: z.string(),
   title: z.string(),
   createdAt: z.string(),
-  hasBreaking: z.boolean(),
+  hasBreaking: z.boolean().default(false),
 });
 
 const diffDetailSchema = z.object({

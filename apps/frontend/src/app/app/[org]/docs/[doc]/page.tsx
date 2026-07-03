@@ -33,6 +33,7 @@ export default async function DocOverviewPage({ params }: PageProps): Promise<Re
           </div>
           <div className="dashboard-actions">
             <a href={doc.publicUrl}>Public URL</a>
+            <a href={`/${org}/${doc.slug}/changes`}>Changelog</a>
             <a href={`/app/${org}/docs/${doc.slug}/versions`}>Versions</a>
             {mayManage ? <a href={`/app/${org}/docs/${doc.slug}/settings`}>Settings</a> : null}
           </div>

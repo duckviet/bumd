@@ -1,233 +1,300 @@
 "use client";
 
-import React from "react";
-import type { ApiDocument } from "../../entities/openapi/model";
+import { useMemo, useState } from "react";
+
+import type { ApiDocument, ApiOperation, ApiSchemaSummary } from "../../entities/openapi/model";
+import { Badge, MethodBadge, PortalContainer, PortalShell, Surface } from "../../shared/ui/portal-primitives";
 import { SearchBox } from "../search-box/search-box";
 import { TryItOutPanel } from "../try-it-out-panel/try-it-out-panel";
-import { ThemeToggle } from "./theme-toggle";
 
-function groupOperations(operations: ApiDocument["operations"]) {
-  const groups: Record<string, ApiDocument["operations"][number][]> = {};
-  for (const op of operations) {
-    const tag = op.tags[0] ?? "General";
-    if (!groups[tag]) groups[tag] = [];
-    groups[tag].push(op);
-  }
-  return Object.entries(groups).map(([tag, ops]) => ({ tag, operations: ops }));
-}
-
-function MethodBadge({ method, className = "" }: { method: string; className?: string }) {
-  const m = method.toUpperCase();
-  let colorClass = "text-text-muted bg-bg-tertiary";
-  if (m === "GET") colorClass = "text-[#10b981] bg-get-bg";
-  else if (m === "POST") colorClass = "text-[#3b82f6] bg-post-bg";
-  else if (m === "PUT" || m === "PATCH") colorClass = "text-[#f59e0b] bg-put-bg";
-  else if (m === "DELETE") colorClass = "text-[#ef4444] bg-del-bg";
-
-  return (
-    <span className={`inline-flex items-center justify-center font-mono text-[10px] sm:text-xs uppercase font-bold px-2.5 py-0.5 rounded-full w-full whitespace-nowrap ${colorClass} ${className}`}>
-      {m}
-    </span>
-  );
-}
-
-export function DocRenderer({
-  document,
-  orgSlug,
-  docSlug,
-  branchSlug,
-  versionId,
-}: {
-  readonly document: ApiDocument;
+type DocRendererProps = {
   readonly orgSlug: string;
   readonly docSlug: string;
   readonly branchSlug: string;
   readonly versionId: string;
-}): React.ReactElement {
-  const groupedOps = groupOperations(document.operations);
+  readonly document: ApiDocument;
+};
 
-  const [activeOperationId, setActiveOperationId] = React.useState<string>(
-    document.operations[0]?.id ?? ""
-  );
+type OperationGroup = {
+  readonly tag: string;
+  readonly operations: readonly ApiOperation[];
+};
 
-  const activeOperation = document.operations.find(op => op.id === activeOperationId) ?? document.operations[0] ?? null;
+function groupOperations(operations: readonly ApiOperation[]): readonly OperationGroup[] {
+  const groups = new Map<string, ApiOperation[]>();
 
-  const schemasToShow = document.schemas.filter(schema =>
-    activeOperation?.referencedSchemas?.includes(schema.name)
-  );
+  for (const operation of operations) {
+    const tag = operation.tags[0] ?? "General";
+    const existing = groups.get(tag) ?? [];
+    existing.push(operation);
+    groups.set(tag, existing);
+  }
 
-  React.useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const id = entry.target.id.replace("operation-", "");
-            setActiveOperationId(id);
-          }
-        }
-      },
-      { rootMargin: "-10% 0px -80% 0px" }
-    );
+  return [...groups.entries()].map(([tag, groupedOperations]) => ({
+    operations: groupedOperations,
+    tag,
+  }));
+}
 
-    const elements = window.document.querySelectorAll("article[id^='operation-']");
-    for (const el of elements) {
-      observer.observe(el);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [document.operations]);
-
+function OperationNav({
+  activeId,
+  groups,
+  onSelect,
+}: {
+  readonly activeId: string | undefined;
+  readonly groups: readonly OperationGroup[];
+  readonly onSelect: (operation: ApiOperation) => void;
+}) {
   return (
-    <main className="min-h-screen text-text-secondary bg-bg-primary font-inter selection:bg-amber-500/30">
-      <header className="sticky top-0 z-50 border-b border-border-subtle bg-bg-elevated backdrop-blur-md px-8 py-5 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] font-semibold text-amber-500">Bumd documentation</p>
-            <h1 className="mt-2 text-3xl tracking-tight font-polysans font-medium text-text-primary">{document.title}</h1>
-            <p className="mt-1 text-sm text-text-muted">Version {document.version}</p>
-          </div>
-          <div className="flex items-center">
-            <a 
-              className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors border border-border-subtle rounded-full px-5 py-2.5 bg-bg-secondary hover:bg-bg-tertiary"
-              href={`/${orgSlug}/${docSlug}/changes`}
-            >
-              Changelog
-            </a>
-            <ThemeToggle />
+    <nav className="space-y-5" aria-label="Operations">
+      {groups.map((group) => (
+        <div key={group.tag}>
+          <p className="mb-2 text-xs font-semibold uppercase text-[#828282]">{group.tag}</p>
+          <div className="space-y-1.5">
+            {group.operations.map((operation) => {
+              const isActive = operation.id === activeId;
+
+              return (
+                <a
+                  className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition ${
+                    isActive
+                      ? "border-[#ff682c] bg-[#fff3ed] text-[#202020]"
+                      : "border-transparent bg-transparent text-[#4d4d4d] hover:border-[#d9dedb] hover:bg-white"
+                  }`}
+                  href={`#operation-${operation.id}`}
+                  key={operation.id}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onSelect(operation);
+                  }}
+                >
+                  <MethodBadge method={operation.method} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{operation.summary}</span>
+                    <span className="block truncate font-mono text-xs text-[#65706b]">{operation.path}</span>
+                  </span>
+                </a>
+              );
+            })}
           </div>
         </div>
-      </header>
+      ))}
+    </nav>
+  );
+}
 
-      <SearchBox branchSlug={branchSlug} docSlug={docSlug} orgSlug={orgSlug} versionId={versionId} />
+function OperationDetail({ operation }: { readonly operation: ApiOperation }) {
+  return (
+    <Surface className="p-5 sm:p-6">
+      <div className="flex flex-wrap items-start gap-3" id={`operation-${operation.id}`}>
+        <MethodBadge method={operation.method} />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl font-semibold text-[#202020]">{operation.summary}</h2>
+          <p className="mt-2 break-all rounded-lg border border-[#d9dedb] bg-[#f5f5f5] px-3 py-2 font-mono text-sm text-[#4d4d4d]">
+            {operation.path}
+          </p>
+        </div>
+      </div>
 
-      <div className="grid min-h-[calc(100vh-112px)] grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_320px] max-w-7xl mx-auto relative items-start">
-        {/* Navigation Sidebar */}
-        <aside className="border-b lg:border-b-0 lg:border-r border-border-subtle bg-bg-primary p-6 lg:sticky lg:top-[90px] lg:max-h-[calc(100vh-90px)] overflow-y-auto custom-scrollbar">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted font-inter mb-6">Navigation</h2>
-          <nav className="space-y-8">
-            {groupedOps.map((group) => (
-              <div key={group.tag}>
-                <h3 className="text-sm font-medium text-text-primary mb-3 px-3 uppercase tracking-wider">{group.tag}</h3>
-                <div className="space-y-1 relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-border-subtle">
-                  {group.operations.map((operation) => (
-                    <a
-                      className={`group relative flex items-center gap-3 py-2 pr-3 pl-6 text-sm transition-all font-medium rounded-r-md ${
-                        activeOperationId === operation.id
-                          ? "text-text-primary bg-bg-secondary"
-                          : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                      }`}
-                      href={`#operation-${operation.id}`}
-                      key={operation.id}
-                      onClick={() => setActiveOperationId(operation.id)}
-                    >
-                      <div className={`absolute left-3 w-0.5 bg-amber-500 transition-all ${
-                        activeOperationId === operation.id ? "h-full top-0" : "h-0 group-hover:h-full group-hover:top-0"
-                      }`}></div>
-                      <MethodBadge method={operation.method} className="w-12" />
-                      <span className="truncate">{operation.summary || operation.id}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </nav>
-        </aside>
+      {operation.description ? <p className="mt-5 text-base leading-7 text-[#4d4d4d]">{operation.description}</p> : null}
 
-        {/* Main Content */}
-        <section className="bg-bg-primary p-8 border-r border-border-subtle lg:min-h-[calc(100vh-90px)]">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted font-inter mb-8">Endpoints</h2>
-          
-          <div className="space-y-24">
-            {groupedOps.map((group) => (
-              <div key={group.tag} className="scroll-mt-28" id={`group-${group.tag.toLowerCase()}`}>
-                <h2 className="text-3xl font-polysans font-medium text-text-primary border-b border-border-subtle pb-4 mb-8">
-                  {group.tag}
-                </h2>
-                
-                <div className="space-y-16">
-                  {group.operations.map((operation) => (
-                    <article className="scroll-mt-28" id={`operation-${operation.id}`} key={operation.id}>
-                      <div className="flex flex-col gap-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <h3 className="text-2xl font-semibold font-polysans tracking-tight text-text-primary">{operation.summary || operation.id}</h3>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 bg-bg-secondary border border-border-subtle rounded-lg p-3 overflow-x-auto">
-                          <MethodBadge method={operation.method} />
-                          <span className="font-mono text-sm text-text-secondary whitespace-nowrap">{operation.path}</span>
-                        </div>
-                        
-                        {operation.description && (
-                          <p className="mt-2 text-text-secondary leading-relaxed max-w-3xl">{operation.description}</p>
-                        )}
-                        
-                        {/* Parameters */}
-                        <div className="mt-8">
-                          <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted mb-4 flex items-center gap-2">
-                            <span>Parameters</span>
-                            <div className="h-px bg-border-subtle flex-1"></div>
-                          </h4>
-                          
-                          {operation.parameters.length === 0 ? (
-                            <p className="text-sm text-text-muted italic">No parameters required.</p>
-                          ) : (
-                            <ul className="space-y-3">
-                              {operation.parameters.map((parameter) => (
-                                <li className="rounded-lg bg-bg-secondary px-5 py-4 text-sm border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4" key={`${operation.id}-${parameter.location}-${parameter.name}`}>
-                                  <div>
-                                    <div className="flex items-center gap-3">
-                                      <span className="font-mono font-medium text-text-primary">{parameter.name}</span>
-                                      {parameter.required && <span className="text-amber-600 dark:text-amber-500/90 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">required</span>}
-                                    </div>
-                                    <span className="mt-2 inline-block text-text-muted text-[10px] uppercase tracking-wider bg-bg-tertiary border border-border-subtle px-2.5 py-1 rounded-md font-medium">{parameter.location}</span>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+      {operation.parameters.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold uppercase text-[#828282]">Parameters</h3>
+          <div className="mt-3 overflow-hidden rounded-lg border border-[#d9dedb]">
+            {operation.parameters.map((parameter) => (
+              <div
+                className="grid gap-2 border-b border-[#edf0ee] bg-white px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_120px_90px]"
+                key={`${parameter.location}-${parameter.name}`}
+              >
+                <span className="font-mono text-sm font-semibold text-[#202020]">{parameter.name}</span>
+                <span className="text-sm text-[#65706b]">{parameter.location}</span>
+                <span className="text-sm text-[#65706b]">{parameter.required ? "Required" : "Optional"}</span>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      ) : null}
 
-        {/* Right Sidebar - Schemas & Try it out */}
-        <aside className="bg-bg-tertiary p-6 lg:sticky lg:top-[90px] lg:max-h-[calc(100vh-90px)] overflow-y-auto custom-scrollbar border-l border-border-subtle">
-          <div className="space-y-12">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted font-inter mb-6">Schemas</h2>
-              <div className="space-y-4">
-                {schemasToShow.length === 0 ? (
-                  <p className="text-xs text-text-muted italic">No schemas referenced by this operation.</p>
-                ) : (
-                  schemasToShow.map((schema) => (
-                    <section className="rounded-xl border border-border-subtle bg-bg-secondary p-5 shadow-sm hover:border-border-strong transition-colors" key={schema.name}>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium text-text-primary font-mono text-sm">{schema.name}</h3>
-                        <span className="text-[10px] text-text-muted font-mono uppercase tracking-widest bg-bg-tertiary px-2 py-1 rounded-md border border-border-subtle">{schema.type}</span>
+      {operation.referencedSchemas.length > 0 ? (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {operation.referencedSchemas.map((schema) => (
+            <Badge key={schema} tone="signal">
+              {schema}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+    </Surface>
+  );
+}
+
+function SchemaRail({
+  schemas,
+  currentTab,
+  onTabChange,
+  totalCount,
+  referencedCount,
+}: {
+  readonly schemas: readonly ApiSchemaSummary[];
+  readonly currentTab: "referenced" | "all";
+  readonly onTabChange: (tab: "referenced" | "all") => void;
+  readonly totalCount: number;
+  readonly referencedCount: number;
+}) {
+  return (
+    <Surface className="p-5 sm:p-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between border-b border-[#edf0ee] pb-3 flex-wrap gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-[#828282]">Schemas</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onTabChange("referenced")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all border cursor-pointer ${
+              currentTab === "referenced"
+                ? "border-[#ff682c] bg-[#fff3ed] text-[#9c3d13]"
+                : "border-[#d9dedb] bg-white text-[#4d4d4d] hover:bg-[#f5f5f5]"
+            }`}
+            type="button"
+          >
+            Used ({referencedCount})
+          </button>
+          <button
+            onClick={() => onTabChange("all")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all border cursor-pointer ${
+              currentTab === "all"
+                ? "border-[#ff682c] bg-[#fff3ed] text-[#9c3d13]"
+                : "border-[#d9dedb] bg-white text-[#4d4d4d] hover:bg-[#f5f5f5]"
+            }`}
+            type="button"
+          >
+            All ({totalCount})
+          </button>
+        </div>
+      </div>
+
+      {schemas.length === 0 ? (
+        <div className="text-center py-8 border border-dashed border-[#d9dedb] rounded-lg bg-[#fafafa]">
+          <p className="text-sm text-[#828282]">No referenced schemas for this operation.</p>
+          <button
+            onClick={() => onTabChange("all")}
+            className="text-xs text-[#ff682c] font-semibold hover:underline mt-2 cursor-pointer"
+            type="button"
+          >
+            View all schemas
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {schemas.map((schema) => (
+            <div className="rounded-lg border border-[#edf0ee] bg-[#fafafa] p-4 flex flex-col gap-3" key={schema.name}>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="truncate text-base font-semibold text-[#202020]">{schema.name}</h3>
+                <Badge>{schema.type}</Badge>
+              </div>
+              {schema.properties.length > 0 ? (
+                <div className="border-t border-[#edf0ee] pt-3 flex flex-col gap-2.5">
+                  {schema.properties.map((prop) => (
+                    <div key={prop.name} className="flex flex-col gap-1 pb-1.5 border-b border-[#f5f7f6] last:border-b-0 last:pb-0">
+                      <div className="flex items-center flex-wrap gap-2 text-xs">
+                        <span className="font-mono font-semibold text-[#202020] bg-white border border-[#d9dedb] px-1.5 py-0.5 rounded">
+                          {prop.name}
+                        </span>
+                        <span className="text-[#828282] font-mono">{prop.type}</span>
+                        {prop.required ? (
+                          <span className="text-[#ff682c] font-bold text-[10px] uppercase tracking-wider">Required</span>
+                        ) : null}
                       </div>
-                      {schema.properties.length > 0 && (
-                        <div className="pt-3 border-t border-border-subtle">
-                          <div className="flex flex-wrap gap-2">
-                            {schema.properties.map(prop => (
-                              <span className="text-[11px] font-mono bg-bg-primary px-2 py-1 rounded-md text-text-secondary border border-border-subtle" key={prop}>{prop}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </section>
-                  ))
-                )}
+                      {prop.description ? (
+                        <p className="text-xs text-[#65706b] leading-relaxed pl-1">{prop.description}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </Surface>
+  );
+}
+
+export function DocRenderer({ branchSlug, docSlug, document, orgSlug, versionId }: DocRendererProps) {
+  const groups = useMemo(() => groupOperations(document.operations), [document.operations]);
+  const [activeOperationId, setActiveOperationId] = useState<string | undefined>(document.operations[0]?.id);
+  const activeOperation = document.operations.find((operation) => operation.id === activeOperationId) ?? document.operations[0];
+  const [schemaTab, setSchemaTab] = useState<"referenced" | "all">("referenced");
+
+  const schemasToShow = useMemo(() => {
+    if (schemaTab === "all" || !activeOperation) {
+      return document.schemas;
+    }
+    const referencedNames = activeOperation.referencedSchemas;
+    return document.schemas.filter((s) => referencedNames.includes(s.name));
+  }, [schemaTab, activeOperation, document.schemas]);
+
+  const referencedCount = activeOperation ? activeOperation.referencedSchemas.length : 0;
+
+  return (
+    <PortalShell>
+      <PortalContainer>
+        <header className="rounded-lg border border-[#d9dedb] bg-white p-5 sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 flex flex-wrap gap-2">
+                <Badge tone="signal">{document.version}</Badge>
+                {document.servers[0] ? <Badge>{document.servers[0]}</Badge> : null}
+              </div>
+              <h1 className="text-3xl font-semibold text-[#202020] sm:text-4xl">{document.title}</h1>
+              <p className="mt-3 text-base leading-7 text-[#4d4d4d]">Interactive OpenAPI reference for the latest published version.</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <a
+                  className="inline-flex min-h-10 items-center rounded-lg border border-[#d9dedb] bg-white px-4 text-sm font-semibold text-[#202020] transition hover:border-[#ff682c] hover:bg-[#fff3ed] hover:text-[#9c3d13]"
+                  href={`/${orgSlug}/${docSlug}/changes`}
+                >
+                  Changelog
+                </a>
+                <a
+                  className="inline-flex min-h-10 items-center rounded-lg border border-[#d9dedb] bg-white px-4 text-sm font-semibold text-[#202020] transition hover:border-[#ff682c] hover:bg-[#fff3ed] hover:text-[#9c3d13]"
+                  href={`/app/${orgSlug}`}
+                >
+                  Dashboard
+                </a>
               </div>
             </div>
-            
-            <div className="pt-6 border-t border-border-subtle">
+            <div className="w-full lg:max-w-md">
+              <SearchBox 
+                branchSlug={branchSlug} 
+                docSlug={docSlug} 
+                orgSlug={orgSlug} 
+                versionId={versionId} 
+                onSelectOperation={setActiveOperationId}
+              />
+            </div>
+          </div>
+        </header>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)_360px] lg:items-start">
+          <aside className="order-2 lg:order-1 lg:sticky lg:top-5">
+            <Surface className="p-4">
+              <h2 className="mb-4 text-sm font-semibold uppercase text-[#828282]">Navigation</h2>
+              <OperationNav activeId={activeOperation?.id} groups={groups} onSelect={(operation) => setActiveOperationId(operation.id)} />
+            </Surface>
+          </aside>
+
+          <section className="order-1 min-w-0 space-y-5 lg:order-2">
+            {activeOperation ? <OperationDetail operation={activeOperation} /> : null}
+            <SchemaRail 
+              schemas={schemasToShow} 
+              currentTab={schemaTab} 
+              onTabChange={setSchemaTab}
+              totalCount={document.schemas.length}
+              referencedCount={referencedCount}
+            />
+          </section>
+
+          <aside className="order-3 lg:sticky lg:top-5">
+            {activeOperation ? (
               <TryItOutPanel
                 branchSlug={branchSlug}
                 docSlug={docSlug}
@@ -236,10 +303,10 @@ export function DocRenderer({
                 serverUrl={document.servers[0] ?? ""}
                 versionId={versionId}
               />
-            </div>
-          </div>
-        </aside>
-      </div>
-    </main>
+            ) : null}
+          </aside>
+        </div>
+      </PortalContainer>
+    </PortalShell>
   );
 }

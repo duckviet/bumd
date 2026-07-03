@@ -199,17 +199,29 @@ a:hover {
 
 .dashboard-tabs {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   margin: 20px 0 36px 0;
+  border-bottom: 1px solid var(--color-chalk);
+  padding-bottom: 0px;
 }
 
 .dashboard-tabs a {
   font-family: var(--font-inter);
   font-size: 15px;
   font-weight: 500;
+  color: var(--color-slate);
+  border-bottom: 2px solid transparent;
+  padding-bottom: 10px;
+  margin-bottom: -1px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-tabs a:hover,
+.dashboard-tabs a.active,
+.dashboard-tabs a[aria-current="page"] {
   color: var(--color-carbon);
-  border-bottom: 2px solid var(--color-signal-orange);
-  padding-bottom: 6px;
+  border-bottom-color: var(--color-signal-orange);
+  opacity: 1;
 }
 
 /* Cards & Insets */

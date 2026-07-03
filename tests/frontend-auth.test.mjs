@@ -19,7 +19,7 @@ async function getOpenPort() {
 }
 
 function startFrontend(port) {
-  const child = spawn("pnpm", ["--filter", "@bumd/frontend", "dev", "--hostname", HOST, "--port", String(port)], {
+  const child = spawn("pnpm", ["--filter", "@bumd/frontend", "start", "--hostname", HOST, "--port", String(port)], {
     cwd: new URL("..", import.meta.url),
     detached: process.platform !== "win32",
     env: {

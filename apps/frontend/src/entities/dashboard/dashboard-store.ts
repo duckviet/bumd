@@ -243,3 +243,27 @@ export function latestVersion(doc: DashboardDoc): DashboardVersion | null {
 export function versionHistory(doc: DashboardDoc): readonly DashboardVersion[] {
   return latestFirst(doc.versions);
 }
+
+export async function deleteDashboardDoc(
+  organizationSlug: string,
+  docSlug: string
+): Promise<{ readonly kind: "deleted" } | { readonly kind: "missing" }> {
+  const db = getDb();
+  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [organizationSlug]);
+  if (orgRes.rows.length === 0) {
+    return { kind: "missing" };
+  }
+  const orgId = orgRes.rows[0]["id"] as string;
+
+  const docRes = await db.query(
+    'SELECT id FROM "Doc" WHERE "organizationId" = $1 AND slug = $2',
+    [orgId, docSlug]
+  );
+  if (docRes.rows.length === 0) {
+    return { kind: "missing" };
+  }
+  const docId = docRes.rows[0]["id"] as string;
+
+  await db.query('DELETE FROM "Doc" WHERE id = $1', [docId]);
+  return { kind: "deleted" };
+}

@@ -23,6 +23,7 @@ export default async function DocsPage({ params }: PageProps): Promise<React.Rea
     organizationSlug: org,
     email: session.email,
     role: membership.role,
+    tab: "portals",
     children: (
       <div className="dashboard-workspace">
         <section className="dashboard-hero dashboard-hero-compact">
@@ -63,6 +64,7 @@ export default async function DocsPage({ params }: PageProps): Promise<React.Rea
                   <span className="dashboard-status">{versionSummary(doc)}</span>
                   <div className="dashboard-row-actions">
                     <a href={`/app/${org}/docs/${doc.slug}/versions`}>Versions</a>
+                    <a href={`/${org}/${doc.slug}/changes`}>Changelog</a>
                     {mayManage ? <a href={`/app/${org}/docs/${doc.slug}/settings`}>Settings</a> : null}
                     <a href={doc.publicUrl}>Public</a>
                   </div>

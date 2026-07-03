@@ -63,10 +63,17 @@ export type ApiOperation = {
   readonly referencedSchemas: readonly string[];
 };
 
+export type ApiPropertyDetail = {
+  readonly name: string;
+  readonly type: string;
+  readonly description: string;
+  readonly required: boolean;
+};
+
 export type ApiSchemaSummary = {
   readonly name: string;
   readonly type: string;
-  readonly properties: readonly string[];
+  readonly properties: readonly ApiPropertyDetail[];
 };
 
 export type ApiDocument = {
@@ -181,16 +188,38 @@ function operationsFromPaths(paths: Record<string, z.infer<typeof pathItemSchema
 }
 
 function schemasFromComponents(schemas: Record<string, Record<string, unknown>>): readonly ApiSchemaSummary[] {
-  return Object.entries(schemas).map(([name, schema]) => ({
-    name,
-    type: typeof schema["type"] === "string" ? schema["type"] : "schema",
-    properties: propertyNames(schema["properties"]),
-  }));
-}
+  return Object.entries(schemas).map(([name, schema]) => {
+    const requiredList = Array.isArray(schema["required"])
+      ? schema["required"].filter((item): item is string => typeof item === "string")
+      : [];
+    const props = schema["properties"];
+    const properties: ApiPropertyDetail[] = [];
 
-function propertyNames(value: unknown): readonly string[] {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return [];
-  }
-  return Object.keys(value);
+    if (props !== null && typeof props === "object" && !Array.isArray(props)) {
+      for (const [propName, propVal] of Object.entries(props)) {
+        if (propVal !== null && typeof propVal === "object" && !Array.isArray(propVal)) {
+          const val = propVal as Record<string, unknown>;
+          properties.push({
+            name: propName,
+            type: typeof val["type"] === "string" ? val["type"] : "any",
+            description: typeof val["description"] === "string" ? val["description"] : "",
+            required: requiredList.includes(propName),
+          });
+        } else {
+          properties.push({
+            name: propName,
+            type: "any",
+            description: "",
+            required: requiredList.includes(propName),
+          });
+        }
+      }
+    }
+
+    return {
+      name,
+      type: typeof schema["type"] === "string" ? schema["type"] : "schema",
+      properties,
+    };
+  });
 }

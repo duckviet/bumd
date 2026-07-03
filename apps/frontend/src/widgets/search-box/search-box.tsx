@@ -9,11 +9,13 @@ export function SearchBox({
   docSlug,
   branchSlug,
   versionId,
+  onSelectOperation,
 }: {
   readonly orgSlug: string;
   readonly docSlug: string;
   readonly branchSlug: string;
   readonly versionId: string;
+  readonly onSelectOperation: (operationId: string) => void;
 }): React.ReactElement {
   const [results, setResults] = useState<SearchResponse>({ hits: [] });
 
@@ -51,18 +53,35 @@ export function SearchBox({
           </button>
         </div>
       </form>
-      {results.hits.length > 0 ? <SearchResults results={results} /> : null}
+      {results.hits.length > 0 ? <SearchResults results={results} onSelect={onSelectOperation} /> : null}
     </section>
   );
 }
 
-export function SearchResults({ results }: { readonly results: SearchResponse }): React.ReactElement {
+export function SearchResults({
+  results,
+  onSelect,
+}: {
+  readonly results: SearchResponse;
+  readonly onSelect: (operationId: string) => void;
+}): React.ReactElement {
   return (
     <ul className="mt-4 space-y-2.5 bg-fog p-4 rounded-lg border border-chalk">
       {results.hits.map((hit) => (
         <li key={`${hit.method}:${hit.path}`} className="flex items-center gap-2">
           <span className="rounded bg-carbon px-2 py-0.5 font-mono text-[10px] text-white uppercase">{hit.method}</span>
-          <a className="text-sm font-medium text-signal-orange hover:underline" href={`#${hit.anchor}`}>
+          <a
+            className="text-sm font-medium text-signal-orange hover:underline cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              onSelect(hit.operationId);
+              const element = document.getElementById(`operation-${hit.operationId}`);
+              if (element) {
+                element.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
+            href={`#operation-${hit.operationId}`}
+          >
             {hit.operationId} <span className="text-xs text-slate font-mono font-normal">({hit.path})</span>
           </a>
         </li>
