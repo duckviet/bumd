@@ -87,7 +87,7 @@ pnpm build
 ### 3. Khởi chạy Backend (Manual Server phục vụ thử nghiệm/QA)
 Sau khi build xong, bạn có thể chạy một máy chủ backend tối giản chạy trên bộ nhớ trong (in-memory queues & store) để thử nghiệm nhanh mà không cần cấu hình đầy đủ PostgreSQL/Redis:
 ```bash
-node apps/backend/dist/testing/manual-server.js
+node --env-file=.env apps/backend/dist/testing/manual-server.js
 ```
 Máy chủ sẽ lắng nghe tại `http://127.0.0.1:3100`.
 

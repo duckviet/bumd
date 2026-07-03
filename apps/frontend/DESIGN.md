@@ -355,3 +355,12 @@ Max-width 1200px centered content on a full-bleed Mist canvas. Hero follows a sp
   --radius-full: 200px;
 }
 ```
+## Dashboard Consolidation
+
+The authenticated app uses a single command-center dashboard instead of forcing users through isolated pages. The `/app/[org]` and docs views must expose primary navigation, key health metrics, recent activity, and the next deploy/configuration actions in one scan.
+
+- Layout: left rail on desktop, stacked navigation on mobile, dense content grid with no nested cards.
+- Primary actions: create doc, open docs, view latest versions, and deploy guidance should be visible in the first viewport.
+- Status language: queued, processing, ready, and failed versions must be readable as compact pills with distinct neutral/signal treatment.
+- Empty states: show the first useful action, not explanatory marketing copy.
+- Interaction: links and buttons use existing pill/button primitives with 180-220ms transform/opacity transitions only.

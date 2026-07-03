@@ -112,7 +112,7 @@ export class VersionsWorker {
     const events: { readonly type: WebhookEventType }[] = [];
     await this.enqueueEvent(version, WebhookEventType.VersionCreated, {});
     events.push({ type: WebhookEventType.VersionCreated });
-    const diff = this.store.diffForVersion(version.id);
+    const diff = await this.store.diffForVersion(version.id);
     if (diff?.hasBreaking === true) {
       await this.enqueueEvent(version, WebhookEventType.DiffBreakingDetected, {
         diff: {

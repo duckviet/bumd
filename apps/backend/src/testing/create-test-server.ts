@@ -21,7 +21,7 @@ export type TestServer = {
   }) => Promise<LightMyRequestResponse>;
   readonly processDeployJobs: () => Promise<WorkerResult>;
   readonly deployJobCount: () => number;
-  readonly diffForVersion: (versionId: string) => PersistedDiffRecord;
+  readonly diffForVersion: (versionId: string) => Promise<PersistedDiffRecord>;
   readonly registerWebhook: (input: RegisteredWebhookInput) => WebhookEndpoint;
   readonly processWebhookJobs: () => Promise<void>;
   readonly webhookDeliveries: () => readonly WebhookDeliveryAttempt[];
@@ -35,8 +35,14 @@ export type TestServer = {
 };
 
 export async function createTestServer(): Promise<TestServer> {
+  const previousDeployStore = process.env["DEPLOY_STORE"];
+  const previousApiTokenStore = process.env["API_TOKEN_STORE"];
+  const previousWebhookDeliveryStore = process.env["WEBHOOK_DELIVERY_STORE"];
+  process.env["DEPLOY_STORE"] = "memory";
+  process.env["API_TOKEN_STORE"] = "memory";
+  process.env["WEBHOOK_DELIVERY_STORE"] = "memory";
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
-    logger: false,
+    logger: ["error", "warn"],
   });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
@@ -48,7 +54,7 @@ export async function createTestServer(): Promise<TestServer> {
   const webhookWorker = app.get(WebhookDeliveryWorker);
   let lastWorkerResult: WorkerResult | null = null;
 
-  async function process(data: DeployJobData): Promise<void> {
+  async function processDeployJob(data: DeployJobData): Promise<void> {
     lastWorkerResult = await worker.process(data);
   }
 
@@ -67,15 +73,15 @@ export async function createTestServer(): Promise<TestServer> {
       return app.getHttpAdapter().getInstance().inject(options);
     },
     processDeployJobs: async () => {
-      await queue.drain(process);
+      await queue.drain(processDeployJob);
       if (lastWorkerResult === null) {
         throw new Error("deploy_processing_failed");
       }
       return lastWorkerResult;
     },
     deployJobCount: () => store.deployJobCount(),
-    diffForVersion: (versionId) => {
-      const diff = store.diffForVersion(versionId);
+    diffForVersion: async (versionId) => {
+      const diff = await store.diffForVersion(versionId);
       if (diff === null) {
         throw new Error("deploy_processing_failed");
       }
@@ -90,8 +96,25 @@ export async function createTestServer(): Promise<TestServer> {
     apiTokenMetadata: (tokenId) => store.apiTokenMetadata(tokenId),
     versionMetadata: (versionId) => store.versionMetadata(versionId),
     enableAutoProcessing: () => {
-      queue.enableAutoProcessing(process);
+      queue.enableAutoProcessing(processDeployJob);
     },
-    close: () => app.close(),
+    close: async () => {
+      await app.close();
+      if (previousDeployStore === undefined) {
+        delete process.env["DEPLOY_STORE"];
+      } else {
+        process.env["DEPLOY_STORE"] = previousDeployStore;
+      }
+      if (previousApiTokenStore === undefined) {
+        delete process.env["API_TOKEN_STORE"];
+      } else {
+        process.env["API_TOKEN_STORE"] = previousApiTokenStore;
+      }
+      if (previousWebhookDeliveryStore === undefined) {
+        delete process.env["WEBHOOK_DELIVERY_STORE"];
+      } else {
+        process.env["WEBHOOK_DELIVERY_STORE"] = previousWebhookDeliveryStore;
+      }
+    },
   };
 }

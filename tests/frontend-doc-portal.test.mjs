@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import test from "node:test";
+import { parse as parseYaml } from "yaml";
 
 const HOST = "127.0.0.1";
 const FRONTEND_STARTUP_TIMEOUT_MS = 15_000;
 
-const paymentSpec = {
+const paymentSpecV1 = parseYaml(readFileSync(new URL("./fixtures/payments-v1.openapi.yaml", import.meta.url), "utf8"));
+const paymentSpecV2 = parseYaml(readFileSync(new URL("./fixtures/payments-v2.openapi.yaml", import.meta.url), "utf8"));
+const legacyPaymentSpecFixture = {
   openapi: "3.1.0",
   info: { title: "Payments API", version: "1.0.0" },
   servers: [{ url: "https://api.example.test" }],
@@ -76,7 +80,7 @@ async function withMockBackend() {
       return;
     }
 
-    if (request.method === "POST" && request.url === "/v1/orgs/acme/docs/payments/branches/main/versions/ver_ready_002/try-it-out") {
+    if (request.method === "POST" && request.url === "/v1/orgs/acme/docs/payments/branches/main/versions/ver_ready_003/try-it-out") {
       json(response, 200, {
         status: 202,
         headers: { "content-type": "application/json" },
@@ -103,11 +107,11 @@ async function withMockBackend() {
         return;
       case "/v1/orgs/acme/docs/payments/branches/main/versions/latest-ready":
         json(response, 200, {
-          id: "ver_ready_002",
+          id: "ver_ready_003",
           branchSlug: "main",
-          sequenceNumber: 2,
+          sequenceNumber: 3,
           readyAt: "2026-06-04T12:00:00.000Z",
-          spec: paymentSpec,
+          spec: paymentSpecV2,
         });
         return;
       case "/v1/orgs/acme/docs/payments/changes":
@@ -129,7 +133,13 @@ async function withMockBackend() {
       case "/v1/orgs/acme/docs/payments/changes/diff_new":
         json(response, 200, {
           id: "diff_new",
-          diffMarkdown: "## Breaking changes\n\nRemoved `legacyPaymentId` from the payment response.",
+          diffMarkdown: [
+            "## Added operations",
+            "- POST /refunds was added",
+            "",
+            "## Changed operations",
+            "- GET /payments added optional response field receiptUrl",
+          ].join("\n"),
         });
         return;
       case "/v1/orgs/acme/docs/payments/search":
@@ -357,6 +367,7 @@ test("frontend renders scoped search and try it out proxy controls", async () =>
       assert.match(page.body, /data-testid="doc-search"/u);
       assert.match(page.body, /name="q"/u);
       assert.match(page.body, /createPayment/u);
+      assert.match(page.body, /createRefund/u);
       assert.match(page.body, /data-testid="try-it-out-panel"/u);
       assert.match(page.body, /\/api\/try-it-out/u);
       assert.doesNotMatch(page.body, /https:\/\/api\.example\.test\/payments/u);
@@ -373,7 +384,7 @@ test("frontend renders scoped search and try it out proxy controls", async () =>
           orgSlug: "acme",
           docSlug: "payments",
           branchSlug: "main",
-          versionId: "ver_ready_002",
+          versionId: "ver_ready_003",
           serverUrl: "https://api.example.test",
           method: "POST",
           path: "/payments",
@@ -405,8 +416,10 @@ test("frontend changelog pages list newest first and render stored diff markdown
 
       const detail = await fetchText(baseUrl, "/acme/payments/changes/diff_new");
       assert.equal(detail.response.status, 200);
-      assert.match(detail.body, /Breaking changes/u);
-      assert.match(detail.body, /Removed `?legacyPaymentId`?/u);
+      assert.match(detail.body, /Added operations/u);
+      assert.match(detail.body, /Changed operations/u);
+      assert.match(detail.body, /POST \/refunds was added/u);
+      assert.match(detail.body, /receiptUrl/u);
     });
   } finally {
     await backend.close();

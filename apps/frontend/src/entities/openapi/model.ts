@@ -20,7 +20,7 @@ const operationSchema = z.object({
   tags: z.array(z.string()).optional(),
   parameters: z.array(parameterSchema).optional(),
   responses: z.record(z.string(), z.unknown()).optional(),
-});
+}).passthrough();
 
 const HTTP_METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "trace"] as const;
 type HttpMethod = (typeof HTTP_METHODS)[number];
@@ -60,6 +60,7 @@ export type ApiOperation = {
     readonly location: string;
     readonly required: boolean;
   }[];
+  readonly referencedSchemas: readonly string[];
 };
 
 export type ApiSchemaSummary = {
@@ -76,18 +77,85 @@ export type ApiDocument = {
   readonly schemas: readonly ApiSchemaSummary[];
 };
 
+function findReferencedSchemas(obj: unknown): readonly string[] {
+  const refs = new Set<string>();
+
+  function recurse(current: unknown): void {
+    if (typeof current !== "object" || current === null) {
+      return;
+    }
+    if (Array.isArray(current)) {
+      for (const item of current) {
+        recurse(item);
+      }
+      return;
+    }
+    for (const [key, value] of Object.entries(current)) {
+      if (key === "$ref" && typeof value === "string") {
+        if (value.startsWith("#/components/schemas/")) {
+          refs.add(value.substring("#/components/schemas/".length));
+        }
+      } else {
+        recurse(value);
+      }
+    }
+  }
+
+  recurse(obj);
+  return Array.from(refs);
+}
+
+function resolveAllReferencedSchemas(directRefs: readonly string[], allSchemas: Record<string, unknown>): readonly string[] {
+  const resolved = new Set<string>();
+  const queue = [...directRefs];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === undefined || resolved.has(current)) {
+      continue;
+    }
+    resolved.add(current);
+
+    const schemaObj = allSchemas[current];
+    if (schemaObj !== undefined) {
+      const subRefs = findReferencedSchemas(schemaObj);
+      for (const ref of subRefs) {
+        if (!resolved.has(ref)) {
+          queue.push(ref);
+        }
+      }
+    }
+  }
+
+  return Array.from(resolved);
+}
+
 export function parseOpenApiDocument(spec: Record<string, unknown>): ApiDocument {
   const parsed = openApiSchema.parse(spec);
+  const rawSchemas = parsed.components?.schemas ?? {};
+  const baseOperations = operationsFromPaths(parsed.paths ?? {});
+  
+  const operations = baseOperations.map((op) => {
+    const pathItem = parsed.paths?.[op.path];
+    const rawOperation = pathItem?.[op.method.toLowerCase() as HttpMethod];
+    const directRefs = rawOperation !== undefined ? findReferencedSchemas(rawOperation) : [];
+    const referencedSchemas = resolveAllReferencedSchemas(directRefs, rawSchemas);
+    return {
+      ...op,
+      referencedSchemas,
+    };
+  });
+
   return {
     title: parsed.info?.title ?? "API Reference",
     version: parsed.info?.version ?? "latest",
     servers: (parsed.servers ?? []).map((server) => server.url),
-    operations: operationsFromPaths(parsed.paths ?? {}),
-    schemas: schemasFromComponents(parsed.components?.schemas ?? {}),
+    operations,
+    schemas: schemasFromComponents(rawSchemas),
   };
 }
 
-function operationsFromPaths(paths: Record<string, z.infer<typeof pathItemSchema>>): readonly ApiOperation[] {
+function operationsFromPaths(paths: Record<string, z.infer<typeof pathItemSchema>>): readonly Omit<ApiOperation, "referencedSchemas">[] {
   return Object.entries(paths).flatMap(([path, item]) =>
     HTTP_METHODS.flatMap((method) => {
       const operation = item[method];

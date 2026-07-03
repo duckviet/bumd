@@ -99,7 +99,7 @@ test("worker stores a breaking diff when a new version changes the previous bran
     assert.equal(result.diff.classification, "breaking");
     assert.equal(result.diff.hasBreaking, true);
     assert.match(result.diff.markdown, /Breaking changes/u);
-    const stored = harness.diffForVersion(result.version.id);
+    const stored = await harness.diffForVersion(result.version.id);
     assert.equal(stored.hasBreaking, true);
     assert.match(stored.diffMarkdown, /Breaking changes/u);
   } finally {
@@ -116,7 +116,7 @@ test("worker stores an initial diff when there is no previous branch version", a
     assert.equal(result.diff.classification, "none");
     assert.equal(result.diff.hasBreaking, false);
     assert.match(result.diff.markdown, /Initial version/u);
-    const stored = harness.diffForVersion(result.version.id);
+    const stored = await harness.diffForVersion(result.version.id);
     assert.equal(stored.hasBreaking, false);
     assert.match(stored.diffMarkdown, /Initial version/u);
   } finally {

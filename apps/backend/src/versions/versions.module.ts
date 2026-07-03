@@ -28,6 +28,8 @@ import { DeploysController, VersionsController } from "./versions.controller.js"
 import { VersionsService } from "./versions.service.js";
 import { VersionsWorker } from "./versions-worker.js";
 import { StorageModule } from "../storage/storage.module.js";
+import { OBJECT_STORE, type ObjectStore } from "../storage/object-store-port.js";
+import { createDeployStore } from "./database-deploy-store.js";
 
 @Module({
   imports: [StorageModule],
@@ -49,7 +51,11 @@ import { StorageModule } from "../storage/storage.module.js";
     WebhookDispatcher,
     WebhookDeliveryWorker,
     WebhookWorkerBootstrap,
-    { provide: DEPLOY_STORE, useExisting: InMemoryDeployStore },
+    {
+      provide: DEPLOY_STORE,
+      inject: [InMemoryDeployStore, OBJECT_STORE],
+      useFactory: (inMemory, objectStore) => createDeployStore(inMemory, objectStore),
+    },
     { provide: API_TOKEN_STORE, inject: [InMemoryDeployStore, ApiTokenCrypto], useFactory: createApiTokenStore },
     { provide: DEPLOY_QUEUE, useExisting: InMemoryDeployQueue },
     { provide: DEPLOY_DIFF_ENGINE, useExisting: OasdiffDeployDiffEngine },

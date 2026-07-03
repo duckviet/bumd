@@ -1,4 +1,4 @@
-import { readRecord, readString, type UnknownRecord } from "./record.js";
+import { isRecord, readRecord, readString, type UnknownRecord } from "./record.js";
 import { parseSpec } from "./spec-parser.js";
 import { DiffChangeKind, DiffEngineClassification, type DiffChange } from "./types.js";
 
@@ -12,7 +12,7 @@ export function classifyOpenApiSpecs(baseSpec: string, revisionSpec: string): re
   return [
     ...endpointChanges(basePaths, revisionPaths),
     ...requiredParameterChanges(basePaths, revisionPaths),
-    ...responseSchemaChanges(basePaths, revisionPaths),
+    ...responseSchemaChanges(base, basePaths, revision, revisionPaths),
   ];
 }
 
@@ -85,14 +85,18 @@ function requiredParameterChanges(basePaths: UnknownRecord, revisionPaths: Unkno
   return changes;
 }
 
-function responseSchemaChanges(basePaths: UnknownRecord, revisionPaths: UnknownRecord): readonly DiffChange[] {
+function responseSchemaChanges(baseSpec: unknown, basePaths: UnknownRecord, revisionSpec: unknown, revisionPaths: UnknownRecord): readonly DiffChange[] {
   const changes: DiffChange[] = [];
   for (const [path, pathValue] of Object.entries(revisionPaths)) {
     const basePath = readPath(basePaths[path]);
     const revisionPath = readPath(pathValue);
     for (const [method, revisionOperation] of Object.entries(revisionPath)) {
-      const baseProperties = responseProperties(basePath[method]);
-      const revisionProperties = responseProperties(revisionOperation);
+      const baseOperation = basePath[method];
+      if (!isRecord(baseOperation)) {
+        continue;
+      }
+      const baseProperties = responseProperties(baseSpec, baseOperation);
+      const revisionProperties = responseProperties(revisionSpec, revisionOperation);
       for (const [name, revisionProperty] of Object.entries(revisionProperties)) {
         const baseProperty = baseProperties[name];
         if (baseProperty === undefined) {
@@ -161,11 +165,50 @@ function parameterKeys(operation: unknown): ReadonlySet<string> {
   return new Set(requiredParameters(operation));
 }
 
-function responseProperties(operation: unknown): UnknownRecord {
+function responseProperties(spec: unknown, operation: unknown): UnknownRecord {
+  const allResponses = readRecord(operation, "responses");
+  if (allResponses !== null) {
+    const properties: Record<string, unknown> = {};
+    for (const response of Object.values(allResponses)) {
+      if (!isRecord(response)) {
+        continue;
+      }
+      const content = readRecord(response, "content");
+      const json = content === null ? null : readRecord(content, "application/json");
+      const schema = json === null ? null : readRecord(json, "schema");
+      const responseProperties = schema === null ? null : schemaProperties(spec, schema);
+      if (responseProperties !== null) {
+        Object.assign(properties, responseProperties);
+      }
+    }
+    if (Object.keys(properties).length > 0) {
+      return properties;
+    }
+  }
+
   const responses = readRecord(operation, "responses");
   const okResponse = responses === null ? null : readRecord(responses, "200");
   const content = okResponse === null ? null : readRecord(okResponse, "content");
   const json = content === null ? null : readRecord(content, "application/json");
   const schema = json === null ? null : readRecord(json, "schema");
   return schema === null ? {} : (readRecord(schema, "properties") ?? {});
+}
+
+function schemaProperties(spec: unknown, schema: UnknownRecord): UnknownRecord | null {
+  const directProperties = readRecord(schema, "properties");
+  if (directProperties !== null) {
+    return directProperties;
+  }
+  const ref = readString(schema, "$ref");
+  if (ref === null || !ref.startsWith("#/components/schemas/")) {
+    return null;
+  }
+  const schemaName = ref.slice("#/components/schemas/".length);
+  if (!isRecord(spec)) {
+    return null;
+  }
+  const components = readRecord(spec, "components");
+  const schemas = components === null ? null : readRecord(components, "schemas");
+  const resolvedSchema = schemas === null ? null : readRecord(schemas, schemaName);
+  return resolvedSchema === null ? null : readRecord(resolvedSchema, "properties");
 }

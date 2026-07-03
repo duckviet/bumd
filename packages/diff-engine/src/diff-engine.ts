@@ -9,9 +9,8 @@ const DefaultBinaryPath = "oasdiff";
 export async function compareOpenApiSpecs(input: DiffEngineInput): Promise<DiffEngineResult> {
   const changes = classifyOpenApiSpecs(input.baseSpec, input.revisionSpec);
   const classification = changes.length === 0 ? DiffEngineClassification.None : classificationFor(changes);
-  const computedMarkdown = renderMarkdown(classification, changes);
+  const markdown = renderMarkdown(classification, changes);
   const raw = await readOasdiffOutput(input);
-  const markdown = raw.changelogMarkdown.length > 0 ? `${computedMarkdown}\n\n${raw.changelogMarkdown}` : computedMarkdown;
   return {
     classification,
     hasBreaking: classification === DiffEngineClassification.Breaking,

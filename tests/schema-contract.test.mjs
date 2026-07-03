@@ -7,6 +7,8 @@ const migrationPath = new URL(
   "../apps/backend/prisma/migrations/20260604230000_init/migration.sql",
   import.meta.url,
 );
+const catalogServicePath = new URL("../apps/backend/src/catalog/catalog.service.ts", import.meta.url);
+const deployStorePath = new URL("../apps/backend/src/versions/database-deploy-store.ts", import.meta.url);
 
 const expectedModels = [
   "Organization",
@@ -53,6 +55,14 @@ function readSchema() {
 
 function readMigration() {
   return readFileSync(migrationPath, "utf8");
+}
+
+function readCatalogService() {
+  return readFileSync(catalogServicePath, "utf8");
+}
+
+function readDeployStore() {
+  return readFileSync(deployStorePath, "utf8");
 }
 
 function modelBlock(schema, modelName) {
@@ -142,4 +152,18 @@ test("migration creates PostgreSQL tables, enums, foreign keys, and unique const
   assert.match(migration, /CONSTRAINT "ProcessingJob_jobKey_key" UNIQUE \("jobKey"\)/u);
   assert.match(migration, /FOREIGN KEY \("organizationId"\) REFERENCES "Organization"\("id"\)/u);
   assert.match(migration, /CREATE INDEX "WebhookDelivery_nextAttemptAt_idx"/u);
+});
+
+test("catalog latest-ready version query uses newest branch sequence", () => {
+  const service = readCatalogService();
+
+  assert.match(service, /ORDER BY "sequenceNumber" DESC/u);
+  assert.doesNotMatch(service, /ORDER BY "readyAt" DESC/u);
+});
+
+test("database deploy store is default when database url is configured", () => {
+  const store = readDeployStore();
+
+  assert.match(store, /process\.env\["DEPLOY_STORE"\] === "memory"/u);
+  assert.doesNotMatch(store, /process\.env\["DEPLOY_STORE"\] !== "database"/u);
 });

@@ -101,7 +101,7 @@ export class DatabaseWebhookStore implements WebhookStore {
 }
 
 export function createWebhookStore(inMemoryStore: WebhookStore): WebhookStore {
-  if (process.env["WEBHOOK_DELIVERY_STORE"] !== "database") {
+  if (process.env["WEBHOOK_DELIVERY_STORE"] === "memory") {
     return inMemoryStore;
   }
   const databaseUrl = process.env["DATABASE_URL"];

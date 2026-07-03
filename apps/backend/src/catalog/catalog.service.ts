@@ -115,7 +115,7 @@ export class CatalogService implements OnModuleDestroy {
     const doc = await this.findDoc(orgSlug, docSlug);
     const result = await this.database().query<DiffRow>(
       `
-        SELECT id, classification, "summaryMarkdown", "diffJson", "createdAt"
+        SELECT id, classification, "diff_markdown" AS "summaryMarkdown", "diff_json" AS "diffJson", "createdAt"
         FROM "Diff"
         WHERE "organizationId" = $1 AND "docId" = $2
         ORDER BY "createdAt" DESC
@@ -145,7 +145,7 @@ export class CatalogService implements OnModuleDestroy {
     await this.versionRow(branch.id, versionId);
     const result = await this.database().query<DiffRow>(
       `
-        SELECT id, classification, "summaryMarkdown", "diffJson", "createdAt"
+        SELECT id, classification, "diff_markdown" AS "summaryMarkdown", "diff_json" AS "diffJson", "createdAt"
         FROM "Diff"
         WHERE "organizationId" = $1 AND "docId" = $2 AND "headVersionId" = $3
         ORDER BY "createdAt" DESC
@@ -311,7 +311,7 @@ export class CatalogService implements OnModuleDestroy {
         SELECT id, sha256, status, "sequenceNumber", "rawSpecObjectKey", "createdAt", "readyAt"
         FROM "Version"
         WHERE "branchId" = $1 AND status = 'ready'
-        ORDER BY "readyAt" DESC NULLS LAST, "createdAt" DESC
+        ORDER BY "sequenceNumber" DESC
         LIMIT 1
       `,
       [branchId],
@@ -343,7 +343,7 @@ export class CatalogService implements OnModuleDestroy {
   private async diffRow(organizationId: string, docId: string, diffId: string): Promise<DiffRow> {
     const result = await this.database().query<DiffRow>(
       `
-        SELECT id, classification, "summaryMarkdown", "diffJson", "createdAt"
+        SELECT id, classification, "diff_markdown" AS "summaryMarkdown", "diff_json" AS "diffJson", "createdAt"
         FROM "Diff"
         WHERE "organizationId" = $1 AND "docId" = $2 AND id = $3
         LIMIT 1

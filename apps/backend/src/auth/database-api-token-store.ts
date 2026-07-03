@@ -98,7 +98,7 @@ export class DatabaseApiTokenStore implements ApiTokenStore {
 }
 
 export function createApiTokenStore(inMemoryStore: ApiTokenStore, crypto: ApiTokenCrypto): ApiTokenStore {
-  if (process.env["API_TOKEN_STORE"] !== "database") {
+  if (process.env["API_TOKEN_STORE"] === "memory") {
     return inMemoryStore;
   }
   const databaseUrl = process.env["DATABASE_URL"];

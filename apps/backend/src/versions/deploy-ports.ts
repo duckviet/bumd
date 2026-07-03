@@ -40,7 +40,7 @@ export type DeployStore = {
     readonly diffJson: unknown;
     readonly diffMarkdown: string;
   }) => Promise<void>;
-  readonly diffForVersion: (versionId: string) => PersistedDiffRecord | null;
+  readonly diffForVersion: (versionId: string) => Promise<PersistedDiffRecord | null> | PersistedDiffRecord | null;
   readonly markJobCompleted: (versionId: string) => Promise<void>;
   readonly deployJobCount: () => number;
 };
