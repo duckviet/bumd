@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { Command, Flags } from "@oclif/core";
 import { DeployClientError, postDeploy } from "../deploy/deploy-client.js";
 import { buildDeployRequest, inferSourceFormat } from "../deploy/deploy-request.js";
+import { readAuthState } from "../auth/auth-store.js";
 
 export default class Deploy extends Command {
   public static override description = "Deploy an OpenAPI or AsyncAPI spec";
@@ -18,9 +19,10 @@ export default class Deploy extends Command {
 
   public async run(): Promise<void> {
     const { flags } = await this.parse(Deploy);
-    const token = process.env["BUMD_API_TOKEN"];
+    const storedAuth = await readAuthState();
+    const token = process.env["BUMD_API_TOKEN"] ?? storedAuth?.token;
     if (token === undefined || token.trim() === "") {
-      this.error("BUMD_API_TOKEN is required for deploy authentication", { exit: 1 });
+      this.error("BUMD_API_TOKEN or `bumd auth login` is required for deploy authentication", { exit: 1 });
     }
 
     try {

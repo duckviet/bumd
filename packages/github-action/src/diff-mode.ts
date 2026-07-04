@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import type { ActionInputs } from "./action-inputs.js";
+import type { AuthenticatedActionInputs } from "./oidc-token.js";
 import { fetchDiffResult } from "./diff-client.js";
 import { upsertStickyDiffComment } from "./github-comments.js";
 
@@ -9,7 +9,7 @@ export class ActionConfigurationError extends Error {
   }
 }
 
-export async function runDiffMode(inputs: ActionInputs): Promise<void> {
+export async function runDiffMode(inputs: AuthenticatedActionInputs): Promise<void> {
   const diff = await fetchDiffResult(inputs);
   core.setOutput("classification", diff.classification);
   core.setOutput("has_breaking", String(diff.hasBreaking));

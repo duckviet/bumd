@@ -4,6 +4,10 @@ import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fa
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { AppModule } from "../app.module.js";
 import type { CreateApiTokenInput, IssuedApiToken } from "../auth/auth-types.js";
+import { setGithubOidcAuthorizationsForTesting } from "../auth/github-oidc-authorization.js";
+import type { GithubOidcAuthorization } from "../auth/github-oidc-types.js";
+import type { GithubOidcVerifier } from "../auth/github-oidc-types.js";
+import { setGithubOidcVerifierForTesting } from "../auth/github-oidc-verifier.js";
 import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
 import type { RegisteredWebhookInput, WebhookDeliveryAttempt, WebhookEndpoint } from "../webhooks/webhook-types.js";
 import { WebhookDeliveryWorker } from "../webhooks/webhook-dispatcher.js";
@@ -34,13 +38,29 @@ export type TestServer = {
   readonly close: () => Promise<void>;
 };
 
-export async function createTestServer(): Promise<TestServer> {
+export type TestServerOptions = {
+  readonly githubOidcVerifier?: GithubOidcVerifier;
+  readonly githubOidcAuthorizations?: readonly GithubOidcAuthorization[];
+};
+
+const DefaultTestGithubOidcAuthorizations: readonly GithubOidcAuthorization[] = [
+  {
+    organizationSlug: "acme",
+    repositoryOwner: "octo",
+    repositories: ["octo/payments"],
+    allowedRefs: ["refs/heads/main"],
+  },
+];
+
+export async function createTestServer(options: TestServerOptions = {}): Promise<TestServer> {
   const previousDeployStore = process.env["DEPLOY_STORE"];
   const previousApiTokenStore = process.env["API_TOKEN_STORE"];
   const previousWebhookDeliveryStore = process.env["WEBHOOK_DELIVERY_STORE"];
   process.env["DEPLOY_STORE"] = "memory";
   process.env["API_TOKEN_STORE"] = "memory";
   process.env["WEBHOOK_DELIVERY_STORE"] = "memory";
+  setGithubOidcVerifierForTesting(options.githubOidcVerifier ?? null);
+  setGithubOidcAuthorizationsForTesting(options.githubOidcAuthorizations ?? DefaultTestGithubOidcAuthorizations);
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
     logger: ["error", "warn"],
   });
@@ -100,6 +120,8 @@ export async function createTestServer(): Promise<TestServer> {
     },
     close: async () => {
       await app.close();
+      setGithubOidcVerifierForTesting(null);
+      setGithubOidcAuthorizationsForTesting(null);
       if (previousDeployStore === undefined) {
         delete process.env["DEPLOY_STORE"];
       } else {

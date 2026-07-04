@@ -2,8 +2,9 @@ import { ZodError } from "zod";
 import { ActionCommand, readActionInputs } from "./action-inputs.js";
 import { runDeployMode } from "./deploy-mode.js";
 import { runDiffMode } from "./diff-mode.js";
+import { resolveBackendToken } from "./oidc-token.js";
 export async function runAction() {
-    const inputs = readActionInputs();
+    const inputs = await resolveBackendToken(readActionInputs());
     switch (inputs.command) {
         case ActionCommand.Deploy:
             await runDeployMode(inputs);

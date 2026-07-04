@@ -4,7 +4,8 @@
     "composite": true,
     "outDir": "lib",
     "rootDir": "src",
-    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo",
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "references": [{ "path": "../../apps/cli/tsconfig.json" }]

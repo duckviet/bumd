@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import ky, { HTTPError } from "ky";
 import { z } from "zod";
 import { inferSourceFormat } from "@bumd/cli/deploy";
-import type { ActionInputs } from "./action-inputs.js";
+import type { AuthenticatedActionInputs } from "./oidc-token.js";
 
 const diffResponseSchema = z.object({
   classification: z.string(),
@@ -43,7 +43,7 @@ export class DiffClientError extends Error {
   }
 }
 
-export async function fetchDiffResult(inputs: ActionInputs): Promise<ActionDiffResult> {
+export async function fetchDiffResult(inputs: AuthenticatedActionInputs): Promise<ActionDiffResult> {
   try {
     const raw = inputs.versionId === undefined ? await previewDiff(inputs) : await storedDiff(inputs);
     const parsed = diffResponseSchema.parse(raw);
@@ -64,7 +64,7 @@ export async function fetchDiffResult(inputs: ActionInputs): Promise<ActionDiffR
   }
 }
 
-async function previewDiff(inputs: ActionInputs): Promise<unknown> {
+async function previewDiff(inputs: AuthenticatedActionInputs): Promise<unknown> {
   const specBytes = await readFile(inputs.filePath);
   return ky
     .post(previewDiffUrl(inputs), {
@@ -83,7 +83,7 @@ async function previewDiff(inputs: ActionInputs): Promise<unknown> {
     .json();
 }
 
-async function storedDiff(inputs: ActionInputs): Promise<unknown> {
+async function storedDiff(inputs: AuthenticatedActionInputs): Promise<unknown> {
   return ky
     .get(storedDiffUrl(inputs), {
       headers: authHeaders(inputs.backendToken),
@@ -93,12 +93,12 @@ async function storedDiff(inputs: ActionInputs): Promise<unknown> {
     .json();
 }
 
-function previewDiffUrl(inputs: ActionInputs): URL {
+function previewDiffUrl(inputs: AuthenticatedActionInputs): URL {
   const path = `/v1/orgs/${encodeURIComponent(inputs.orgSlug)}/docs/${encodeURIComponent(inputs.docSlug)}/diffs/preview`;
   return new URL(path, inputs.apiUrl);
 }
 
-function storedDiffUrl(inputs: ActionInputs): URL {
+function storedDiffUrl(inputs: AuthenticatedActionInputs): URL {
   const versionId = inputs.versionId ?? "";
   const path = `/v1/orgs/${encodeURIComponent(inputs.orgSlug)}/docs/${encodeURIComponent(inputs.docSlug)}/branches/${encodeURIComponent(inputs.branchSlug)}/versions/${encodeURIComponent(versionId)}/diff`;
   return new URL(path, inputs.apiUrl);

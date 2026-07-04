@@ -5,6 +5,13 @@ import { ApiTokenGuard } from "../auth/api-token.guard.js";
 import { ApiTokensController } from "../auth/api-tokens.controller.js";
 import { API_TOKEN_STORE } from "../auth/auth-ports.js";
 import { createApiTokenStore } from "../auth/database-api-token-store.js";
+import { createGithubOidcAuthorizationStore } from "../auth/github-oidc-authorization.js";
+import { GithubOidcTokenController } from "../auth/github-oidc-token.controller.js";
+import { GithubOidcTokenService } from "../auth/github-oidc-token.service.js";
+import { GithubOAuthController } from "../auth/github-oauth.controller.js";
+import { GithubOAuthService } from "../auth/github-oauth.service.js";
+import { GITHUB_OIDC_AUTHORIZATION_STORE, GITHUB_OIDC_VERIFIER } from "../auth/github-oidc-types.js";
+import { createGithubOidcVerifier } from "../auth/github-oidc-verifier.js";
 import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
 import { InMemorySearchIndex } from "../search/in-memory-search-index.js";
 import { SearchController } from "../search/search.controller.js";
@@ -33,11 +40,21 @@ import { createDeployStore } from "./database-deploy-store.js";
 
 @Module({
   imports: [StorageModule],
-  controllers: [VersionsController, DeploysController, ApiTokensController, SearchController, TryItOutController],
+  controllers: [
+    VersionsController,
+    DeploysController,
+    ApiTokensController,
+    GithubOidcTokenController,
+    GithubOAuthController,
+    SearchController,
+    TryItOutController,
+  ],
   providers: [
     ApiTokenCrypto,
     AdminSessionGuard,
     ApiTokenGuard,
+    GithubOidcTokenService,
+    GithubOAuthService,
     VersionsService,
     VersionsWorker,
     OasdiffDeployDiffEngine,
@@ -57,6 +74,8 @@ import { createDeployStore } from "./database-deploy-store.js";
       useFactory: (inMemory, objectStore) => createDeployStore(inMemory, objectStore),
     },
     { provide: API_TOKEN_STORE, inject: [InMemoryDeployStore, ApiTokenCrypto], useFactory: createApiTokenStore },
+    { provide: GITHUB_OIDC_AUTHORIZATION_STORE, useFactory: createGithubOidcAuthorizationStore },
+    { provide: GITHUB_OIDC_VERIFIER, useFactory: createGithubOidcVerifier },
     { provide: DEPLOY_QUEUE, useExisting: InMemoryDeployQueue },
     { provide: DEPLOY_DIFF_ENGINE, useExisting: OasdiffDeployDiffEngine },
     { provide: SEARCH_INDEX, inject: [InMemorySearchIndex], useFactory: createSearchIndex },

@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { buildDeployRequest, inferSourceFormat, postDeploy } from "@bumd/cli/deploy";
 import * as core from "@actions/core";
-import type { ActionInputs } from "./action-inputs.js";
+import type { AuthenticatedActionInputs } from "./oidc-token.js";
 
-export async function runDeployMode(inputs: ActionInputs): Promise<void> {
+export async function runDeployMode(inputs: AuthenticatedActionInputs): Promise<void> {
   const specBytes = await readFile(inputs.filePath);
   const request = buildDeployRequest({
     orgSlug: inputs.orgSlug,
@@ -33,7 +33,7 @@ export async function runDeployMode(inputs: ActionInputs): Promise<void> {
   core.info(result.skipped ? `Skipped unchanged version ${result.version.id}` : `Queued version ${result.version.id}`);
 }
 
-function versionUrl(inputs: ActionInputs, versionId: string): string {
+function versionUrl(inputs: AuthenticatedActionInputs, versionId: string): string {
   const path = `/v1/orgs/${encodeURIComponent(inputs.orgSlug)}/docs/${encodeURIComponent(inputs.docSlug)}/branches/${encodeURIComponent(inputs.branchSlug)}/versions/${encodeURIComponent(versionId)}`;
   return new URL(path, inputs.apiUrl).toString();
 }

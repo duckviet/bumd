@@ -1,5 +1,5 @@
-import type { ActionInputs } from "./action-inputs.js";
+import type { AuthenticatedActionInputs } from "./oidc-token.js";
 export declare class ActionConfigurationError extends Error {
     constructor(message: string);
 }
-export declare function runDiffMode(inputs: ActionInputs): Promise<void>;
+export declare function runDiffMode(inputs: AuthenticatedActionInputs): Promise<void>;
