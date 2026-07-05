@@ -97,8 +97,19 @@ export class DatabaseApiTokenStore implements ApiTokenStore {
   }
 }
 
+const sharedInMemoryApiTokenStores = new Map<string, ApiTokenStore>();
+
 export function createApiTokenStore(inMemoryStore: ApiTokenStore, crypto: ApiTokenCrypto): ApiTokenStore {
   if (process.env["API_TOKEN_STORE"] === "memory") {
+    const storeId = process.env["BUMD_IN_MEMORY_API_TOKEN_STORE_ID"];
+    if (!storeId) {
+      return inMemoryStore;
+    }
+    const existing = sharedInMemoryApiTokenStores.get(storeId);
+    if (existing) {
+      return existing;
+    }
+    sharedInMemoryApiTokenStores.set(storeId, inMemoryStore);
     return inMemoryStore;
   }
   const databaseUrl = process.env["DATABASE_URL"];

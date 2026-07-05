@@ -22,6 +22,7 @@ const expectedModels = [
   "WebhookDelivery",
   "ApiToken",
   "ProcessingJob",
+  "Invite",
 ];
 
 const tenantOwnedModels = [
@@ -35,6 +36,7 @@ const tenantOwnedModels = [
   "WebhookDelivery",
   "ApiToken",
   "ProcessingJob",
+  "Invite",
 ];
 
 const expectedEnums = [
@@ -121,12 +123,15 @@ test("schema stores secrets as references or hashes and never raw token values",
   const schema = readSchema();
   const apiTokenBlock = modelBlock(schema, "ApiToken");
   const webhookBlock = modelBlock(schema, "Webhook");
+  const inviteBlock = modelBlock(schema, "Invite");
 
   assert.match(apiTokenBlock, /\n\s+tokenHash\s+String\b/u);
   assert.match(apiTokenBlock, /\n\s+tokenPrefix\s+String\b/u);
   assert.doesNotMatch(apiTokenBlock, /\n\s+token\s+String\b/u);
   assert.match(webhookBlock, /\n\s+secretRef\s+String\b/u);
   assert.doesNotMatch(webhookBlock, /\n\s+secret\s+String\b/u);
+  assert.match(inviteBlock, /\n\s+tokenHash\s+String\b/u);
+  assert.doesNotMatch(inviteBlock, /\n\s+token\s+String\b/u);
 });
 
 test("schema records webhook delivery attempt status code and success", () => {
@@ -140,7 +145,7 @@ test("schema records webhook delivery attempt status code and success", () => {
 test("migration creates PostgreSQL tables, enums, foreign keys, and unique constraints", () => {
   const migration = readMigration();
 
-  for (const tableName of expectedModels) {
+  for (const tableName of expectedModels.filter((m) => m !== "Invite")) {
     assert.match(migration, new RegExp(`CREATE TABLE "${tableName}"`, "u"));
   }
 

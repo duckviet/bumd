@@ -1,8 +1,10 @@
 import "reflect-metadata";
+import { randomUUID } from "node:crypto";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { AppModule } from "../app.module.js";
+import { API_TOKEN_STORE } from "../auth/auth-ports.js";
 import type { CreateApiTokenInput, IssuedApiToken } from "../auth/auth-types.js";
 import { setGithubOidcAuthorizationsForTesting } from "../auth/github-oidc-authorization.js";
 import type { GithubOidcAuthorization } from "../auth/github-oidc-types.js";
@@ -55,9 +57,11 @@ const DefaultTestGithubOidcAuthorizations: readonly GithubOidcAuthorization[] = 
 export async function createTestServer(options: TestServerOptions = {}): Promise<TestServer> {
   const previousDeployStore = process.env["DEPLOY_STORE"];
   const previousApiTokenStore = process.env["API_TOKEN_STORE"];
+  const previousApiTokenStoreId = process.env["BUMD_IN_MEMORY_API_TOKEN_STORE_ID"];
   const previousWebhookDeliveryStore = process.env["WEBHOOK_DELIVERY_STORE"];
   process.env["DEPLOY_STORE"] = "memory";
   process.env["API_TOKEN_STORE"] = "memory";
+  process.env["BUMD_IN_MEMORY_API_TOKEN_STORE_ID"] = randomUUID();
   process.env["WEBHOOK_DELIVERY_STORE"] = "memory";
   setGithubOidcVerifierForTesting(options.githubOidcVerifier ?? null);
   setGithubOidcAuthorizationsForTesting(options.githubOidcAuthorizations ?? DefaultTestGithubOidcAuthorizations);
@@ -70,6 +74,7 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
   const queue = app.get(InMemoryDeployQueue);
   const webhookQueue = app.get(InMemoryWebhookQueue);
   const store = app.get(InMemoryDeployStore);
+  const apiTokenStore = app.get<InMemoryDeployStore>(API_TOKEN_STORE);
   const worker = app.get(VersionsWorker);
   const webhookWorker = app.get(WebhookDeliveryWorker);
   let lastWorkerResult: WorkerResult | null = null;
@@ -112,8 +117,8 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
     webhookDeliveries: () => store.webhookDeliveries(),
     webhookQueuedJobs: () => webhookQueue.queuedJobs(),
     failNextWebhookEnqueue: () => webhookQueue.failNextEnqueue(),
-    issueApiToken: (input) => store.issueApiToken(input),
-    apiTokenMetadata: (tokenId) => store.apiTokenMetadata(tokenId),
+    issueApiToken: (input) => apiTokenStore.issueApiToken(input),
+    apiTokenMetadata: (tokenId) => apiTokenStore.apiTokenMetadata(tokenId),
     versionMetadata: (versionId) => store.versionMetadata(versionId),
     enableAutoProcessing: () => {
       queue.enableAutoProcessing(processDeployJob);
@@ -131,6 +136,11 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
         delete process.env["API_TOKEN_STORE"];
       } else {
         process.env["API_TOKEN_STORE"] = previousApiTokenStore;
+      }
+      if (previousApiTokenStoreId === undefined) {
+        delete process.env["BUMD_IN_MEMORY_API_TOKEN_STORE_ID"];
+      } else {
+        process.env["BUMD_IN_MEMORY_API_TOKEN_STORE_ID"] = previousApiTokenStoreId;
       }
       if (previousWebhookDeliveryStore === undefined) {
         delete process.env["WEBHOOK_DELIVERY_STORE"];

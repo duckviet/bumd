@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test ../../tests/cli-deploy.test.mjs"
+    "test": "node --test ../../tests/cli-deploy.test.mjs ../../tests/cli-catalog.test.mjs"
   },
   "dependencies": {
     "@oclif/core": "4.11.4",

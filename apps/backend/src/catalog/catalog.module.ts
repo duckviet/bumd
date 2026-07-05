@@ -5,13 +5,13 @@ import { API_TOKEN_STORE } from "../auth/auth-ports.js";
 import { createApiTokenStore } from "../auth/database-api-token-store.js";
 import { InMemoryDeployStore } from "../versions/in-memory-deploy-store.js";
 import { CatalogService } from "./catalog.service.js";
-import { CatalogWebhooksController, PortalDocsController } from "./catalog.controller.js";
+import { CatalogJobsController, CatalogMembersController, CatalogWebhooksController, PortalDocsController, CatalogInvitesController } from "./catalog.controller.js";
 import { StorageModule } from "../storage/storage.module.js";
 import { OBJECT_STORE, type ObjectStore } from "../storage/object-store-port.js";
 
 @Module({
   imports: [StorageModule],
-  controllers: [PortalDocsController, CatalogWebhooksController],
+  controllers: [PortalDocsController, CatalogJobsController, CatalogMembersController, CatalogWebhooksController, CatalogInvitesController],
   providers: [
     ApiTokenCrypto,
     ApiTokenGuard,

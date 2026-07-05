@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiTokenGuard } from "../auth/api-token.guard.js";
+import type { ApiTokenRequest } from "../auth/api-token-request.js";
 import { CatalogError, catalogHttpException } from "./catalog-errors.js";
 import { CatalogService } from "./catalog.service.js";
 
@@ -73,28 +74,14 @@ export class PortalDocsController {
   }
 }
 
-@Controller("v1/orgs/:orgSlug/webhooks")
+@Controller("v1/orgs/:orgSlug/jobs")
 @UseGuards(ApiTokenGuard)
-export class CatalogWebhooksController {
+export class CatalogJobsController {
   public constructor(private readonly catalog: CatalogService) {}
 
-  @Get()
-  public async list(@Param("orgSlug") orgSlug: string): Promise<unknown> {
-    return this.handle(() => this.catalog.listWebhooks(orgSlug));
-  }
-
-  @Post()
-  public async create(@Param("orgSlug") orgSlug: string, @Body() body: unknown): Promise<unknown> {
-    return this.handle(() => this.catalog.createWebhook(orgSlug, body));
-  }
-
-  @Post(":webhookId/rotate-secret")
-  @HttpCode(200)
-  public async rotateSecret(
-    @Param("orgSlug") orgSlug: string,
-    @Param("webhookId") webhookId: string,
-  ): Promise<unknown> {
-    return this.handle(() => this.catalog.rotateWebhookSecret(orgSlug, webhookId));
+  @Get(":jobId")
+  public async status(@Param("orgSlug") orgSlug: string, @Param("jobId") jobId: string) {
+    return this.handle(() => this.catalog.jobStatus(orgSlug, jobId));
   }
 
   private async handle<T>(operation: () => Promise<T>): Promise<T> {
@@ -108,3 +95,235 @@ export class CatalogWebhooksController {
     }
   }
 }
+
+@Controller("v1/orgs/:orgSlug/members")
+@UseGuards(ApiTokenGuard)
+export class CatalogMembersController {
+  public constructor(private readonly catalog: CatalogService) {}
+
+  @Get()
+  public async list(@Param("orgSlug") orgSlug: string, @Req() request: ApiTokenRequest) {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.listMembers(orgSlug, auth.organizationId);
+    });
+  }
+
+  @Patch(":memberId")
+  public async update(
+    @Param("orgSlug") orgSlug: string,
+    @Param("memberId") memberId: string,
+    @Body() body: unknown,
+    @Req() request: ApiTokenRequest,
+  ) {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.updateMemberRole(orgSlug, auth.organizationId, memberId, body);
+    });
+  }
+
+  @Delete(":memberId")
+  @HttpCode(204)
+  public async remove(@Param("orgSlug") orgSlug: string, @Param("memberId") memberId: string, @Req() request: ApiTokenRequest) {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.deleteMember(orgSlug, auth.organizationId, memberId);
+    });
+  }
+
+  private requireManageAuth(request: ApiTokenRequest) {
+    const auth = request.apiTokenAuth;
+    if (!auth) {
+      throw new CatalogError("unauthorized", 401, "Unauthorized");
+    }
+    if (auth.role !== "owner" && auth.role !== "admin") {
+      throw new CatalogError("forbidden", 403, "Forbidden");
+    }
+    return auth;
+  }
+
+  private async handle<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof CatalogError) {
+        throw catalogHttpException(error);
+      }
+      throw error;
+    }
+  }
+}
+
+@Controller("v1/orgs/:orgSlug/webhooks")
+@UseGuards(ApiTokenGuard)
+export class CatalogWebhooksController {
+  public constructor(private readonly catalog: CatalogService) {}
+
+  @Get()
+  public async list(@Param("orgSlug") orgSlug: string, @Req() request: ApiTokenRequest): Promise<unknown> {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.listWebhooks(orgSlug);
+    });
+  }
+
+  @Post()
+  public async create(@Param("orgSlug") orgSlug: string, @Body() body: unknown, @Req() request: ApiTokenRequest): Promise<unknown> {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.createWebhook(orgSlug, body);
+    });
+  }
+
+  @Post(":webhookId/rotate-secret")
+  @HttpCode(200)
+  public async rotateSecret(
+    @Param("orgSlug") orgSlug: string,
+    @Param("webhookId") webhookId: string,
+    @Req() request: ApiTokenRequest,
+  ): Promise<unknown> {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.rotateWebhookSecret(orgSlug, webhookId);
+    });
+  }
+
+  @Patch(":webhookId")
+  public async update(
+    @Param("orgSlug") orgSlug: string,
+    @Param("webhookId") webhookId: string,
+    @Body() body: unknown,
+    @Req() request: ApiTokenRequest,
+  ): Promise<unknown> {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.updateWebhook(orgSlug, auth.organizationId, webhookId, body);
+    });
+  }
+
+  @Delete(":webhookId")
+  @HttpCode(204)
+  public async remove(
+    @Param("orgSlug") orgSlug: string,
+    @Param("webhookId") webhookId: string,
+    @Req() request: ApiTokenRequest,
+  ): Promise<unknown> {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.deleteWebhook(orgSlug, auth.organizationId, webhookId);
+    });
+  }
+
+  @Get(":webhookId/deliveries")
+  public async listDeliveries(
+    @Param("orgSlug") orgSlug: string,
+    @Param("webhookId") webhookId: string,
+    @Req() request: ApiTokenRequest,
+  ): Promise<unknown> {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.listWebhookDeliveries(orgSlug, auth.organizationId, webhookId);
+    });
+  }
+
+  private requireManageAuth(request: ApiTokenRequest) {
+    const auth = request.apiTokenAuth;
+    if (!auth) {
+      throw new CatalogError("unauthorized", 401, "Unauthorized");
+    }
+    if (auth.role !== "owner" && auth.role !== "admin") {
+      throw new CatalogError("forbidden", 403, "Forbidden");
+    }
+    return auth;
+  }
+
+  private async handle<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof CatalogError) {
+        throw catalogHttpException(error);
+      }
+      throw error;
+    }
+  }
+}
+
+@Controller("v1/orgs/:orgSlug/invites")
+@UseGuards(ApiTokenGuard)
+export class CatalogInvitesController {
+  public constructor(private readonly catalog: CatalogService) {}
+
+  @Get()
+  public async list(@Param("orgSlug") orgSlug: string, @Req() request: ApiTokenRequest) {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.listInvites(orgSlug, auth.organizationId);
+    });
+  }
+
+  @Post()
+  @HttpCode(201)
+  public async create(
+    @Param("orgSlug") orgSlug: string,
+    @Body() body: unknown,
+    @Req() request: ApiTokenRequest,
+  ) {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.createInvite(orgSlug, auth.organizationId, auth.tokenId, body);
+    });
+  }
+
+  @Delete(":inviteId")
+  @HttpCode(204)
+  public async remove(
+    @Param("orgSlug") orgSlug: string,
+    @Param("inviteId") inviteId: string,
+    @Req() request: ApiTokenRequest,
+  ) {
+    return this.handle(() => {
+      const auth = this.requireManageAuth(request);
+      return this.catalog.deleteInvite(orgSlug, auth.organizationId, inviteId);
+    });
+  }
+
+  @Post("accept")
+  @HttpCode(200)
+  public async accept(
+    @Param("orgSlug") orgSlug: string,
+    @Body() body: unknown,
+    @Req() request: ApiTokenRequest,
+  ) {
+    return this.handle(() => {
+      const auth = request.apiTokenAuth;
+      if (!auth) {
+        throw new CatalogError("unauthorized", 401, "Unauthorized");
+      }
+      return this.catalog.acceptInviteToken(orgSlug, body);
+    });
+  }
+
+  private requireManageAuth(request: ApiTokenRequest) {
+    const auth = request.apiTokenAuth;
+    if (!auth) {
+      throw new CatalogError("unauthorized", 401, "Unauthorized");
+    }
+    if (auth.role !== "owner" && auth.role !== "admin") {
+      throw new CatalogError("forbidden", 403, "Forbidden");
+    }
+    return auth;
+  }
+
+  private async handle<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof CatalogError) {
+        throw catalogHttpException(error);
+      }
+      throw error;
+    }
+  }
+}
+

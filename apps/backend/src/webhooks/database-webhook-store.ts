@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { WebhookDeliveryStatus, type RegisteredWebhookInput, type WebhookDeliveryAttempt, type WebhookEndpoint, type WebhookEventType } from "./webhook-types.js";
 import type { WebhookStore } from "./webhook-ports.js";
+import { decryptSecret } from "./webhook-encryption.js";
 
 type WebhookRow = {
   readonly id: string;
@@ -32,7 +33,8 @@ export class DatabaseWebhookStore implements WebhookStore {
       [input.organizationId, input.eventType],
     );
     return result.rows.flatMap((row) => {
-      const secret = readSecret(row.secretRef);
+      const secret = decryptSecret(row.secretRef);
+
       if (secret === null) {
         return [];
       }
@@ -58,7 +60,8 @@ export class DatabaseWebhookStore implements WebhookStore {
     if (row === undefined) {
       return null;
     }
-    const secret = readSecret(row.secretRef);
+    const secret = decryptSecret(row.secretRef);
+
     if (secret === null) {
       return null;
     }
@@ -111,15 +114,6 @@ export function createWebhookStore(inMemoryStore: WebhookStore): WebhookStore {
   return new DatabaseWebhookStore(databaseUrl);
 }
 
-function readSecret(secretRef: string): string | null {
-  const prefix = "env:";
-  if (!secretRef.startsWith(prefix)) {
-    return null;
-  }
-  const envName = secretRef.slice(prefix.length);
-  const value = process.env[envName];
-  return value === undefined || value === "" ? null : value;
-}
 
 function isWebhookEventType(value: string): value is WebhookEventType {
   return value === "version.created" || value === "version.failed" || value === "diff.breaking_detected";

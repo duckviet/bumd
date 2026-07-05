@@ -81,6 +81,7 @@ model Organization {
   diffs             Diff[]
   webhookDeliveries WebhookDelivery[]
   processingJobs    ProcessingJob[]
+  invites           Invite[]
 }
 
 model Membership {
@@ -323,11 +324,20 @@ model User {
 }
 
 model Invite {
-  token            String   @id
-  organizationSlug String
-  role             String
+  id               String         @id @default(cuid())
+  tokenHash        String         @unique
+  organizationId   String
+  email            String?
+  role             MembershipRole
   expiresAt        DateTime
+  acceptedAt       DateTime?
+  revokedAt        DateTime?
+  createdBy        String
   acceptedByUserId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([tokenHash])
 }
