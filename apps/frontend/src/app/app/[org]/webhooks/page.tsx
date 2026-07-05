@@ -1,6 +1,6 @@
-import { listDashboardApiTokens } from "../../../../entities/dashboard/api-tokens-store";
+import { listDashboardWebhooks } from "../../../../entities/dashboard/webhooks-store";
 import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
-import { ApiTokensClient } from "./api-tokens-client";
+import { WebhooksClient } from "./webhooks-client";
 
 type PageProps = {
   readonly params: Promise<{
@@ -8,10 +8,10 @@ type PageProps = {
   }>;
 };
 
-export default async function ApiTokensPage({ params }: PageProps): Promise<React.ReactElement> {
+export default async function WebhooksPage({ params }: PageProps): Promise<React.ReactElement> {
   const { org } = await params;
   const { session, membership } = await requireDashboardRead(org);
-  const tokens = await listDashboardApiTokens(org);
+  const webhooks = await listDashboardWebhooks(org);
   const mayManage = canManage(membership.role);
 
   return dashboardShell({
@@ -19,7 +19,13 @@ export default async function ApiTokensPage({ params }: PageProps): Promise<Reac
     email: session.email,
     role: membership.role,
     memberships: session.memberships,
-    tab: "api-tokens",
-    children: <ApiTokensClient org={org} tokens={tokens} mayManage={mayManage} />,
+    tab: "webhooks",
+    children: (
+      <WebhooksClient
+        org={org}
+        webhooks={webhooks}
+        mayManage={mayManage}
+      />
+    ),
   });
 }

@@ -68,6 +68,7 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
   setGithubOidcAuthorizationsForTesting(options.githubOidcAuthorizations ?? DefaultTestGithubOidcAuthorizations);
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
     logger: ["error", "warn"],
+    rawBody: true,
   });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();

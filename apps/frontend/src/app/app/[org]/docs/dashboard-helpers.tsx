@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { MembershipRole } from "../../../../shared/auth/auth-store";
+import { MembershipRole, type Membership } from "../../../../shared/auth/auth-store";
 import { requireOrgRole } from "../../../../shared/auth/session";
+import { OrgSwitcher } from "./org-switcher";
 
 export const ManageRoles = [MembershipRole.Owner, MembershipRole.Admin, MembershipRole.Member] as const;
 export const ReadRoles = [MembershipRole.Owner, MembershipRole.Admin, MembershipRole.Member, MembershipRole.Guest] as const;
@@ -32,6 +33,7 @@ export function dashboardShell(input: {
   readonly organizationSlug: string;
   readonly email: string;
   readonly role: MembershipRole;
+  readonly memberships?: readonly Membership[];
   readonly tab?: "overview" | "portals" | "members" | "api-tokens" | "webhooks";
   readonly children: React.ReactNode;
 }): React.ReactElement {
@@ -47,7 +49,13 @@ export function dashboardShell(input: {
           </a>
           <div className="h-6 w-px bg-chalk" />
           <div>
-            <p className="dashboard-kicker">{input.organizationSlug}</p>
+            {input.memberships && input.memberships.length > 0 ? (
+              <div style={{ marginBottom: "6px" }}>
+                <OrgSwitcher currentOrg={input.organizationSlug} memberships={input.memberships} />
+              </div>
+            ) : (
+              <p className="dashboard-kicker">{input.organizationSlug}</p>
+            )}
             <h1>Documentation dashboard</h1>
           </div>
         </div>

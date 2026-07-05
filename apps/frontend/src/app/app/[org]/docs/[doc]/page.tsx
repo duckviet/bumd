@@ -24,6 +24,7 @@ export default async function DocOverviewPage({ params }: PageProps): Promise<Re
     organizationSlug: org,
     email: session.email,
     role: membership.role,
+    memberships: session.memberships,
     children: (
       <section className="dashboard-panel">
         <div className="dashboard-section-header">

@@ -42,7 +42,8 @@ export class GithubService {
   // Installations
   // ---------------------------------------------------------------------------
 
-  public async listInstallations(organizationId: string): Promise<GithubInstallationRecord[]> {
+  public async listInstallations(orgSlug: string): Promise<GithubInstallationRecord[]> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     const res = await this.pool.query<GithubInstallationRecord>(
       `SELECT id, "organizationId", "githubInstallationId", "accountName", "createdAt", "updatedAt"
        FROM "GithubInstallation"
@@ -79,7 +80,8 @@ export class GithubService {
   // Repositories
   // ---------------------------------------------------------------------------
 
-  public async listRepositories(organizationId: string): Promise<GithubRepositoryRecord[]> {
+  public async listRepositories(orgSlug: string): Promise<GithubRepositoryRecord[]> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     const res = await this.pool.query<GithubRepositoryRecord>(
       `SELECT id, "organizationId", "githubInstallationId", "githubRepoId", "fullName", "docId", "createdAt", "updatedAt"
        FROM "GithubRepository"
@@ -91,9 +93,10 @@ export class GithubService {
   }
 
   public async linkRepository(
-    organizationId: string,
+    orgSlug: string,
     input: LinkRepositoryInput,
   ): Promise<GithubRepositoryRecord> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     const res = await this.pool.query<GithubRepositoryRecord>(
       `INSERT INTO "GithubRepository" (id, "organizationId", "githubInstallationId", "githubRepoId", "fullName", "createdAt", "updatedAt")
        VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())
@@ -104,7 +107,8 @@ export class GithubService {
     return res.rows[0]!;
   }
 
-  public async unlinkRepository(organizationId: string, repoId: string): Promise<void> {
+  public async unlinkRepository(orgSlug: string, repoId: string): Promise<void> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     await this.pool.query(
       `DELETE FROM "GithubRepository" WHERE "organizationId" = $1 AND id = $2`,
       [organizationId, repoId],
@@ -125,7 +129,8 @@ export class GithubService {
   // Branch Mappings
   // ---------------------------------------------------------------------------
 
-  public async listMappings(organizationId: string, githubRepoId: string): Promise<GithubRepoBranchMappingRecord[]> {
+  public async listMappings(orgSlug: string, githubRepoId: string): Promise<GithubRepoBranchMappingRecord[]> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     const res = await this.pool.query<GithubRepoBranchMappingRecord>(
       `SELECT id, "organizationId", "githubRepoId", "branchName", "specPath", "docId", "createdAt", "updatedAt"
        FROM "GithubRepoBranchMapping"
@@ -137,10 +142,11 @@ export class GithubService {
   }
 
   public async createMapping(
-    organizationId: string,
+    orgSlug: string,
     githubRepoId: string,
     input: CreateMappingInput,
   ): Promise<GithubRepoBranchMappingRecord> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     const res = await this.pool.query<GithubRepoBranchMappingRecord>(
       `INSERT INTO "GithubRepoBranchMapping" (id, "organizationId", "githubRepoId", "branchName", "specPath", "docId", "createdAt", "updatedAt")
        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW())
@@ -151,7 +157,8 @@ export class GithubService {
     return res.rows[0]!;
   }
 
-  public async deleteMapping(organizationId: string, mappingId: string): Promise<void> {
+  public async deleteMapping(orgSlug: string, mappingId: string): Promise<void> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
     await this.pool.query(
       `DELETE FROM "GithubRepoBranchMapping" WHERE "organizationId" = $1 AND id = $2`,
       [organizationId, mappingId],
@@ -175,6 +182,14 @@ export class GithubService {
   // Push webhook processing
   // ---------------------------------------------------------------------------
 
+  private async organizationIdForSlug(orgSlug: string): Promise<string> {
+    const result = await this.pool.query<{ id: string }>('SELECT "id" FROM "Organization" WHERE slug = $1', [orgSlug]);
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error(`Organization not found for slug: ${orgSlug}`);
+    }
+    return row.id;
+  }
   public async processPushWebhook(payload: PushWebhookPayload): Promise<{
     readonly repoFound: boolean;
     readonly mappings: readonly GithubRepoBranchMappingRecord[];

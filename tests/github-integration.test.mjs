@@ -18,14 +18,26 @@ function signPayload(payload, secret) {
   return { body, signature: `sha256=${sig}` };
 }
 
+async function seedGithubInstallation(pool, githubInstallationId) {
+  await pool.query(
+    `INSERT INTO "GithubInstallation" (id, "organizationId", "githubInstallationId", "accountName", "createdAt", "updatedAt")
+     VALUES ($1, 'org_acme', $2, 'octo', NOW(), NOW())
+     ON CONFLICT ("githubInstallationId") DO NOTHING`,
+    [`ghinst_${githubInstallationId}`, githubInstallationId],
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 1. Repository linking, unlinking and branch mapping CRUD
 // ---------------------------------------------------------------------------
 
 test("GitHub integration: repository link, list, and unlink", async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
   const harness = await createTestServer();
   try {
     // Link a repository
+    await seedGithubInstallation(pool, "inst_001");
+
     const linkRes = await harness.inject({
       method: "POST",
       url: "/v1/orgs/acme/github/repositories",
@@ -38,7 +50,7 @@ test("GitHub integration: repository link, list, and unlink", async () => {
     assert.equal(linkRes.statusCode, 201, linkRes.payload);
     const linked = JSON.parse(linkRes.payload);
     assert.equal(linked.repository.fullName, "octo/payments");
-    assert.equal(linked.repository.organizationId, "acme");
+    assert.equal(linked.repository.organizationId, "org_acme");
 
     // List repositories
     const listRes = await harness.inject({
@@ -56,6 +68,7 @@ test("GitHub integration: repository link, list, and unlink", async () => {
     });
     assert.equal(unlinkRes.statusCode, 204, unlinkRes.payload);
   } finally {
+    await pool.end();
     await harness.close();
   }
 });
@@ -65,6 +78,8 @@ test("GitHub integration: branch mapping CRUD", async () => {
   const harness = await createTestServer();
   try {
     // Setup: Link a repository
+    await seedGithubInstallation(pool, "inst_002");
+
     const linkRes = await harness.inject({
       method: "POST",
       url: "/v1/orgs/acme/github/repositories",
@@ -84,7 +99,7 @@ test("GitHub integration: branch mapping CRUD", async () => {
       payload: {
         branchName: "main",
         specPath: "openapi/catalog.yaml",
-        docId: "catalog",
+        docId: "doc_payments",
       },
     });
     assert.equal(createRes.statusCode, 201, createRes.payload);
@@ -144,7 +159,6 @@ test("GitHub webhook receiver: valid signature processes event", async () => {
     const body2 = JSON.parse(res.payload);
     assert.equal(body2.ok, true);
   } finally {
-    delete process.env["GITHUB_WEBHOOK_SECRET"];
     await harness.close();
   }
 });
@@ -210,9 +224,12 @@ test("GitHub webhook receiver: replay/adversarial - tampered body returns 401", 
 // ---------------------------------------------------------------------------
 
 test("GitHub integration: tenant isolation - cannot access other org repositories", async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
   const harness = await createTestServer();
   try {
     // Link a repository to 'acme' org
+    await seedGithubInstallation(pool, "inst_003");
+
     const linkRes = await harness.inject({
       method: "POST",
       url: "/v1/orgs/acme/github/repositories",
@@ -234,6 +251,7 @@ test("GitHub integration: tenant isolation - cannot access other org repositorie
     const found = otherBody.repositories.find((r) => r.githubRepoId === "345678");
     assert.equal(found, undefined, "Cross-org repository must not be visible");
   } finally {
+    await pool.end();
     await harness.close();
   }
 });
@@ -252,18 +270,18 @@ test("GitHub webhook receiver: push event enqueues job with correct type and pay
       after: "deadbeef",
     };
 
-    // No GITHUB_WEBHOOK_SECRET set → verification skipped (dev mode)
-    delete process.env["GITHUB_WEBHOOK_SECRET"];
+    process.env["GITHUB_WEBHOOK_SECRET"] = "test_webhook_secret_not_real";
+    const { body, signature } = signPayload(pushPayload, "test_webhook_secret_not_real");
 
     const res = await harness.inject({
       method: "POST",
       url: "/v1/github/webhooks",
       headers: {
         "x-github-event": "push",
-        "x-hub-signature-256": "sha256=dummy",
+        "x-hub-signature-256": signature,
         "content-type": "application/json",
       },
-      payload: pushPayload,
+      payload: body,
     });
     assert.equal(res.statusCode, 200, res.payload);
     assert.equal(JSON.parse(res.payload).ok, true);
@@ -288,15 +306,19 @@ test("GitHub webhook receiver: pull_request closed action is silently ignored", 
       repository: { id: 222222, full_name: "octo/test" },
     };
 
+
+    process.env["GITHUB_WEBHOOK_SECRET"] = "test_webhook_secret_not_real";
+    const { body, signature } = signPayload(prPayload, "test_webhook_secret_not_real");
+
     const res = await harness.inject({
       method: "POST",
       url: "/v1/github/webhooks",
       headers: {
         "x-github-event": "pull_request",
-        "x-hub-signature-256": "sha256=dummy",
+        "x-hub-signature-256": signature,
         "content-type": "application/json",
       },
-      payload: prPayload,
+      payload: body,
     });
     assert.equal(res.statusCode, 200, res.payload);
     assert.equal(JSON.parse(res.payload).ok, true);

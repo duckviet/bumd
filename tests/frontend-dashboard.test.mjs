@@ -242,3 +242,101 @@ test("api tokens dashboard UI list, create, and revoke workflow", async () => {
     assert.doesNotMatch(listPageFinal.body, /CI test token/u);
   });
 });
+
+test("members and invites dashboard UI workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "members-ui@example.com", "member_acme");
+
+    // 1. Get members list page
+    const listPage = await request(baseUrl, "/app/acme/members", {}, jar);
+    assert.equal(listPage.response.status, 200);
+    assert.match(listPage.body, /Organization Members/u);
+    assert.match(listPage.body, /members-ui@example\.com/u);
+
+    // 2. Create invite via POST
+    const inviteRes = await request(baseUrl, "/app/acme/members/invite-create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "new-invited@example.com", role: "member" }),
+    }, jar);
+    assert.equal(inviteRes.response.status, 200);
+    const created = JSON.parse(inviteRes.body);
+    assert.ok(created.token);
+    assert.equal(created.invite.email, "new-invited@example.com");
+
+    // 3. Verify it is listed in the pending invites
+    const listPageAfter = await request(baseUrl, "/app/acme/members", {}, jar);
+    assert.equal(listPageAfter.response.status, 200);
+    assert.match(listPageAfter.body, /new-invited@example\.com/u);
+
+    // 4. Revoke invite via POST
+    const revokeRes = await request(baseUrl, "/app/acme/members/invite-revoke", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ inviteId: created.invite.id }),
+    }, jar);
+    assert.equal(revokeRes.response.status, 200);
+
+    // 5. Verify it is no longer active (status revoked)
+    const listPageFinal = await request(baseUrl, "/app/acme/members", {}, jar);
+    assert.equal(listPageFinal.response.status, 200);
+    assert.match(listPageFinal.body, /revoked/u);
+  });
+});
+
+test("webhooks dashboard UI workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "webhooks-ui@example.com", "member_acme");
+
+    // 1. Get webhooks list page
+    const listPage = await request(baseUrl, "/app/acme/webhooks", {}, jar);
+    assert.equal(listPage.response.status, 200);
+    assert.match(listPage.body, /Configured Endpoints/u);
+
+    // 2. Create webhook via POST
+    const createRes = await request(baseUrl, "/app/acme/webhooks/create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: "https://example.com/webhooks-ui-test", description: "UI test hook", eventTypes: ["version.created"] }),
+    }, jar);
+    assert.equal(createRes.response.status, 200);
+    const created = JSON.parse(createRes.body);
+    assert.ok(created.secret);
+    assert.equal(created.webhook.url, "https://example.com/webhooks-ui-test");
+
+    // 3. Verify it is listed in the HTML page now
+    const listPageAfter = await request(baseUrl, "/app/acme/webhooks", {}, jar);
+    assert.equal(listPageAfter.response.status, 200);
+    assert.match(listPageAfter.body, /webhooks-ui-test/u);
+
+    // 4. Update webhook via POST
+    const updateRes = await request(baseUrl, "/app/acme/webhooks/update", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ webhookId: created.webhook.id, url: "https://example.com/webhooks-ui-updated", enabled: false, eventTypes: ["version.failed"] }),
+    }, jar);
+    assert.equal(updateRes.response.status, 200);
+
+    // 5. Rotate secret
+    const rotateRes = await request(baseUrl, "/app/acme/webhooks/rotate-secret", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ webhookId: created.webhook.id }),
+    }, jar);
+    assert.equal(rotateRes.response.status, 200);
+    assert.ok(JSON.parse(rotateRes.body).secret);
+
+    // 6. Delete webhook
+    const deleteRes = await request(baseUrl, "/app/acme/webhooks/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ webhookId: created.webhook.id }),
+    }, jar);
+    assert.equal(deleteRes.response.status, 200);
+
+    // 7. Verify it is no longer listed
+    const listPageFinal = await request(baseUrl, "/app/acme/webhooks", {}, jar);
+    assert.equal(listPageFinal.response.status, 200);
+    assert.doesNotMatch(listPageFinal.body, /webhooks-ui-test/u);
+  });
+});
