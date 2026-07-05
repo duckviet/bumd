@@ -201,3 +201,44 @@ test("version history renders newest first without mutation actions", async () =
     assert.doesNotMatch(history.body, /Delete version|Edit version/u);
   });
 });
+
+test("api tokens dashboard UI list, create, and revoke workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "tokens-ui@example.com", "member_acme");
+    
+    // 1. Get tokens list page
+    const listPage = await request(baseUrl, "/app/acme/api-tokens", {}, jar);
+    assert.equal(listPage.response.status, 200);
+    assert.match(listPage.body, /Active API Tokens/u);
+
+    // 2. Create token via Route Handler POST
+    const createRes = await request(baseUrl, "/app/acme/api-tokens/create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "CI test token", role: "member", scopes: ["docs:read", "docs:deploy"] }),
+    }, jar);
+    assert.equal(createRes.response.status, 200);
+    const created = JSON.parse(createRes.body);
+    assert.ok(created.token);
+    assert.equal(created.apiToken.name, "CI test token");
+
+    // 3. Verify it is listed in the HTML page now
+    const listPageAfter = await request(baseUrl, "/app/acme/api-tokens", {}, jar);
+    assert.equal(listPageAfter.response.status, 200);
+    assert.match(listPageAfter.body, /CI test token/u);
+
+    // 4. Revoke token via Route Handler POST
+    const revokeRes = await request(baseUrl, "/app/acme/api-tokens/revoke", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tokenId: created.apiToken.id }),
+    }, jar);
+    assert.equal(revokeRes.response.status, 200);
+    assert.equal(JSON.parse(revokeRes.body).status, "revoked");
+
+    // 5. Verify it is no longer listed
+    const listPageFinal = await request(baseUrl, "/app/acme/api-tokens", {}, jar);
+    assert.equal(listPageFinal.response.status, 200);
+    assert.doesNotMatch(listPageFinal.body, /CI test token/u);
+  });
+});

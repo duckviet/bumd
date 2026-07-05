@@ -6,10 +6,11 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "lint": "DATABASE_URL=postgresql://bumd:bumd@localhost:5436/bumd prisma validate --schema apps/backend/prisma/schema.prisma && tsc -b --dry",
-    "test": "pnpm build && node --env-file=.env --test --test-concurrency=1 tests/schema-contract.test.mjs tests/versions-endpoint.test.mjs tests/diff-engine.test.mjs tests/versions-worker-diff.test.mjs tests/search-indexing.test.mjs tests/try-it-out-proxy.test.mjs tests/webhook-dispatcher.test.mjs tests/api-token-auth.test.mjs tests/job-status-endpoint.test.mjs tests/member-management-endpoint.test.mjs tests/backend-github-oauth.test.mjs tests/backend-oidc.test.mjs tests/github-action.test.mjs tests/github-action-oidc.test.mjs tests/frontend-doc-portal.test.mjs tests/frontend-auth.test.mjs tests/frontend-dashboard.test.mjs tests/cli-deploy.test.mjs tests/cli-catalog.test.mjs tests/invites-endpoint.test.mjs tests/webhooks-endpoint.test.mjs",
+    "test": "pnpm build && node --env-file=.env --test --test-concurrency=1 tests/schema-contract.test.mjs tests/versions-endpoint.test.mjs tests/diff-engine.test.mjs tests/versions-worker-diff.test.mjs tests/search-indexing.test.mjs tests/try-it-out-proxy.test.mjs tests/webhook-dispatcher.test.mjs tests/api-token-auth.test.mjs tests/job-status-endpoint.test.mjs tests/member-management-endpoint.test.mjs tests/backend-github-oauth.test.mjs tests/backend-oidc.test.mjs tests/github-action.test.mjs tests/github-action-oidc.test.mjs tests/frontend-doc-portal.test.mjs tests/frontend-auth.test.mjs tests/frontend-dashboard.test.mjs tests/cli-deploy.test.mjs tests/cli-catalog.test.mjs tests/invites-endpoint.test.mjs tests/webhooks-endpoint.test.mjs tests/production-adapters-workers.test.mjs tests/github-integration.test.mjs",
     "build": "DATABASE_URL=postgresql://bumd:bumd@localhost:5436/bumd prisma validate --schema apps/backend/prisma/schema.prisma && tsc -b && pnpm --filter @bumd/frontend build"
   },
   "devDependencies": {
+    "@prisma/client": "6.19.2",
     "@types/node": "24.10.1",
     "prisma": "6.19.2",
     "typescript": "5.9.3"

@@ -1,8 +1,9 @@
 import { Module } from "@nestjs/common";
 import { CatalogModule } from "./catalog/catalog.module.js";
 import { VersionsModule } from "./versions/versions.module.js";
+import { GithubModule } from "./github/github.module.js";
 
 @Module({
-  imports: [VersionsModule, CatalogModule],
+  imports: [VersionsModule, CatalogModule, GithubModule],
 })
 export class AppModule {}

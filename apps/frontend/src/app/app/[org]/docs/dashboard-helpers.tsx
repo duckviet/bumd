@@ -32,7 +32,7 @@ export function dashboardShell(input: {
   readonly organizationSlug: string;
   readonly email: string;
   readonly role: MembershipRole;
-  readonly tab?: "overview" | "portals";
+  readonly tab?: "overview" | "portals" | "members" | "api-tokens" | "webhooks";
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const activeTab = input.tab ?? "overview";
@@ -66,6 +66,9 @@ export function dashboardShell(input: {
       <nav className="dashboard-tabs">
         <a href={`/app/${input.organizationSlug}`} className={activeTab === "overview" ? "active" : ""}>Overview</a>
         <a href={`/app/${input.organizationSlug}/docs`} className={activeTab === "portals" ? "active" : ""}>Portals</a>
+        <a href={`/app/${input.organizationSlug}/members`} className={activeTab === "members" ? "active" : ""}>Members & Invites</a>
+        <a href={`/app/${input.organizationSlug}/api-tokens`} className={activeTab === "api-tokens" ? "active" : ""}>API Tokens</a>
+        <a href={`/app/${input.organizationSlug}/webhooks`} className={activeTab === "webhooks" ? "active" : ""}>Webhooks</a>
       </nav>
       {input.children}
     </main>

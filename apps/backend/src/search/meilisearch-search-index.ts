@@ -31,6 +31,25 @@ export class MeilisearchSearchIndex implements SearchIndex {
     this.indexUrl = new URL(`/indexes/${encodeURIComponent(indexName)}`, baseUrl);
   }
 
+  private initialized = false;
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+    try {
+      await this.request(new URL(`${this.indexUrl.pathname}/settings`, this.indexUrl), {
+        method: "PATCH",
+        json: {
+          filterableAttributes: ["organizationId", "docId", "branchId", "versionId"],
+        },
+      });
+      this.initialized = true;
+    } catch (error) {
+      console.error("Failed to initialize Meilisearch settings:", error);
+    }
+  }
+
   public async replaceVersionDocuments(input: {
     readonly organizationId: string;
     readonly docId: string;
@@ -38,6 +57,7 @@ export class MeilisearchSearchIndex implements SearchIndex {
     readonly versionId: string;
     readonly documents: readonly SearchDocument[];
   }): Promise<void> {
+    await this.ensureInitialized();
     await this.request(new URL(`${this.indexUrl.pathname}/documents`, this.indexUrl), {
       method: "DELETE",
       searchParams: {
@@ -68,6 +88,7 @@ export class MeilisearchSearchIndex implements SearchIndex {
     readonly versionId?: string;
     readonly query: string;
   }): Promise<SearchResult> {
+    await this.ensureInitialized();
     const filters = [equalityFilter("organizationId", input.organizationId), equalityFilter("docId", input.docId)];
     if (input.branchId !== undefined) {
       filters.push(equalityFilter("branchId", input.branchId));

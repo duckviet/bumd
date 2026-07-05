@@ -27,7 +27,7 @@ import { WebhookDeliveryWorker, WebhookDispatcher } from "../webhooks/webhook-di
 import { WEBHOOK_HTTP_CLIENT, WEBHOOK_QUEUE, WEBHOOK_STORE } from "../webhooks/webhook-ports.js";
 import { createWebhookQueue } from "../webhooks/webhook-queue-provider.js";
 import { WebhookWorkerBootstrap } from "../webhooks/webhook-worker-bootstrap.js";
-import { DEPLOY_DIFF_ENGINE, DEPLOY_QUEUE, DEPLOY_STORE } from "./deploy-ports.js";
+import { DEPLOY_DIFF_ENGINE, DEPLOY_QUEUE, DEPLOY_STORE, type DeployQueue } from "./deploy-ports.js";
 import { OasdiffDeployDiffEngine } from "./diff-engine-adapter.js";
 import { InMemoryDeployQueue } from "./in-memory-deploy-queue.js";
 import { InMemoryDeployStore } from "./in-memory-deploy-store.js";
@@ -37,6 +37,17 @@ import { VersionsWorker } from "./versions-worker.js";
 import { StorageModule } from "../storage/storage.module.js";
 import { OBJECT_STORE, type ObjectStore } from "../storage/object-store-port.js";
 import { createDeployStore } from "./database-deploy-store.js";
+import { BullMqDeployQueue } from "./bullmq-deploy-queue.js";
+import { DeployWorkerBootstrap } from "./deploy-worker-bootstrap.js";
+import { bullMqOptionsFromRedisUrl } from "../webhooks/webhook-queue-provider.js";
+
+export function createDeployQueue(inMemoryQueue: InMemoryDeployQueue): DeployQueue {
+  const options = bullMqOptionsFromRedisUrl();
+  if (options === null) {
+    return inMemoryQueue;
+  }
+  return new BullMqDeployQueue(options);
+}
 
 @Module({
   imports: [StorageModule],
@@ -68,6 +79,7 @@ import { createDeployStore } from "./database-deploy-store.js";
     WebhookDispatcher,
     WebhookDeliveryWorker,
     WebhookWorkerBootstrap,
+    DeployWorkerBootstrap,
     {
       provide: DEPLOY_STORE,
       inject: [InMemoryDeployStore, OBJECT_STORE],
@@ -76,7 +88,7 @@ import { createDeployStore } from "./database-deploy-store.js";
     { provide: API_TOKEN_STORE, inject: [InMemoryDeployStore, ApiTokenCrypto], useFactory: createApiTokenStore },
     { provide: GITHUB_OIDC_AUTHORIZATION_STORE, useFactory: createGithubOidcAuthorizationStore },
     { provide: GITHUB_OIDC_VERIFIER, useFactory: createGithubOidcVerifier },
-    { provide: DEPLOY_QUEUE, useExisting: InMemoryDeployQueue },
+    { provide: DEPLOY_QUEUE, inject: [InMemoryDeployQueue], useFactory: createDeployQueue },
     { provide: DEPLOY_DIFF_ENGINE, useExisting: OasdiffDeployDiffEngine },
     { provide: SEARCH_INDEX, inject: [InMemorySearchIndex], useFactory: createSearchIndex },
     { provide: TRY_IT_OUT_HTTP_CLIENT, useExisting: KyTryItOutHttpClient },
@@ -84,6 +96,6 @@ import { createDeployStore } from "./database-deploy-store.js";
     { provide: WEBHOOK_QUEUE, inject: [InMemoryWebhookQueue], useFactory: createWebhookQueue },
     { provide: WEBHOOK_HTTP_CLIENT, useExisting: KyWebhookHttpClient },
   ],
-  exports: [VersionsWorker, InMemoryDeployQueue, InMemoryDeployStore, InMemoryWebhookQueue, InMemorySearchIndex, WebhookDeliveryWorker],
+  exports: [VersionsWorker, InMemoryDeployQueue, InMemoryDeployStore, InMemoryWebhookQueue, InMemorySearchIndex, WebhookDeliveryWorker, DEPLOY_STORE, DEPLOY_QUEUE],
 })
 export class VersionsModule {}

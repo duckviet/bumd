@@ -37,6 +37,7 @@ export type TestServer = {
   readonly apiTokenMetadata: (tokenId: string) => ReturnType<InMemoryDeployStore["apiTokenMetadata"]>;
   readonly versionMetadata: (versionId: string) => ReturnType<InMemoryDeployStore["versionMetadata"]>;
   readonly enableAutoProcessing: () => void;
+  readonly app: NestFastifyApplication;
   readonly close: () => Promise<void>;
 };
 
@@ -84,6 +85,7 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
   }
 
   return {
+    app,
     inject: (input) => {
       const options: InjectOptions = {
         method: input.method,
