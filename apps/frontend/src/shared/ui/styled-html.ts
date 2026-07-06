@@ -103,6 +103,46 @@ export function styledHtmlPage(title: string, badgeText: string, content: string
       color: var(--color-carbon);
       text-decoration: underline;
     }
+    .github-button {
+      background-color: #24292e;
+      color: #ffffff;
+      border: none;
+      border-radius: 20px;
+      height: 40px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 12px;
+      transition: background-color 0.15s ease;
+      font-family: var(--font-inter);
+    }
+    .github-button:hover {
+      background-color: #555555;
+    }
+    .or-separator {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: var(--color-slate);
+      font-size: 13px;
+      margin: 16px 0 8px 0;
+    }
+    .or-separator::before, .or-separator::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--color-chalk);
+    }
+    .or-separator:not(:empty)::before {
+      margin-right: .5em;
+    }
+    .or-separator:not(:empty)::after {
+      margin-left: .5em;
+    }
     .badge {
       display: inline-block;
       color: var(--color-signal-orange);

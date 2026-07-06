@@ -25,12 +25,19 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const fileBase64 = Buffer.from(specContent, "utf8").toString("base64");
   const filename = file.name || "spec.yaml";
 
-  const adminToken = process.env["BUMD_ADMIN_SESSION_TOKEN"] || "test_admin_session_not_secret";
+  const adminToken = process.env["BUMD_ADMIN_SESSION_TOKEN"];
+  if (!adminToken || adminToken.trim() === "") {
+    if (process.env["NODE_ENV"] === "production") {
+      return new Response("BUMD_ADMIN_SESSION_TOKEN environment variable is not configured", { status: 500 });
+    }
+  }
+  const finalAdminToken = adminToken || "test_admin_session_not_secret";
+
   const tokenRes = await fetch(`${backendBaseUrl()}/v1/orgs/${org}/api-tokens`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${adminToken}`,
+      "Authorization": `Bearer ${finalAdminToken}`,
     },
     body: JSON.stringify({
       name: `web-upload-${Date.now()}`,
