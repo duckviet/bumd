@@ -1,4 +1,4 @@
-import type { ActionInputs } from "./action-inputs.js";
+import type { AuthenticatedActionInputs } from "./oidc-token.js";
 export declare const DiffClassification: {
     readonly None: "none";
     readonly NonBreaking: "non_breaking";
@@ -15,4 +15,4 @@ export type ActionDiffResult = {
 export declare class DiffClientError extends Error {
     constructor(message: string);
 }
-export declare function fetchDiffResult(inputs: ActionInputs): Promise<ActionDiffResult>;
+export declare function fetchDiffResult(inputs: AuthenticatedActionInputs): Promise<ActionDiffResult>;

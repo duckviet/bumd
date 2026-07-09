@@ -5,13 +5,23 @@ import { AppModule } from "../app.module.js";
 import { InMemoryDeployQueue } from "../versions/in-memory-deploy-queue.js";
 import { VersionsWorker } from "../versions/versions-worker.js";
 
+import { GITHUB_QUEUE, InMemoryGithubQueue } from "../github/github-queue.js";
+import { GithubWorker } from "../github/github-worker.js";
+
 const port = Number.parseInt(process.env["PORT"] ?? "3100", 10);
-const app = await NestFactory.create(AppModule, new FastifyAdapter(), { logger: ["error", "warn", "log", "debug"] });
+const app = await NestFactory.create(AppModule, new FastifyAdapter(), { logger: ["error", "warn", "log", "debug"], rawBody: true });
 const queue = app.get(InMemoryDeployQueue);
 const worker = app.get(VersionsWorker);
 
 queue.enableAutoProcessing(async (data) => {
   await worker.process(data);
+});
+
+const githubQueue = app.get<InMemoryGithubQueue>(GITHUB_QUEUE);
+const githubWorker = app.get(GithubWorker);
+
+githubQueue.enableAutoProcessing(async (data) => {
+  await githubWorker.process(data);
 });
 
 await app.listen(port, "127.0.0.1");

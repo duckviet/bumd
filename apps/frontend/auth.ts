@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authenticateUser } from "./src/shared/auth/auth-store";
+import { authenticateUser, registerUser } from "./src/shared/auth/auth-store";
 
 type AuthSession = {
   readonly user?: {
@@ -29,10 +29,13 @@ const credentialsSchema = z.object({
 
 const nextAuthPackage = "next-" + "auth";
 const credentialsPackage = "next-" + "auth/providers/credentials";
+const githubPackage = "next-" + "auth/providers/github";
 const nextAuthModule: unknown = await import(nextAuthPackage);
 const credentialsModule: unknown = await import(credentialsPackage);
+const githubModule: unknown = await import(githubPackage);
 const NextAuth = nextAuthFactory(nextAuthModule);
 const Credentials = providerFactory(credentialsModule);
+const Github = providerFactory(githubModule);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -56,7 +59,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: user.id, email: user.email, name: user.name };
       },
     }),
+    Github({
+      clientId: process.env["GITHUB_CLIENT_ID"],
+      clientSecret: process.env["GITHUB_CLIENT_SECRET"],
+    }),
   ],
+  callbacks: {
+    async signIn({
+      user,
+      account,
+    }: {
+      readonly user: { readonly email?: string | null; readonly name?: string | null };
+      readonly account: { readonly provider: string } | null;
+    }) {
+      if (account?.provider === "github") {
+        const email = user.email;
+        const name = user.name || email || "GitHub User";
+        if (email) {
+          try {
+            await registerUser({
+              email,
+              password: "github_oauth_placeholder_password",
+              name,
+            });
+          } catch (err) {
+            console.error("Failed to auto-register GitHub user:", err);
+            return false;
+          }
+        }
+      }
+      return true;
+    },
+  },
 });
 
 function nextAuthFactory(moduleValue: unknown): NextAuthFactory {

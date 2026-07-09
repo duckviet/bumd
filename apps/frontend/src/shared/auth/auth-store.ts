@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "./password";
 import { getDb } from "../db";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -159,12 +159,18 @@ async function ensureSeeded(): Promise<void> {
       }
       const parsed = inviteSchema.safeParse({ token, organizationSlug, role, expiresAt });
       if (parsed.success) {
-        const existing = await db.query('SELECT token FROM "Invite" WHERE token = $1', [parsed.data.token]);
+        const tokenHash = hashInviteToken(parsed.data.token);
+        const existing = await db.query('SELECT id FROM "Invite" WHERE "tokenHash" = $1', [tokenHash]);
         if (existing.rows.length === 0) {
-          await db.query(
-            'INSERT INTO "Invite" (token, "organizationSlug", role, "expiresAt", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
-            [parsed.data.token, parsed.data.organizationSlug, parsed.data.role, new Date(parsed.data.expiresAt)]
-          );
+          const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [parsed.data.organizationSlug]);
+          if (orgRes.rows.length > 0) {
+            const orgId = orgRes.rows[0].id;
+            const inviteId = `inv_${randomUUID()}`;
+            await db.query(
+              'INSERT INTO "Invite" (id, "tokenHash", "organizationId", role, "expiresAt", "createdBy", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())',
+              [inviteId, tokenHash, orgId, parsed.data.role, new Date(parsed.data.expiresAt), "system"]
+            );
+          }
         }
       }
     }
@@ -340,10 +346,21 @@ export async function membershipForOrg(userId: string, organizationSlug: string)
   };
 }
 
+export function hashInviteToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 export async function acceptInvite(token: string, userId: string): Promise<{ readonly kind: "accepted"; readonly organizationSlug: string; readonly role: MembershipRole } | { readonly kind: "invalid" }> {
   await ensureSeeded();
   const db = getDb();
-  const res = await db.query('SELECT * FROM "Invite" WHERE token = $1', [token]);
+  const tokenHash = hashInviteToken(token);
+  const res = await db.query(
+    `SELECT i.*, o.slug AS "organizationSlug"
+     FROM "Invite" i
+     INNER JOIN "Organization" o ON o.id = i."organizationId"
+     WHERE i."tokenHash" = $1`,
+    [tokenHash]
+  );
   if (res.rows.length === 0) {
     return { kind: "invalid" };
   }
@@ -351,25 +368,26 @@ export async function acceptInvite(token: string, userId: string): Promise<{ rea
   const expiresAtVal = invite["expiresAt"];
   const expiresAtTime = expiresAtVal instanceof Date ? expiresAtVal.getTime() : new Date(expiresAtVal as string).getTime();
 
-  if (invite["acceptedByUserId"] !== null || expiresAtTime <= Date.now()) {
+  if (invite["acceptedByUserId"] !== null || invite["revokedAt"] !== null || expiresAtTime <= Date.now()) {
     return { kind: "invalid" };
   }
 
-  await db.query('UPDATE "Invite" SET "acceptedByUserId" = $1, "updatedAt" = NOW() WHERE token = $2', [userId, token]);
+  await db.query(
+    'UPDATE "Invite" SET "acceptedByUserId" = $1, "acceptedAt" = NOW(), "updatedAt" = NOW() WHERE "tokenHash" = $2',
+    [userId, tokenHash]
+  );
 
-  const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [invite["organizationSlug"]]);
-  if (orgRes.rows.length > 0) {
-    const orgId = orgRes.rows[0]["id"] as string;
-    const memId = `mem_${userId}_${invite["organizationSlug"] as string}_${randomUUID().slice(0, 8)}`;
-    await db.query(
-      'INSERT INTO "Membership" (id, "organizationId", "userId", role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) ON CONFLICT DO NOTHING',
-      [memId, orgId, userId, invite["role"] as MembershipRole]
-    );
-  }
+  const orgId = invite["organizationId"] as string;
+  const orgSlug = invite["organizationSlug"] as string;
+  const memId = `mem_${userId}_${orgSlug}_${randomUUID().slice(0, 8)}`;
+  await db.query(
+    'INSERT INTO "Membership" (id, "organizationId", "userId", role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) ON CONFLICT DO NOTHING',
+    [memId, orgId, userId, invite["role"] as MembershipRole]
+  );
 
   return {
     kind: "accepted",
-    organizationSlug: invite["organizationSlug"] as string,
+    organizationSlug: orgSlug,
     role: invite["role"] as MembershipRole,
   };
 }

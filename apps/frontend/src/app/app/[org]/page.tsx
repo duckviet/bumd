@@ -73,6 +73,7 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
     organizationSlug: org,
     email: session.email,
     role: membership.role,
+    memberships: session.memberships,
     tab: "overview",
     children: (
       <div className="dashboard-workspace flex flex-col gap-8">

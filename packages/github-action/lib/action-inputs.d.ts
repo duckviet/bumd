@@ -12,7 +12,11 @@ declare const inputSchema: z.ZodObject<{
     branchSlug: z.ZodString;
     filePath: z.ZodString;
     sourceFormat: z.ZodOptional<z.ZodString>;
-    backendToken: z.ZodString;
+    backendToken: z.ZodOptional<z.ZodString>;
+    authMode: z.ZodEnum<{
+        token: "token";
+        oidc: "oidc";
+    }>;
     githubToken: z.ZodOptional<z.ZodString>;
     versionId: z.ZodOptional<z.ZodString>;
     baseVersionId: z.ZodOptional<z.ZodString>;

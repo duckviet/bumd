@@ -23,6 +23,7 @@ export default async function DocsPage({ params }: PageProps): Promise<React.Rea
     organizationSlug: org,
     email: session.email,
     role: membership.role,
+    memberships: session.memberships,
     tab: "portals",
     children: (
       <div className="dashboard-workspace">

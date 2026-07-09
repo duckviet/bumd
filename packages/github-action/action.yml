@@ -25,7 +25,11 @@ inputs:
     required: false
   backend_token:
     description: Bumd API token
-    required: true
+    required: false
+  auth_mode:
+    description: "Authentication mode: token or oidc"
+    required: false
+    default: "token"
   github_token:
     description: GitHub token used for pull request comments
     required: false

@@ -3,6 +3,9 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import test from "node:test";
+import pg from "pg";
+
+const DATABASE_URL = process.env["DATABASE_URL"] ?? "postgresql://bumd:bumd@localhost:5436/bumd";
 
 const HOST = "127.0.0.1";
 const STARTUP_TIMEOUT_MS = 15_000;
@@ -199,5 +202,226 @@ test("version history renders newest first without mutation actions", async () =
     assert.ok(history.body.indexOf("v3") < history.body.indexOf("v2"));
     assert.ok(history.body.indexOf("v2") < history.body.indexOf("v1"));
     assert.doesNotMatch(history.body, /Delete version|Edit version/u);
+  });
+});
+
+test("api tokens dashboard UI list, create, and revoke workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "tokens-ui@example.com", "member_acme");
+    
+    // 1. Get tokens list page
+    const listPage = await request(baseUrl, "/app/acme/api-tokens", {}, jar);
+    assert.equal(listPage.response.status, 200);
+    assert.match(listPage.body, /Active API Tokens/u);
+
+    // 2. Create token via Route Handler POST
+    const createRes = await request(baseUrl, "/app/acme/api-tokens/create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "CI test token", role: "member", scopes: ["docs:read", "docs:deploy"] }),
+    }, jar);
+    assert.equal(createRes.response.status, 200);
+    const created = JSON.parse(createRes.body);
+    assert.ok(created.token);
+    assert.equal(created.apiToken.name, "CI test token");
+
+    // 3. Verify it is listed in the HTML page now
+    const listPageAfter = await request(baseUrl, "/app/acme/api-tokens", {}, jar);
+    assert.equal(listPageAfter.response.status, 200);
+    assert.match(listPageAfter.body, /CI test token/u);
+
+    // 4. Revoke token via Route Handler POST
+    const revokeRes = await request(baseUrl, "/app/acme/api-tokens/revoke", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tokenId: created.apiToken.id }),
+    }, jar);
+    assert.equal(revokeRes.response.status, 200);
+    assert.equal(JSON.parse(revokeRes.body).status, "revoked");
+
+    // 5. Verify it is no longer listed
+    const listPageFinal = await request(baseUrl, "/app/acme/api-tokens", {}, jar);
+    assert.equal(listPageFinal.response.status, 200);
+    assert.doesNotMatch(listPageFinal.body, /CI test token/u);
+  });
+});
+
+test("members and invites dashboard UI workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "members-ui@example.com", "member_acme");
+
+    // 1. Get members list page
+    const listPage = await request(baseUrl, "/app/acme/members", {}, jar);
+    assert.equal(listPage.response.status, 200);
+    assert.match(listPage.body, /Organization Members/u);
+    assert.match(listPage.body, /members-ui@example\.com/u);
+
+    // 2. Create invite via POST
+    const inviteRes = await request(baseUrl, "/app/acme/members/invite-create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "new-invited@example.com", role: "member" }),
+    }, jar);
+    assert.equal(inviteRes.response.status, 200);
+    const created = JSON.parse(inviteRes.body);
+    assert.ok(created.token);
+    assert.equal(created.invite.email, "new-invited@example.com");
+
+    // 3. Verify it is listed in the pending invites
+    const listPageAfter = await request(baseUrl, "/app/acme/members", {}, jar);
+    assert.equal(listPageAfter.response.status, 200);
+    assert.match(listPageAfter.body, /new-invited@example\.com/u);
+
+    // 4. Revoke invite via POST
+    const revokeRes = await request(baseUrl, "/app/acme/members/invite-revoke", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ inviteId: created.invite.id }),
+    }, jar);
+    assert.equal(revokeRes.response.status, 200);
+
+    // 5. Verify it is no longer active (status revoked)
+    const listPageFinal = await request(baseUrl, "/app/acme/members", {}, jar);
+    assert.equal(listPageFinal.response.status, 200);
+    assert.match(listPageFinal.body, /revoked/u);
+  });
+});
+
+test("webhooks dashboard UI workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "webhooks-ui@example.com", "member_acme");
+
+    // 1. Get webhooks list page
+    const listPage = await request(baseUrl, "/app/acme/webhooks", {}, jar);
+    assert.equal(listPage.response.status, 200);
+    assert.match(listPage.body, /Configured Endpoints/u);
+
+    // 2. Create webhook via POST
+    const createRes = await request(baseUrl, "/app/acme/webhooks/create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: "https://example.com/webhooks-ui-test", description: "UI test hook", eventTypes: ["version.created"] }),
+    }, jar);
+    assert.equal(createRes.response.status, 200);
+    const created = JSON.parse(createRes.body);
+    assert.ok(created.secret);
+    assert.equal(created.webhook.url, "https://example.com/webhooks-ui-test");
+
+    // 3. Verify it is listed in the HTML page now
+    const listPageAfter = await request(baseUrl, "/app/acme/webhooks", {}, jar);
+    assert.equal(listPageAfter.response.status, 200);
+    assert.match(listPageAfter.body, /webhooks-ui-test/u);
+
+    // 4. Update webhook via POST
+    const updateRes = await request(baseUrl, "/app/acme/webhooks/update", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ webhookId: created.webhook.id, url: "https://example.com/webhooks-ui-updated", enabled: false, eventTypes: ["version.failed"] }),
+    }, jar);
+    assert.equal(updateRes.response.status, 200);
+
+    // 5. Rotate secret
+    const rotateRes = await request(baseUrl, "/app/acme/webhooks/rotate-secret", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ webhookId: created.webhook.id }),
+    }, jar);
+    assert.equal(rotateRes.response.status, 200);
+    assert.ok(JSON.parse(rotateRes.body).secret);
+
+    // 6. Delete webhook
+    const deleteRes = await request(baseUrl, "/app/acme/webhooks/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ webhookId: created.webhook.id }),
+    }, jar);
+    assert.equal(deleteRes.response.status, 200);
+
+    // 7. Verify it is no longer listed
+    const listPageFinal = await request(baseUrl, "/app/acme/webhooks", {}, jar);
+    assert.equal(listPageFinal.response.status, 200);
+    assert.doesNotMatch(listPageFinal.body, /webhooks-ui-test/u);
+  });
+});
+
+test("doc settings repository linking and branch mappings workflow", async () => {
+  await withFrontend(async (baseUrl) => {
+    const jar = await signupLoginAndInvite(baseUrl, "repo-linking@example.com", "member_acme");
+    const pool = new pg.Pool({ connectionString: DATABASE_URL });
+
+    try {
+      // Seed GitHub installation first
+      await pool.query(
+        `INSERT INTO "GithubInstallation" (id, "organizationId", "githubInstallationId", "accountName", "createdAt", "updatedAt")
+         VALUES ('ghinst_001', 'org_acme', 'inst_001', 'octo', NOW(), NOW())
+         ON CONFLICT ("githubInstallationId") DO NOTHING`
+      );
+
+      // 1. Get settings page and verify GitHub section exists
+      const settingsPage = await request(baseUrl, "/app/acme/docs/payments/settings", {}, jar);
+      assert.equal(settingsPage.response.status, 200);
+      assert.match(settingsPage.body, /GitHub Integration/u);
+      assert.match(settingsPage.body, /Link new repository/u);
+
+      // 2. Link a repository via POST (create_and_link_repo action)
+      const linkRes = await request(baseUrl, "/app/acme/docs/payments/settings", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "create_and_link_repo",
+          githubInstallationId: "inst_001",
+          githubRepoId: "998877",
+          fullName: "octo/linked-repo-test",
+        }).toString(),
+      }, jar);
+      assert.equal(linkRes.response.status, 303);
+
+      // 3. Verify it is now linked on settings page
+      const settingsAfter = await request(baseUrl, "/app/acme/docs/payments/settings", {}, jar);
+      assert.equal(settingsAfter.response.status, 200);
+      assert.match(settingsAfter.body, /octo\/linked-repo-test/u);
+      assert.match(settingsAfter.body, /Branch & Spec Path Mappings/u);
+
+      // 4. Create branch mapping
+      const mapRes = await request(baseUrl, "/app/acme/docs/payments/settings", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "create_mapping",
+          githubRepoId: "998877",
+          branchName: "staging",
+          specPath: "api/openapi.yaml",
+        }).toString(),
+      }, jar);
+      assert.equal(mapRes.response.status, 303);
+
+      // 5. Verify mapping is listed
+      const settingsMapped = await request(baseUrl, "/app/acme/docs/payments/settings", {}, jar);
+      assert.equal(settingsMapped.response.status, 200);
+      assert.match(settingsMapped.body, /staging/u);
+      assert.match(settingsMapped.body, /api\/openapi.yaml/u);
+
+      // Fetch repository ID from DB
+      const repoRes = await pool.query('SELECT id FROM "GithubRepository" WHERE "githubRepoId" = \'998877\'');
+      const repoId = repoRes.rows[0].id;
+
+      // 6. Unlink repository
+      const unlinkRes = await request(baseUrl, "/app/acme/docs/payments/settings", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "unlink_repo",
+          repoId,
+        }).toString(),
+      }, jar);
+      assert.equal(unlinkRes.response.status, 303);
+
+      // 7. Verify unlinked
+      const settingsFinal = await request(baseUrl, "/app/acme/docs/payments/settings", {}, jar);
+      assert.equal(settingsFinal.response.status, 200);
+      assert.doesNotMatch(settingsFinal.body, /Linked Repository:/u);
+    } finally {
+      await pool.end();
+    }
   });
 });

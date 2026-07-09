@@ -123,7 +123,8 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
     return this.updateVersionStatus(versionId, VersionStatus.Ready, new Date().toISOString());
   }
 
-  public async markVersionFailed(versionId: string): Promise<VersionRecord> {
+  public async markVersionFailed(versionId: string, error?: unknown): Promise<VersionRecord> {
+    void error;
     return this.updateVersionStatus(versionId, VersionStatus.Failed);
   }
 

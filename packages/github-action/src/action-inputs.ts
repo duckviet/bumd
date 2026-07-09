@@ -16,7 +16,8 @@ const inputSchema = z.object({
   branchSlug: z.string().min(1),
   filePath: z.string().min(1),
   sourceFormat: z.string().optional(),
-  backendToken: z.string().min(1),
+  backendToken: z.string().min(1).optional(),
+  authMode: z.enum(["token", "oidc"]),
   githubToken: z.string().optional(),
   versionId: z.string().optional(),
   baseVersionId: z.string().optional(),
@@ -28,8 +29,10 @@ const inputSchema = z.object({
 export type ActionInputs = z.infer<typeof inputSchema>;
 
 export function readActionInputs(): ActionInputs {
-  const backendToken = requiredInput("backend_token");
-  maskSecret(backendToken);
+  const backendToken = optionalInput("backend_token");
+  if (backendToken !== undefined) {
+    maskSecret(backendToken);
+  }
   const githubToken = optionalInput("github_token");
   if (githubToken !== undefined) {
     maskSecret(githubToken);
@@ -44,6 +47,7 @@ export function readActionInputs(): ActionInputs {
     filePath: requiredInput("file"),
     sourceFormat: optionalInput("source_format"),
     backendToken,
+    authMode: optionalInput("auth_mode") ?? "token",
     githubToken,
     versionId: optionalInput("version_id"),
     baseVersionId: optionalInput("base_version_id"),

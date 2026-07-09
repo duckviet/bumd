@@ -1,2 +1,2 @@
-import type { ActionInputs } from "./action-inputs.js";
-export declare function runDeployMode(inputs: ActionInputs): Promise<void>;
+import type { AuthenticatedActionInputs } from "./oidc-token.js";
+export declare function runDeployMode(inputs: AuthenticatedActionInputs): Promise<void>;

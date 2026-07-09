@@ -81,6 +81,10 @@ model Organization {
   diffs             Diff[]
   webhookDeliveries WebhookDelivery[]
   processingJobs    ProcessingJob[]
+  invites           Invite[]
+  githubInstallations GithubInstallation[]
+  githubRepositories  GithubRepository[]
+  githubRepoBranchMappings GithubRepoBranchMapping[]
 }
 
 model Membership {
@@ -114,6 +118,8 @@ model Doc {
   versions        Version[]
   diffs           Diff[]
   processingJobs  ProcessingJob[]
+  githubRepositories GithubRepository[]
+  githubRepoBranchMappings GithubRepoBranchMapping[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -316,16 +322,78 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  githubId     String?  @unique
+  githubLogin  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
 model Invite {
-  token            String   @id
-  organizationSlug String
-  role             String
+  id               String         @id @default(cuid())
+  tokenHash        String         @unique
+  organizationId   String
+  email            String?
+  role             MembershipRole
   expiresAt        DateTime
+  acceptedAt       DateTime?
+  revokedAt        DateTime?
+  createdBy        String
   acceptedByUserId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([tokenHash])
+}
+
+model GithubInstallation {
+  id                   String             @id @default(cuid())
+  organizationId       String
+  githubInstallationId String             @unique
+  accountName          String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  organization         Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repositories         GithubRepository[]
+
+  @@index([organizationId])
+}
+
+model GithubRepository {
+  id                   String                    @id @default(cuid())
+  organizationId       String
+  githubInstallationId String
+  githubRepoId         String                    @unique
+  fullName             String
+  docId                String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  installation         GithubInstallation        @relation(fields: [githubInstallationId], references: [githubInstallationId], onDelete: Cascade)
+  doc                  Doc?                      @relation(fields: [docId], references: [id], onDelete: SetNull)
+  mappings             GithubRepoBranchMapping[]
+
+  @@index([organizationId])
+  @@index([githubInstallationId])
+  @@index([docId])
+}
+
+model GithubRepoBranchMapping {
+  id                 String           @id @default(cuid())
+  organizationId     String
+  githubRepoId       String
+  branchName         String
+  specPath           String
+  docId              String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository         GithubRepository @relation(fields: [githubRepoId], references: [githubRepoId], onDelete: Cascade)
+  doc                Doc              @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@unique([githubRepoId, branchName, specPath])
+  @@index([organizationId])
+  @@index([githubRepoId])
+  @@index([docId])
 }

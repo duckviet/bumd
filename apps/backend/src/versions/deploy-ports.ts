@@ -26,7 +26,7 @@ export type DeployStore = {
   readonly previousReadyVersion: (version: VersionRecord) => Promise<VersionRecord | null>;
   readonly markVersionProcessing: (versionId: string) => Promise<VersionRecord>;
   readonly markVersionReady: (versionId: string) => Promise<VersionRecord>;
-  readonly markVersionFailed: (versionId: string) => Promise<VersionRecord>;
+  readonly markVersionFailed: (versionId: string, error?: unknown) => Promise<VersionRecord>;
   readonly recordArtifact: (input: {
     readonly versionId: string;
     readonly kind: "normalized_spec";

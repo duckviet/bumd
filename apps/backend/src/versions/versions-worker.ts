@@ -19,6 +19,26 @@ export class VersionsWorker {
   ) {}
 
   public async process(data: DeployJobData): Promise<WorkerResult> {
+    const existing = await this.store.getVersion(data.versionId);
+    if (existing.status === "ready") {
+      const diff = await this.store.diffForVersion(data.versionId);
+      return {
+        steps: ["parse", "validate", "diff", "search", "webhook"] as const,
+        version: existing,
+        diff: diff ? {
+          classification: diff.classification,
+          hasBreaking: diff.hasBreaking,
+          diffJson: diff.diffJson,
+          markdown: diff.diffMarkdown,
+        } : {
+          classification: DiffClassification.None,
+          hasBreaking: false,
+          diffJson: {},
+          markdown: "",
+        },
+        webhooks: [],
+      };
+    }
     const processingVersion = await this.store.markVersionProcessing(data.versionId);
     try {
       const parsed = await this.parse(processingVersion);
