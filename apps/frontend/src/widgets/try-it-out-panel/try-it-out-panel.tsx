@@ -45,7 +45,7 @@ export function TryItOutPanel({
   }
 
   return (
-    <section className="mt-8 border-t border-chalk pt-5" data-testid="try-it-out-panel">
+    <section className="mt-8" data-testid="try-it-out-panel">
       <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate font-inter">Try it out</h2>
       {operation === null || serverUrl.length === 0 ? (
         <p className="mt-3 text-sm text-slate italic">No runnable operation.</p>

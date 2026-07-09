@@ -9,6 +9,8 @@ const parameterSchema = z.union([
     required: z.boolean().optional(),
     schema: schemaObject.optional(),
     description: z.string().optional(),
+    example: z.unknown().optional(),
+    default: z.unknown().optional(),
   }),
   z.object({ $ref: z.string() }),
 ]);
@@ -59,8 +61,17 @@ export type ApiOperation = {
     readonly name: string;
     readonly location: string;
     readonly required: boolean;
+    readonly description?: string | undefined;
+    readonly schemaType?: string | undefined;
+    readonly example?: string | number | boolean | undefined;
+    readonly default?: string | number | boolean | undefined;
   }[];
   readonly referencedSchemas: readonly string[];
+  readonly requestBody?: {
+    readonly required: boolean;
+    readonly contentType: string;
+    readonly exampleText?: string | undefined;
+  } | null | undefined;
 };
 
 export type ApiPropertyDetail = {
@@ -162,12 +173,99 @@ export function parseOpenApiDocument(spec: Record<string, unknown>): ApiDocument
   };
 }
 
+function getExampleTextFromSchema(schema: unknown): string {
+  if (schema === null || typeof schema !== "object") {
+    return "{\n  \n}";
+  }
+  const s = schema as Record<string, unknown>;
+  if (s["example"] !== undefined) {
+    return typeof s["example"] === "string" ? s["example"] : JSON.stringify(s["example"], null, 2);
+  }
+  if (s["type"] === "object" && s["properties"] && typeof s["properties"] === "object" && s["properties"] !== null) {
+    const props = s["properties"] as Record<string, unknown>;
+    const obj: Record<string, unknown> = {};
+    for (const [key, prop] of Object.entries(props)) {
+      if (prop && typeof prop === "object") {
+        const p = prop as Record<string, unknown>;
+        if (p["example"] !== undefined) {
+          obj[key] = p["example"];
+        } else if (p["default"] !== undefined) {
+          obj[key] = p["default"];
+        } else if (p["type"] === "string") {
+          obj[key] = "";
+        } else if (p["type"] === "integer" || p["type"] === "number") {
+          obj[key] = 0;
+        } else if (p["type"] === "boolean") {
+          obj[key] = false;
+        } else if (p["type"] === "array") {
+          obj[key] = [];
+        } else if (p["type"] === "object") {
+          obj[key] = {};
+        } else {
+          obj[key] = null;
+        }
+      }
+    }
+    return JSON.stringify(obj, null, 2);
+  }
+  return "{\n  \n}";
+}
+
 function operationsFromPaths(paths: Record<string, z.infer<typeof pathItemSchema>>): readonly Omit<ApiOperation, "referencedSchemas">[] {
   return Object.entries(paths).flatMap(([path, item]) =>
     HTTP_METHODS.flatMap((method) => {
       const operation = item[method];
       if (operation === undefined || typeof operation !== "object") return [];
       const id = operation.operationId ?? `${method}-${path.replace(/[^a-z0-9]+/giu, "-")}`;
+      
+      const operationObj = operation as Record<string, unknown>;
+      const requestBody = operationObj["requestBody"];
+      let parsedBody: ApiOperation["requestBody"] = null;
+      if (requestBody && typeof requestBody === "object") {
+        const rb = requestBody as Record<string, unknown>;
+        const required = rb["required"] === true;
+        const content = rb["content"];
+        if (content && typeof content === "object") {
+          const contentObj = content as Record<string, unknown>;
+          const jsonContent = contentObj["application/json"] as Record<string, unknown> | undefined;
+          if (jsonContent) {
+            const example = jsonContent["example"] ?? jsonContent["examples"];
+            let exampleText = "";
+            if (example !== undefined) {
+              exampleText = typeof example === "string" ? example : JSON.stringify(example, null, 2);
+            } else if (jsonContent["schema"]) {
+              exampleText = getExampleTextFromSchema(jsonContent["schema"]);
+            }
+            parsedBody = {
+              required,
+              contentType: "application/json",
+              exampleText,
+            };
+          } else {
+            const contentTypes = Object.keys(contentObj);
+            if (contentTypes.length > 0) {
+              const ct = contentTypes[0];
+              if (ct !== undefined) {
+                const ctVal = contentObj[ct] as Record<string, unknown> | undefined;
+                if (ctVal) {
+                  let exampleText = "";
+                  if (ctVal["example"] !== undefined) {
+                    exampleText = typeof ctVal["example"] === "string" ? ctVal["example"] : JSON.stringify(ctVal["example"], null, 2);
+                  } else if (ctVal["schema"]) {
+                    exampleText = getExampleTextFromSchema(ctVal["schema"]);
+                  }
+                  parsedBody = {
+                    required,
+                    contentType: ct,
+                    exampleText,
+                  };
+                }
+              }
+            }
+          }
+        }
+      }
+
       return [{
         id,
         method: method.toUpperCase(),
@@ -177,11 +275,28 @@ function operationsFromPaths(paths: Record<string, z.infer<typeof pathItemSchema
         tags: Array.isArray(operation.tags) ? operation.tags.filter((tag): tag is string => typeof tag === "string") : [],
         parameters: (operation.parameters ?? [])
           .filter((parameter): parameter is Extract<typeof parameter, { name: string }> => "name" in parameter)
-          .map((parameter) => ({
-            name: parameter.name,
-            location: parameter.in,
-            required: parameter.required ?? false,
-          })),
+          .map((parameter) => {
+            const schema = parameter.schema;
+            const schemaType = schema && typeof schema["type"] === "string" ? schema["type"] : undefined;
+            const schemaDefault = schema ? schema["default"] : undefined;
+            const schemaExample = schema ? schema["example"] : undefined;
+            const rawExample = parameter.example !== undefined ? parameter.example : schemaExample;
+            const rawDefault = parameter.default !== undefined ? parameter.default : schemaDefault;
+
+            const example = (typeof rawExample === "string" || typeof rawExample === "number" || typeof rawExample === "boolean") ? rawExample : undefined;
+            const defaultValue = (typeof rawDefault === "string" || typeof rawDefault === "number" || typeof rawDefault === "boolean") ? rawDefault : undefined;
+
+            return {
+              name: parameter.name,
+              location: parameter.in,
+              required: parameter.required ?? false,
+              description: parameter.description,
+              schemaType,
+              example,
+              default: defaultValue,
+            };
+          }),
+        requestBody: parsedBody,
       }];
     })
   );
