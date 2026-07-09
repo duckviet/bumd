@@ -1,9 +1,17 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { Pool } from "pg";
 import { z } from "zod";
-import { ApiTokenRole, ApiTokenScope, type IssuedApiToken } from "./auth-types.js";
+import {
+  ApiTokenRole,
+  ApiTokenScope,
+  type IssuedApiToken,
+} from "./auth-types.js";
 import { API_TOKEN_STORE, type ApiTokenStore } from "./auth-ports.js";
-import type { GithubOAuthEmail, GithubOAuthExchangeInput, GithubOAuthUser } from "./github-oauth-types.js";
+import type {
+  GithubOAuthEmail,
+  GithubOAuthExchangeInput,
+  GithubOAuthUser,
+} from "./github-oauth-types.js";
 
 const githubUserSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -33,37 +41,50 @@ export class GithubOAuthExchangeError extends Error {
 }
 
 @Injectable()
-export class GithubOAuthService {
-  private readonly pool: Pool;
+export class GithubOAuthService implements OnModuleDestroy {
+  private pool: Pool | null = null;
 
-  public constructor(@Inject(API_TOKEN_STORE) private readonly tokenStore: ApiTokenStore) {
-    const databaseUrl = process.env["DATABASE_URL"];
-    if (databaseUrl === undefined || databaseUrl.trim() === "") {
-      throw new Error("DATABASE_URL is required for GitHub OAuth exchange");
+  public constructor(
+    @Inject(API_TOKEN_STORE) private readonly tokenStore: ApiTokenStore,
+  ) {}
+
+  public async onModuleDestroy(): Promise<void> {
+    if (this.pool !== null) {
+      await this.pool.end();
+      this.pool = null;
     }
-    this.pool = new Pool({ connectionString: databaseUrl });
   }
 
-  public async exchange(input: GithubOAuthExchangeInput): Promise<IssuedApiToken> {
+  public async exchange(
+    input: GithubOAuthExchangeInput,
+  ): Promise<IssuedApiToken> {
     const githubUser = await this.fetchGithubUser(input.githubAccessToken);
-    const email = await this.primaryVerifiedEmail(input.githubAccessToken, githubUser);
+    const email = await this.primaryVerifiedEmail(
+      input.githubAccessToken,
+      githubUser,
+    );
     const user = await this.findOrganizationUser({
       organizationSlug: input.organizationSlug,
       githubId: githubUser.id,
       email,
     });
     if (user === null) {
-      throw new GithubOAuthExchangeError("forbidden", "GitHub user is not a member of the requested organization");
+      throw new GithubOAuthExchangeError(
+        "forbidden",
+        "GitHub user is not a member of the requested organization",
+      );
     }
     if (user.githubId !== null && user.githubId !== githubUser.id) {
-      throw new GithubOAuthExchangeError("forbidden", "GitHub identity is already linked to another user");
+      throw new GithubOAuthExchangeError(
+        "forbidden",
+        "GitHub identity is already linked to another user",
+      );
     }
     if (user.githubId === null) {
-      await this.pool.query('UPDATE "User" SET "githubId" = $1, "githubLogin" = $2 WHERE "id" = $3', [
-        githubUser.id,
-        githubUser.login,
-        user.id,
-      ]);
+      await this.getPool().query(
+        'UPDATE "User" SET "githubId" = $1, "githubLogin" = $2 WHERE "id" = $3',
+        [githubUser.id, githubUser.login, user.id],
+      );
     }
     return this.tokenStore.createApiToken({
       organizationId: input.organizationSlug,
@@ -78,12 +99,18 @@ export class GithubOAuthService {
       headers: githubHeaders(accessToken),
     });
     if (!response.ok) {
-      throw new GithubOAuthExchangeError("unauthorized", "GitHub access token is invalid");
+      throw new GithubOAuthExchangeError(
+        "unauthorized",
+        "GitHub access token is invalid",
+      );
     }
     const raw: unknown = await response.json();
     const parsed = githubUserSchema.safeParse(raw);
     if (!parsed.success) {
-      throw new GithubOAuthExchangeError("unauthorized", "GitHub user response is invalid");
+      throw new GithubOAuthExchangeError(
+        "unauthorized",
+        "GitHub user response is invalid",
+      );
     }
     return {
       id: String(parsed.data.id),
@@ -92,7 +119,10 @@ export class GithubOAuthService {
     };
   }
 
-  private async primaryVerifiedEmail(accessToken: string, user: GithubOAuthUser): Promise<string> {
+  private async primaryVerifiedEmail(
+    accessToken: string,
+    user: GithubOAuthUser,
+  ): Promise<string> {
     if (user.email !== null) {
       return user.email.toLowerCase();
     }
@@ -100,16 +130,27 @@ export class GithubOAuthService {
       headers: githubHeaders(accessToken),
     });
     if (!response.ok) {
-      throw new GithubOAuthExchangeError("unauthorized", "GitHub email response is invalid");
+      throw new GithubOAuthExchangeError(
+        "unauthorized",
+        "GitHub email response is invalid",
+      );
     }
     const raw: unknown = await response.json();
     const parsed = z.array(githubEmailSchema).safeParse(raw);
     if (!parsed.success) {
-      throw new GithubOAuthExchangeError("unauthorized", "GitHub email response is invalid");
+      throw new GithubOAuthExchangeError(
+        "unauthorized",
+        "GitHub email response is invalid",
+      );
     }
-    const primary = parsed.data.find((email) => email.primary && email.verified);
+    const primary = parsed.data.find(
+      (email) => email.primary && email.verified,
+    );
     if (primary === undefined) {
-      throw new GithubOAuthExchangeError("forbidden", "GitHub account has no verified primary email");
+      throw new GithubOAuthExchangeError(
+        "forbidden",
+        "GitHub account has no verified primary email",
+      );
     }
     return primary.email.toLowerCase();
   }
@@ -119,7 +160,7 @@ export class GithubOAuthService {
     readonly githubId: string;
     readonly email: string;
   }): Promise<LinkedUser | null> {
-    const result = await this.pool.query(
+    const result = await this.getPool().query(
       `SELECT u."id", u."email", u."githubId"
        FROM "User" u
        JOIN "Membership" m ON m."userId" = u."id"
@@ -139,10 +180,25 @@ export class GithubOAuthService {
       .safeParse(row);
     return parsed.success ? parsed.data : null;
   }
+
+  private getPool(): Pool {
+    if (this.pool !== null) {
+      return this.pool;
+    }
+    const databaseUrl = process.env["DATABASE_URL"];
+    if (databaseUrl === undefined || databaseUrl.trim() === "") {
+      throw new Error("DATABASE_URL is required for GitHub OAuth exchange");
+    }
+    this.pool = new Pool({ connectionString: databaseUrl });
+    return this.pool;
+  }
 }
 
 function githubApiUrl(path: string): string {
-  return new URL(path, process.env["GITHUB_API_URL"] ?? "https://api.github.com").toString();
+  return new URL(
+    path,
+    process.env["GITHUB_API_URL"] ?? "https://api.github.com",
+  ).toString();
 }
 
 function githubHeaders(accessToken: string): Record<string, string> {

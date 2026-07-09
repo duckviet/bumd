@@ -18,11 +18,11 @@ class InMemoryObjectStore {
 
 @Module({
   providers: [
-    R2ObjectStore,
     InMemoryObjectStore,
     {
       provide: OBJECT_STORE,
-      useFactory: (r2: R2ObjectStore, inMemory: InMemoryObjectStore) => {
+      inject: [InMemoryObjectStore],
+      useFactory: (inMemory: InMemoryObjectStore) => {
         if (
           process.env["DEPLOY_STORE"] === "memory" ||
           process.env["CDN_ACCOUNT_ID"] === "test_account_not_secret" ||
@@ -31,11 +31,10 @@ class InMemoryObjectStore {
         ) {
           return inMemory;
         }
-        return r2;
+        return new R2ObjectStore();
       },
-      inject: [R2ObjectStore, InMemoryObjectStore],
     },
   ],
-  exports: [R2ObjectStore, OBJECT_STORE],
+  exports: [OBJECT_STORE],
 })
 export class StorageModule {}
