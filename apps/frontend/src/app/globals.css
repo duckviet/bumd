@@ -20,14 +20,14 @@
   --color-bg-secondary: var(--bg-secondary);
   --color-bg-tertiary: var(--bg-tertiary);
   --color-bg-elevated: var(--bg-elevated);
-  
+
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
-  
+
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
-  
+
   --color-get-bg: var(--get-bg);
   --color-post-bg: var(--post-bg);
   --color-put-bg: var(--put-bg);
@@ -77,14 +77,14 @@
   --bg-secondary: var(--color-paper);
   --bg-tertiary: var(--color-fog);
   --bg-elevated: var(--color-paper);
-  
+
   --text-primary: var(--color-carbon);
   --text-secondary: var(--color-graphite);
   --text-muted: var(--color-slate);
-  
+
   --border-subtle: var(--color-chalk);
   --border-strong: var(--color-slate);
-  
+
   --get-bg: rgba(16, 185, 129, 0.15);
   --post-bg: rgba(59, 130, 246, 0.15);
   --put-bg: rgba(245, 158, 11, 0.15);
@@ -96,14 +96,14 @@
   --bg-secondary: #121212;
   --bg-tertiary: #1a1a1a;
   --bg-elevated: rgba(26, 26, 26, 0.8);
-  
+
   --text-primary: #f5f5f5;
   --text-secondary: #a3a3a3;
   --text-muted: #737373;
-  
+
   --border-subtle: #262626;
   --border-strong: #404040;
-  
+
   --get-bg: rgba(16, 185, 129, 0.15);
   --post-bg: rgba(59, 130, 246, 0.15);
   --put-bg: rgba(245, 158, 11, 0.15);
@@ -127,7 +127,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-polysans);
   color: var(--color-carbon);
   letter-spacing: -0.02em;
@@ -309,7 +314,8 @@ a:hover {
 }
 
 /* Button Component Styles */
-.button-link, button[type="submit"] {
+.button-link,
+button[type="submit"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -324,13 +330,15 @@ a:hover {
 }
 
 /* Primary Pill Button */
-.button-link, button[type="submit"] {
+.button-link,
+button[type="submit"] {
   background-color: var(--color-carbon);
   color: var(--color-paper);
   border: none;
 }
 
-.button-link:hover, button[type="submit"]:hover {
+.button-link:hover,
+button[type="submit"]:hover {
   background-color: var(--color-graphite);
   opacity: 1;
 }
@@ -487,4 +495,17 @@ form select:focus {
   border-radius: 8px;
   font-size: 14px;
   margin-bottom: 16px;
+}
+
+/* Chrome, Safari, Edge */
+.scroll-thin::-webkit-scrollbar {
+  height: 6px;
+}
+
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.4) transparent;
+  /* thumb track */
 }

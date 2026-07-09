@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import type { ChangeSummary } from "../../shared/api/portal-client";
-import { Badge, PortalContainer, PortalShell, Surface } from "../../shared/ui/portal-primitives";
+import type { ChangeSummary } from "../../../shared/api/portal-client";
+import { Badge, PortalContainer, PortalShell, Surface } from "../../../shared/ui/portal-primitives";
 
 type ChangelogListProps = {
   readonly orgSlug: string;

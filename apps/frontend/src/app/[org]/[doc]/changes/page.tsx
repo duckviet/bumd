@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { fetchChanges, fetchPortalDoc } from "../../../../shared/api/portal-client";
 import { hasPortalAccess } from "../../../../shared/auth/session";
-import { ChangelogList } from "../../../../widgets/changelog/changelog-list";
+import { ChangelogList } from "../../../../widgets/changelog";
 
 type PageProps = {
   readonly params: Promise<{

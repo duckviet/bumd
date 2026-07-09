@@ -1,4 +1,4 @@
-import { deleteDashboardWebhook } from "../../../../../entities/dashboard/webhooks-store";
+import { deleteDashboardWebhook } from "../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../docs/dashboard-helpers";
 
 type RouteContext = {

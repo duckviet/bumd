@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DashboardWebhook, DashboardWebhookDelivery } from "../../../../entities/dashboard/webhooks-store";
+import type { DashboardWebhook, DashboardWebhookDelivery } from "../../../../entities/dashboard";
 
 type Props = {
   readonly org: string;

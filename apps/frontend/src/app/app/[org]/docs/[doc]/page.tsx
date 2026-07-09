@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getDashboardDoc, latestVersion, versionHistory } from "../../../../../entities/dashboard/dashboard-store";
+import { getDashboardDoc, latestVersion, versionHistory } from "../../../../../entities/dashboard";
 import { canManage, dashboardShell, requireDashboardRead } from "../dashboard-helpers";
 
 type PageProps = {

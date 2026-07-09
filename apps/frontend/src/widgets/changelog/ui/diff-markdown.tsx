@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { DiffDetail } from "../../shared/api/portal-client";
-import { Badge, PortalContainer, PortalShell, Surface } from "../../shared/ui/portal-primitives";
+import type { DiffDetail } from "../../../shared/api/portal-client";
+import { Badge, PortalContainer, PortalShell, Surface } from "../../../shared/ui/portal-primitives";
 
 type DiffMarkdownProps = {
   readonly markdown?: string;

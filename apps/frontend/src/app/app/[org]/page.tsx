@@ -1,4 +1,4 @@
-import { latestVersion, listDashboardDocs, type DashboardDoc } from "../../../entities/dashboard/dashboard-store";
+import { latestVersion, listDashboardDocs, type DashboardDoc } from "../../../entities/dashboard";
 import { canManage, dashboardShell, requireDashboardRead } from "./docs/dashboard-helpers";
 import { CreateDocModal } from "./docs/create-doc-modal";
 

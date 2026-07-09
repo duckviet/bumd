@@ -1,4 +1,4 @@
-import { updateDashboardMemberRole } from "../../../../../entities/dashboard/members-invites-store";
+import { updateDashboardMemberRole } from "../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../docs/dashboard-helpers";
 
 type RouteContext = {
