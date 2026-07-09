@@ -1,6 +1,7 @@
 export const ApiTokenScope = {
   DocsDeploy: "docs:deploy",
   DocsRead: "docs:read",
+  DocsTest: "docs:test",
 } as const;
 
 export type ApiTokenScope = (typeof ApiTokenScope)[keyof typeof ApiTokenScope];
@@ -19,7 +20,7 @@ export function isApiTokenRole(value: string): value is ApiTokenRole {
 }
 
 export function isApiTokenScope(value: string): value is ApiTokenScope {
-  return value === ApiTokenScope.DocsDeploy || value === ApiTokenScope.DocsRead;
+  return value === ApiTokenScope.DocsDeploy || value === ApiTokenScope.DocsRead || value === ApiTokenScope.DocsTest;
 }
 
 export type ApiTokenRecord = {

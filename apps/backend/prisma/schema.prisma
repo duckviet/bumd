@@ -397,3 +397,138 @@ model GithubRepoBranchMapping {
   @@index([githubRepoId])
   @@index([docId])
 }
+
+model TestWorkflow {
+  id              String   @id
+  organizationId  String
+  docId           String
+  branchId        String
+
+  name            String
+  slug            String
+  description     String?
+
+  definitionJson  Json
+
+  revision        Int      @default(1)
+
+  createdByUserId String
+  updatedByUserId String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  runs            TestWorkflowRun[]
+
+  @@unique([docId, branchId, slug])
+  @@index([organizationId, docId, branchId])
+  @@index([organizationId, docId, branchId, deletedAt])
+}
+
+model TestEnvironment {
+  id              String   @id
+  organizationId  String
+  docId           String
+  branchId        String
+
+  name            String
+  isDefault       Boolean  @default(false)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  variables       TestEnvironmentVariable[]
+  runs            TestWorkflowRun[]
+
+  @@unique([docId, branchId, name])
+  @@index([organizationId, docId, branchId])
+}
+
+model TestEnvironmentVariable {
+  id              String   @id
+  environmentId   String
+
+  key             String
+  encryptedValue  String?
+  secret          Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  environment     TestEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, key])
+  @@index([environmentId])
+}
+
+model TestWorkflowRun {
+  id                     String    @id
+  workflowId             String
+  organizationId         String
+  docId                  String
+  branchId               String
+
+  versionId              String
+  environmentId          String?
+
+  status                 String
+
+  startedByUserId        String?
+  startedByTokenId       String?
+
+  definitionSnapshotJson Json
+
+  cancelRequestedAt      DateTime?
+
+  startedAt              DateTime?
+  finishedAt             DateTime?
+  durationMs             Int?
+
+  errorCode              String?
+  errorMessage           String?
+
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workflow               TestWorkflow     @relation(fields: [workflowId], references: [id])
+  environment            TestEnvironment? @relation(fields: [environmentId], references: [id])
+
+  steps                  TestWorkflowStepRun[]
+
+  @@index([workflowId, createdAt])
+  @@index([organizationId, docId, branchId, createdAt])
+  @@index([status])
+}
+
+model TestWorkflowStepRun {
+  id              String   @id
+  runId           String
+  nodeId          String
+  operationId     String
+
+  status          String
+
+  requestJson     Json?
+  responseJson    Json?
+  assertionsJson  Json?
+  exportsJson     Json?
+  inputsJson      Json?
+
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  durationMs      Int?
+
+  errorCode       String?
+  errorMessage    String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  run             TestWorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, nodeId])
+  @@index([runId])
+  @@index([status])
+}
