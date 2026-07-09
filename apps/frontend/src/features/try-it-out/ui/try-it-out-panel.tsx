@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { ApiOperation } from "../../entities/openapi/model";
-import type { TryItOutResponse } from "../../shared/api/portal-client";
+import type { ApiOperation } from "../../../entities/openapi";
+import type { TryItOutResponse } from "../../../shared/api/portal-client";
 
 export function TryItOutPanel({
   orgSlug,

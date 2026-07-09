@@ -1,4 +1,4 @@
-import { listDashboardMembers, listDashboardInvites } from "../../../../entities/dashboard/members-invites-store";
+import { listDashboardMembers, listDashboardInvites } from "../../../../entities/dashboard";
 import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
 import { MembersClient } from "./members-client";
 

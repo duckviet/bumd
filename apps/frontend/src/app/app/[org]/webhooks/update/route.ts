@@ -1,4 +1,4 @@
-import { updateDashboardWebhook } from "../../../../../entities/dashboard/webhooks-store";
+import { updateDashboardWebhook } from "../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../docs/dashboard-helpers";
 
 type RouteContext = {

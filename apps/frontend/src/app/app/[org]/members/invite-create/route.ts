@@ -1,4 +1,4 @@
-import { createDashboardInvite } from "../../../../../entities/dashboard/members-invites-store";
+import { createDashboardInvite } from "../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../docs/dashboard-helpers";
 
 type RouteContext = {

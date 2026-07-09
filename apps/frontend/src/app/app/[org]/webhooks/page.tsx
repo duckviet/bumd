@@ -1,4 +1,4 @@
-import { listDashboardWebhooks } from "../../../../entities/dashboard/webhooks-store";
+import { listDashboardWebhooks } from "../../../../entities/dashboard";
 import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
 import { WebhooksClient } from "./webhooks-client";
 

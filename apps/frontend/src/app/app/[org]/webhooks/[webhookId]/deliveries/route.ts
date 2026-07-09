@@ -1,4 +1,4 @@
-import { listDashboardWebhookDeliveries } from "../../../../../../entities/dashboard/webhooks-store";
+import { listDashboardWebhookDeliveries } from "../../../../../../entities/dashboard";
 import { requireDashboardRead } from "../../../docs/dashboard-helpers";
 
 type RouteContext = {

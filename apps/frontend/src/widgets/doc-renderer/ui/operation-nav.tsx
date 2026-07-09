@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import type { ApiOperation } from "../../entities/openapi/model";
-import { MethodBadge } from "../../shared/ui/portal-primitives";
+import type { ApiOperation } from "../../../entities/openapi";
+import { MethodBadge } from "../../../shared/ui/portal-primitives";
 import { Collapsible } from "./collapsible";
 
 export type OperationGroup = {

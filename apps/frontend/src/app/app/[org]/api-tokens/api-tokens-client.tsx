@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DashboardApiToken } from "../../../../entities/dashboard/api-tokens-store";
+import type { DashboardApiToken } from "../../../../entities/dashboard";
 
 type Props = {
   readonly org: string;

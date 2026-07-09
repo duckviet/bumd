@@ -1,4 +1,4 @@
-import { rotateDashboardWebhookSecret } from "../../../../../entities/dashboard/webhooks-store";
+import { rotateDashboardWebhookSecret } from "../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../docs/dashboard-helpers";
 
 type RouteContext = {

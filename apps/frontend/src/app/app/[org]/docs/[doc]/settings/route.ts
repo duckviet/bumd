@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getDashboardDoc, updateDashboardDocSettings, deleteDashboardDoc } from "../../../../../../entities/dashboard/dashboard-store";
+import { getDashboardDoc, updateDashboardDocSettings, deleteDashboardDoc } from "../../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../dashboard-helpers";
 import { styledHtmlPage } from "../../../../../../shared/ui/styled-html";
 import {
@@ -14,7 +14,7 @@ import {
   type DbGithubRepository,
   type DbGithubInstallation,
   type DbBranchMapping,
-} from "../../../../../../entities/dashboard/github-store";
+} from "../../../../../../entities/dashboard";
 import { getDb } from "../../../../../../shared/db";
 import { randomUUID, createHmac } from "node:crypto";
 import { backendBaseUrl } from "../../../../../../shared/config/env";

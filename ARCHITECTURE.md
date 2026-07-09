@@ -90,7 +90,16 @@ Next.js 16 documentation portal and application UI. It owns:
 - diff/changelog views;
 - integration with the doc renderer package.
 
-The frontend follows Feature-Sliced Design with `app`, `pages`, `widgets`, `features`, `entities`, and `shared` boundaries.
+The frontend follows Feature-Sliced Design with `app`, `pages`, `widgets`, `features`, `entities`, and `shared` boundaries. Dependencies flow downward only:
+
+- `app` wires routes, server actions, providers, and access checks;
+- `pages` compose route-level screens from widgets and features;
+- `widgets` compose visible page regions and own layout state for that region;
+- `features` own user actions and interaction workflows such as search, deploy, invites, and Try it out;
+- `entities` own normalized domain models and mappers for OpenAPI, docs, versions, organizations, diffs, and webhooks;
+- `shared` owns generic UI primitives, non-domain utilities, config, and API clients.
+
+Doc rendering is an integration surface, not a feature boundary. `widgets/doc-renderer` may compose operation navigation, schema rail, rendered operation detail, search entry points, and feature controls, but it must not own request-building, OpenAPI normalization, persistence, API clients, or reusable feature workflows. Those belong in `entities/openapi`, `features/*`, or `shared/*` according to the dependency rules above.
 
 ### `apps/cli`
 
@@ -180,4 +189,3 @@ Meilisearch indexes rendered searchable content by doc, branch, and version. Pri
 - Failed processing should retain the immutable version record and expose error state without corrupting prior successful versions.
 - Webhook delivery must never block deploy ingestion or portal rendering.
 - Observability must include request IDs, job IDs, organization IDs, doc IDs, version IDs, and webhook event IDs, but never secrets or raw token values.
-

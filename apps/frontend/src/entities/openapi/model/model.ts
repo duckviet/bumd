@@ -338,3 +338,83 @@ function schemasFromComponents(schemas: Record<string, Record<string, unknown>>)
     };
   });
 }
+
+export type KeyValueRow = {
+  readonly id: string;
+  readonly key: string;
+  readonly value: string;
+  readonly required: boolean;
+  readonly description: string | undefined;
+  readonly enabled: boolean;
+  readonly isCustom?: boolean;
+};
+
+export type TryItOutDraft = {
+  readonly pathParams: readonly KeyValueRow[];
+  readonly queryParams: readonly KeyValueRow[];
+  readonly headers: readonly KeyValueRow[];
+  readonly bodyText: string;
+};
+
+export function createTryItOutDraft(operation: ApiOperation): TryItOutDraft {
+  const pathParams = operation.parameters
+    .filter((p) => p.location === "path")
+    .map((p) => ({
+      id: `path-${p.name}`,
+      key: p.name,
+      value: String(p.example ?? p.default ?? ""),
+      required: true,
+      description: p.description ?? undefined,
+      enabled: true,
+      isCustom: false,
+    }));
+
+  const queryParams = operation.parameters
+    .filter((p) => p.location === "query")
+    .map((p) => ({
+      id: `query-${p.name}`,
+      key: p.name,
+      value: String(p.example ?? p.default ?? ""),
+      required: p.required,
+      description: p.description ?? undefined,
+      enabled: true,
+      isCustom: false,
+    }));
+
+  const seeded: KeyValueRow[] = [
+    { id: "header-accept", key: "Accept", value: "application/json", required: false, enabled: true, description: undefined, isCustom: false },
+  ];
+  if (operation.requestBody?.contentType) {
+    seeded.push({
+      id: "header-content-type",
+      key: "Content-Type",
+      value: operation.requestBody.contentType,
+      required: false,
+      enabled: true,
+      description: undefined,
+      isCustom: false,
+    });
+  }
+  const spec = operation.parameters
+    .filter((p) => p.location === "header")
+    .map((p) => ({
+      id: `header-${p.name}`,
+      key: p.name,
+      value: String(p.example ?? p.default ?? ""),
+      required: p.required,
+      description: p.description ?? undefined,
+      enabled: true,
+      isCustom: false,
+    }));
+  const headers = [...seeded, ...spec];
+
+  const bodyText = operation.requestBody?.exampleText ?? "";
+
+  return {
+    pathParams,
+    queryParams,
+    headers,
+    bodyText,
+  };
+}
+

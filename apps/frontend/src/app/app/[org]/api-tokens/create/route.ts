@@ -1,4 +1,4 @@
-import { createDashboardApiToken } from "../../../../../entities/dashboard/api-tokens-store";
+import { createDashboardApiToken } from "../../../../../entities/dashboard";
 import { requireDashboardManage } from "../../docs/dashboard-helpers";
 
 type RouteContext = {

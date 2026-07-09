@@ -1,4 +1,4 @@
-import { listDashboardApiTokens } from "../../../../entities/dashboard/api-tokens-store";
+import { listDashboardApiTokens } from "../../../../entities/dashboard";
 import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
 import { ApiTokensClient } from "./api-tokens-client";
 

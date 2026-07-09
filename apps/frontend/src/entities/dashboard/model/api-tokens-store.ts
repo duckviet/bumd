@@ -1,4 +1,4 @@
-import { getDb } from "../../shared/db";
+import { getDb } from "../../../shared/db";
 import { randomBytes, randomUUID, argon2Sync } from "node:crypto";
 
 export type DashboardApiToken = {
