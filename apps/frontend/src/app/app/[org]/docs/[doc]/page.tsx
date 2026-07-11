@@ -26,13 +26,13 @@ export default async function DocOverviewPage({ params }: PageProps): Promise<Re
     role: membership.role,
     memberships: session.memberships,
     children: (
-      <section className="dashboard-panel">
-        <div className="dashboard-section-header">
+      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
           <div>
             <h2>{doc.name}</h2>
             <p>{statusText}</p>
           </div>
-          <div className="dashboard-actions">
+          <div className="flex flex-wrap items-center gap-4">
             <a href={doc.publicUrl}>Public URL</a>
             <a href={`/${org}/${doc.slug}/changes`}>Changelog</a>
             <a href={`/app/${org}/docs/${doc.slug}/versions`}>Versions</a>
@@ -40,25 +40,25 @@ export default async function DocOverviewPage({ params }: PageProps): Promise<Re
             {mayManage ? <a href={`/app/${org}/docs/${doc.slug}/settings`}>Settings</a> : null}
           </div>
         </div>
-        <dl className="dashboard-facts">
+        <dl className="mt-6 flex flex-wrap gap-6">
           <div><dt>Slug</dt><dd>{doc.slug}</dd></div>
           <div><dt>Theme</dt><dd>{doc.theme}</dd></div>
           <div><dt>Latest version</dt><dd>{latest?.label ?? "None"}</dd></div>
           <div><dt>Total versions</dt><dd>{versions.length}</dd></div>
         </dl>
         {mayManage ? (
-          <div style={{ marginTop: "2rem", borderTop: "1px solid #eee", paddingTop: "2rem" }}>
-            <h3 style={{ fontSize: "1.2rem", fontWeight: 600, marginBottom: "1rem" }}>Deploy new version</h3>
-            <form action={`/app/${org}/docs/${doc.slug}/versions/new`} method="post" encType="multipart/form-data" style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.9rem", fontWeight: 500 }}>OpenAPI / AsyncAPI Specification File</label>
-                <input type="file" name="specFile" accept=".yaml,.yml,.json,.txt" required style={{ padding: "0.5rem", border: "1px solid #ddd", borderRadius: "4px" }} />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.9rem", fontWeight: 500 }}>Target Branch</label>
-                <input type="text" name="branch" defaultValue="main" required style={{ padding: "0.5rem", border: "1px solid #ddd", borderRadius: "4px" }} />
-              </div>
-              <button type="submit" style={{ padding: "0.5rem 1rem", backgroundColor: "#000", color: "#fff", border: "none", borderRadius: "4px", fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>
+          <div className="mt-8 border-t border-chalk pt-8">
+            <h3 className="mb-4 text-xl font-semibold">Deploy new version</h3>
+            <form className="flex max-w-md flex-col gap-4" action={`/app/${org}/docs/${doc.slug}/versions/new`} method="post" encType="multipart/form-data">
+              <label className="flex flex-col gap-2 text-sm font-medium">
+                <span>OpenAPI / AsyncAPI Specification File</span>
+                <input className="rounded-lg border border-chalk bg-paper p-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-fog file:px-3 file:py-1.5 file:font-semibold" type="file" name="specFile" accept=".yaml,.yml,.json,.txt" required />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium">
+                <span>Target Branch</span>
+                <input className="rounded-lg border border-chalk bg-paper px-3 py-2 outline-none focus:border-signal-orange" type="text" name="branch" defaultValue="main" required />
+              </label>
+              <button className="inline-flex min-h-10 self-start rounded-full bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" type="submit">
                 Upload and Deploy
               </button>
             </form>

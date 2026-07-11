@@ -3,8 +3,8 @@ import { requireUserSession } from "@/shared/auth/session";
 export default async function DashboardPage(): Promise<React.ReactElement> {
   const session = await requireUserSession("/app");
   return (
-    <main className="dashboard-shell">
-      <div className="dashboard-panel max-w-lg mx-auto">
+    <main className="min-h-[100dvh] bg-fog text-carbon">
+      <div className="rounded-lg border border-chalk bg-paper p-5 sm:p-8 max-w-lg mx-auto">
         <div className="mb-6">
           <span className="text-xs uppercase tracking-wider font-semibold text-signal-orange">ventriloc</span>
           <h1 className="text-4xl mt-1">Dashboard</h1>
@@ -26,10 +26,9 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         </nav>
         
         <form action="/logout" method="post" className="border-t border-chalk pt-6">
-          <button type="submit" className="button-secondary w-full">Log out</button>
+          <button type="submit" className="border-carbon bg-transparent text-carbon hover:bg-chalk w-full">Log out</button>
         </form>
       </div>
     </main>
   );
 }
-

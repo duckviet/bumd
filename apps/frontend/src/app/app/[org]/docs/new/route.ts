@@ -43,7 +43,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
 
 function newDocForm(organizationSlug: string, error: string | null): string {
-  const content = `<h1>New doc</h1>${error === null ? "" : `<p class="error-msg">${escapeHtml(error)}</p>`}<form method="post" action="/app/${escapeHtml(organizationSlug)}/docs/new"><label>Name <input name="name" required></label><label>Slug <input name="slug" required></label><label>Visibility <select name="visibility"><option value="public">public</option><option value="private">private</option></select></label><label>Theme <input name="theme" value="classic" required></label><button type="submit">Create doc</button></form><a href="/app/${escapeHtml(organizationSlug)}/docs">Docs</a>`;
+  const content = `<h1>New doc</h1>${error === null ? "" : `<p class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">${escapeHtml(error)}</p>`}<form method="post" action="/app/${escapeHtml(organizationSlug)}/docs/new"><label>Name <input name="name" required></label><label>Slug <input name="slug" required></label><label>Visibility <select name="visibility"><option value="public">public</option><option value="private">private</option></select></label><label>Theme <input name="theme" value="classic" required></label><button type="submit">Create doc</button></form><a href="/app/${escapeHtml(organizationSlug)}/docs">Docs</a>`;
   return styledHtmlPage("New doc", organizationSlug, content);
 }
 

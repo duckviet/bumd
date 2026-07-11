@@ -59,7 +59,7 @@ export function ExportsEditor({ node, onChange }: ExportsEditorProps) {
       ) : (
         <div className="flex flex-col gap-3">
           {exports.map((exp, index) => (
-            <div key={index} className="flex flex-col gap-2 rounded border border-chalk bg-[#fbfbfa] p-2 relative">
+            <div key={index} className="flex flex-col gap-2 rounded border border-chalk bg-fog p-2 relative">
               <button
                 type="button"
                 onClick={() => handleRemoveExport(index)}

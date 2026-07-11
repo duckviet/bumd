@@ -39,8 +39,8 @@ export function dashboardShell(input: {
 }): React.ReactElement {
   const activeTab = input.tab ?? "overview";
   return (
-    <main className="dashboard-shell">
-      <header className="dashboard-header">
+    <main className="min-h-[100dvh] bg-fog text-carbon">
+      <header className="border-b border-chalk bg-paper px-4 pt-4 sm:px-6 sm:pt-5">
         <div className="flex items-center gap-6">
           <a href="/app" className="flex items-center gap-1.5 hover:opacity-90">
             <span className="font-polysans text-2xl font-bold tracking-tight text-carbon">
@@ -50,28 +50,28 @@ export function dashboardShell(input: {
           <div className="h-6 w-px bg-chalk" />
           <div>
             {input.memberships && input.memberships.length > 0 ? (
-              <div style={{ marginBottom: "6px" }}>
+              <div className="mb-1.5">
                 <OrgSwitcher currentOrg={input.organizationSlug} memberships={input.memberships} />
               </div>
             ) : (
-              <p className="dashboard-kicker">{input.organizationSlug}</p>
+              <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{input.organizationSlug}</p>
             )}
             <h1>Documentation dashboard</h1>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="dashboard-user">
+          <div className="flex items-center gap-3 text-sm text-graphite">
             <span>{input.email}</span>
             <strong>{input.role}</strong>
           </div>
           <form action="/logout" method="post" className="m-0">
-            <button type="submit" className="button-secondary text-sm h-9 px-4 rounded-full border border-chalk hover:bg-chalk transition-all">
+            <button type="submit" className="border-carbon bg-transparent text-carbon hover:bg-chalk text-sm h-9 px-4 rounded-full border border-chalk hover:bg-chalk transition-all">
               Log out
             </button>
           </form>
         </div>
       </header>
-      <nav className="dashboard-tabs">
+      <nav className="mx-auto mt-4 flex max-w-7xl gap-1.5 overflow-x-auto pb-2.5">
         <a href={`/app/${input.organizationSlug}`} className={activeTab === "overview" ? "active" : ""}>Overview</a>
         <a href={`/app/${input.organizationSlug}/docs`} className={activeTab === "portals" ? "active" : ""}>Portals</a>
         <a href={`/app/${input.organizationSlug}/members`} className={activeTab === "members" ? "active" : ""}>Members & Invites</a>

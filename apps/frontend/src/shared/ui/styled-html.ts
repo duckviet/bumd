@@ -152,7 +152,7 @@ export function styledHtmlPage(title: string, badgeText: string, content: string
       letter-spacing: 0.1em;
       margin-bottom: 6px;
     }
-    .error-msg {
+    .mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 {
       color: #d32f2f;
       font-size: 14px;
       margin-bottom: 16px;

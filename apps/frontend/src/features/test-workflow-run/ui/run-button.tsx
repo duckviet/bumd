@@ -13,7 +13,7 @@ export function RunButton({ running, hasStaleNodes, onRun, onCancel }: RunButton
       <button
         type="button"
         onClick={onCancel}
-        className="button-secondary bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all font-semibold text-xs px-3 py-1.5 rounded-full cursor-pointer flex items-center gap-1.5"
+        className="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
       >
         <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping" />
         Cancel Run
@@ -26,10 +26,10 @@ export function RunButton({ running, hasStaleNodes, onRun, onCancel }: RunButton
       type="button"
       onClick={onRun}
       disabled={hasStaleNodes}
-      className={`button-primary font-semibold text-xs px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
+      className={`flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition-[background-color,opacity] ${
         hasStaleNodes
-          ? "bg-fog border border-chalk text-slate cursor-not-allowed"
-          : "bg-signal-orange text-white hover:opacity-90"
+          ? "cursor-not-allowed border-chalk bg-fog text-slate"
+          : "border-carbon bg-carbon text-paper hover:bg-graphite"
       }`}
       title={hasStaleNodes ? "Cannot run with stale nodes in canvas" : "Execute test workflow"}
     >

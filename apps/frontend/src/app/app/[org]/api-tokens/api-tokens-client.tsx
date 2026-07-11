@@ -102,67 +102,66 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
   };
 
   return (
-    <div className="dashboard-workspace">
-      <section className="dashboard-hero dashboard-hero-compact">
+    <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
+      <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
         <div>
-          <p className="dashboard-kicker">Security</p>
+          <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Security</p>
           <h1>API Tokens</h1>
-          <p className="dashboard-lede">
+          <p className="text-graphite">
             Issue and revoke API tokens to allow automated deployments (e.g. from GitHub Actions) or doc searches.
           </p>
         </div>
-        <div className="dashboard-hero-actions">
+        <div className="flex flex-wrap items-center gap-2.5">
           {mayManage && (
-            <button className="dashboard-button" onClick={handleOpen} type="button">
+            <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" onClick={handleOpen} type="button">
               Create Token
             </button>
           )}
         </div>
       </section>
 
-      <section className="dashboard-panel">
-        <div className="dashboard-section-header">
+      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
           <div>
-            <p className="dashboard-kicker">{tokens.length} active token{tokens.length === 1 ? "" : "s"}</p>
+            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{tokens.length} active token{tokens.length === 1 ? "" : "s"}</p>
             <h2>Active API Tokens</h2>
           </div>
         </div>
 
         {tokens.length === 0 ? (
-          <div className="dashboard-empty">
+          <div className="rounded-lg border border-dashed border-slate p-6 text-graphite">
             <h3>No API tokens active</h3>
             <p>Tokens allow external systems to safely authenticate and upload OpenAPI specs.</p>
             {mayManage && (
-              <button className="dashboard-secondary-action mt-4" onClick={handleOpen} type="button">
+              <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog mt-4" onClick={handleOpen} type="button">
                 Create the first token
               </button>
             )}
           </div>
         ) : (
-          <div className="dashboard-doc-list">
+          <div className="grid gap-3">
             {tokens.map((token) => (
-              <article className="dashboard-doc-row" key={token.id}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{token.name}</h3>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", fontSize: "13px", color: "#666" }}>
+              <article className="grid grid-cols-1 gap-4 rounded-lg border border-chalk bg-paper p-4 sm:grid-cols-[minmax(0,1fr)_auto]" key={token.id}>
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-base font-bold">{token.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-graphite">
                     <span>Prefix: <code>{token.tokenPrefix}</code></span>
                     <span>•</span>
                     <span>Role: <strong>{token.role}</strong></span>
                     <span>•</span>
                     <span>Scopes: <code>{token.scopes.join(", ") || "none"}</code></span>
                   </div>
-                  <span style={{ fontSize: "11px", color: "#999" }}>
+                  <span className="text-xs text-slate">
                     Created: {new Date(token.createdAt).toLocaleString()}
                     {token.lastUsedAt && ` | Last Used: ${new Date(token.lastUsedAt).toLocaleString()}`}
                   </span>
                 </div>
-                <div className="dashboard-row-actions" style={{ alignItems: "center" }}>
+                <div className="flex flex-wrap items-center gap-2.5">
                   {mayManage && (
                     <button
-                      className="dashboard-secondary-action hover:bg-red-50"
                       onClick={() => handleRevoke(token.id)}
                       type="button"
-                      style={{ minHeight: "32px", padding: "0 12px", fontSize: "13px", color: "#dc2626", borderColor: "#fecaca" }}
+                      className="inline-flex min-h-8 items-center rounded-full border border-red-200 bg-paper px-3 text-sm font-semibold text-red-700 hover:bg-red-50"
                     >
                       Revoke
                     </button>
@@ -175,59 +174,58 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
       </section>
 
       {isOpen && (
-        <div className="modal-backdrop" onClick={handleClose}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
-            <div className="modal-header">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm" onClick={handleClose}>
+          <div className="relative w-full max-w-lg rounded-xl border border-chalk bg-paper p-8 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-6 flex items-center justify-between border-b border-chalk pb-4">
               <h2>{createdToken ? "Token Created" : "Create API Token"}</h2>
-              <button className="modal-close" onClick={handleClose} type="button" aria-label="Close">
+              <button className="grid size-8 place-items-center rounded-full bg-transparent text-xl text-slate hover:bg-fog hover:text-carbon" onClick={handleClose} type="button" aria-label="Close">
                 &times;
               </button>
             </div>
 
             {createdToken ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "8px 0" }}>
-                <div style={{ padding: "12px", background: "#fdf8e2", border: "1px solid #fbe69c", borderRadius: "6px", color: "#664d03", fontSize: "14px" }}>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   <strong>IMPORTANT:</strong> Copy this API token now. For security reasons, it cannot be shown again.
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: "700", textTransform: "uppercase", color: "#666" }}>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold uppercase text-graphite">
                     Plaintext Token (Copy this value)
                   </span>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       readOnly
                       value={createdToken}
-                      style={{ flex: 1, padding: "8px", fontFamily: "monospace", fontSize: "14px", border: "1px solid #d9dedb", borderRadius: "6px", background: "#f8f9fa" }}
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="min-w-0 flex-1 rounded-lg border border-chalk bg-fog p-2 font-mono text-sm"
+                      onClick={(event) => event.currentTarget.select()}
                     />
                     <button
-                      className="dashboard-secondary-action"
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(createdToken);
                         alert("Copied to clipboard!");
                       }}
-                      style={{ minHeight: "38px", padding: "0 12px", fontSize: "13px" }}
+                      className="inline-flex min-h-10 items-center rounded-full bg-carbon px-4 text-sm font-semibold text-paper hover:bg-graphite"
                     >
                       Copy
                     </button>
                   </div>
                 </div>
-                <div style={{ fontSize: "12px", color: "#828282" }}>
+                <div className="text-xs text-slate">
                   Token Prefix: <code>{createdPrefix}</code>
                 </div>
-                <div className="modal-actions" style={{ marginTop: "12px" }}>
-                  <button className="dashboard-button" type="button" onClick={handleClose}>
+                <div className="mt-3 flex justify-end gap-3">
+                  <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" type="button" onClick={handleClose}>
                     Done
                   </button>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {error && <p className="error-msg">{error}</p>}
+              <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+                {error && <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
                 
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="flex flex-col gap-1.5 text-sm font-medium">
                   Token Name
                   <input
                     type="text"
@@ -236,16 +234,16 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
                     onChange={(e) => setName(e.target.value)}
                     required
                     autoFocus
-                    style={{ padding: "8px", border: "1px solid #d9dedb", borderRadius: "6px" }}
+                    className="rounded-lg border border-chalk bg-paper p-2 outline-none focus:border-signal-orange"
                   />
                 </label>
 
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="flex flex-col gap-1.5 text-sm font-medium">
                   Role (Determines permissions)
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    style={{ padding: "8px", border: "1px solid #d9dedb", borderRadius: "6px" }}
+                    className="rounded-lg border border-chalk bg-paper p-2 outline-none focus:border-signal-orange"
                   >
                     <option value="owner">Owner (Full Admin Access)</option>
                     <option value="admin">Admin (Manage Docs & Settings)</option>
@@ -254,10 +252,10 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
                   </select>
                 </label>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <span style={{ fontSize: "14px", fontWeight: "700" }}>Scopes</span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "6px 0" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="text-sm font-bold">Scopes</legend>
+                  <div className="flex flex-col gap-2 py-1.5">
+                    <label className="flex items-center gap-2 text-sm font-normal">
                       <input
                         type="checkbox"
                         checked={scopes.includes("docs:read")}
@@ -265,7 +263,7 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
                       />
                       <code>docs:read</code> - Allow reading documentation specifications and history
                     </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                    <label className="flex items-center gap-2 text-sm font-normal">
                       <input
                         type="checkbox"
                         checked={scopes.includes("docs:deploy")}
@@ -274,13 +272,13 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
                       <code>docs:deploy</code> - Allow deploying/uploading new documentation versions
                     </label>
                   </div>
-                </div>
+                </fieldset>
 
-                <div className="modal-actions" style={{ marginTop: "12px" }}>
-                  <button className="button-secondary" type="button" onClick={handleClose} disabled={loading}>
+                <div className="mt-3 flex justify-end gap-3">
+                  <button className="border-carbon bg-transparent text-carbon hover:bg-chalk" type="button" onClick={handleClose} disabled={loading}>
                     Cancel
                   </button>
-                  <button type="submit" disabled={loading} className="dashboard-button">
+                  <button type="submit" disabled={loading} className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite">
                     {loading ? "Creating..." : "Create"}
                   </button>
                 </div>

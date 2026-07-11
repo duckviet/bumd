@@ -209,18 +209,18 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
   };
 
   return (
-    <div className="dashboard-workspace">
-      <section className="dashboard-hero dashboard-hero-compact">
+    <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
+      <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
         <div>
-          <p className="dashboard-kicker">Integrations</p>
+          <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Integrations</p>
           <h1>Webhooks</h1>
-          <p className="dashboard-lede">
+          <p className="text-graphite">
             Configure HTTP webhooks to receive real-time updates when specs are uploaded, fail validation, or contain breaking changes.
           </p>
         </div>
-        <div className="dashboard-hero-actions">
+        <div className="flex flex-wrap items-center gap-2.5">
           {mayManage && (
-            <button className="dashboard-button" onClick={handleOpenCreate} type="button">
+            <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" onClick={handleOpenCreate} type="button">
               Add Webhook
             </button>
           )}
@@ -228,33 +228,31 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
       </section>
 
       {rotatedSecret && (
-        <div style={{ padding: "16px", background: "#fdf8e2", border: "1px solid #fbe69c", borderRadius: "8px", color: "#664d03", marginBottom: "20px", fontSize: "14px" }}>
-          <h3 style={{ margin: "0 0 8px 0", fontSize: "15px", fontWeight: "700" }}>Secret Rotated Successfully!</h3>
-          <p style={{ margin: "0 0 10px 0" }}>Here is your new webhook signing secret. Copy it now, it won&apos;t be shown again.</p>
-          <div style={{ display: "flex", gap: "8px", maxWidth: "500px" }}>
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <h3 className="mb-2 text-sm font-bold">Secret Rotated Successfully!</h3>
+          <p className="mb-2.5">Here is your new webhook signing secret. Copy it now, it won&apos;t be shown again.</p>
+          <div className="flex max-w-lg gap-2">
             <input
               type="text"
               readOnly
               value={rotatedSecret}
-              style={{ flex: 1, padding: "8px 12px", border: "1px solid #fbe69c", borderRadius: "8px", fontSize: "14px", background: "#ffffff", outline: "none" }}
-              onClick={(e) => (e.target as HTMLInputElement).select()}
+              className="min-w-0 flex-1 rounded-lg border border-amber-200 bg-paper px-3 py-2 text-sm outline-none"
+              onClick={(event) => event.currentTarget.select()}
             />
             <button
-              className="dashboard-button"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite"
               type="button"
               onClick={() => {
                 navigator.clipboard.writeText(rotatedSecret);
                 alert("Secret copied to clipboard!");
               }}
-              style={{ minHeight: "38px" }}
             >
               Copy
             </button>
             <button
-              className="dashboard-secondary-action"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog"
               onClick={handleClose}
               type="button"
-              style={{ minHeight: "38px" }}
             >
               Dismiss
             </button>
@@ -262,66 +260,55 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
         </div>
       )}
 
-      <section className="dashboard-panel">
-        <div className="dashboard-section-header">
+      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
           <div>
-            <p className="dashboard-kicker">{webhooks.length} webhook{webhooks.length === 1 ? "" : "s"} configured</p>
+            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{webhooks.length} webhook{webhooks.length === 1 ? "" : "s"} configured</p>
             <h2>Configured Endpoints</h2>
           </div>
         </div>
 
         {webhooks.length === 0 ? (
-          <div className="dashboard-empty">
+          <div className="rounded-lg border border-dashed border-slate p-6 text-graphite">
             <h3>No webhooks configured</h3>
             <p>Add an endpoint to dispatch spec events and breaking change notifications to your servers.</p>
             {mayManage && (
-              <button className="dashboard-secondary-action mt-4" onClick={handleOpenCreate} type="button">
+              <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog mt-4" onClick={handleOpenCreate} type="button">
                 Add the first webhook
               </button>
             )}
           </div>
         ) : (
-          <div className="dashboard-doc-list">
+          <div className="grid gap-3">
             {webhooks.map((wh) => {
               const isDelivOpen = selectedWebhookIdForDeliveries === wh.id;
               return (
-                <div key={wh.id} style={{ display: "flex", flexDirection: "column", border: "1px solid #d9dedb", borderRadius: "8px", overflow: "hidden", background: "#ffffff" }}>
-                  <article className="dashboard-doc-row" style={{ border: "none", borderRadius: 0 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{wh.url}</h3>
-                        <span
-                          className="dashboard-badge"
-                          style={{
-                            fontSize: "11px",
-                            padding: "0 6px",
-                            minHeight: "18px",
-                            background: wh.enabled ? "#e6f4ea" : "#f1f3f4",
-                            color: wh.enabled ? "#137333" : "#3c4043",
-                            borderColor: wh.enabled ? "#ceead6" : "#dadce0",
-                          }}
-                        >
+                <div key={wh.id} className="flex flex-col overflow-hidden rounded-lg border border-chalk bg-paper">
+                  <article className="grid grid-cols-1 gap-4 bg-paper p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-base font-bold">{wh.url}</h3>
+                        <span className={`inline-flex min-h-5 items-center rounded-full border px-2 text-xs font-bold ${wh.enabled ? "border-green-200 bg-green-50 text-green-700" : "border-chalk bg-fog text-slate"}`}>
                           {wh.enabled ? "enabled" : "disabled"}
                         </span>
                       </div>
-                      <p style={{ margin: "2px 0 4px", fontSize: "13px", color: "#666" }}>
+                      <p className="mb-1 mt-0.5 text-sm text-graphite">
                         {wh.description || "No description provided."}
                       </p>
-                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", fontSize: "11px" }}>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
                         {wh.eventTypes.map((t) => (
-                          <code key={t} style={{ background: "#f5f5f5", padding: "2px 6px", borderRadius: "4px", color: "#202020", border: "1px solid #e8e8e8" }}>
+                          <code key={t} className="rounded border border-chalk bg-fog px-1.5 py-0.5 text-carbon">
                             {t}
                           </code>
                         ))}
                       </div>
                     </div>
 
-                    <div className="dashboard-row-actions" style={{ alignItems: "center" }}>
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <button
-                        className="dashboard-secondary-action"
+                        className="inline-flex min-h-8 items-center rounded-full border border-chalk bg-paper px-2.5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog"
                         onClick={() => handleFetchDeliveries(wh.id)}
                         type="button"
-                        style={{ minHeight: "32px", padding: "0 10px", fontSize: "13px" }}
                       >
                         {isDelivOpen ? "Hide Deliveries" : "View Deliveries"}
                       </button>
@@ -329,26 +316,23 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                       {mayManage && (
                         <>
                           <button
-                            className="dashboard-secondary-action"
+                            className="inline-flex min-h-8 items-center rounded-full border border-chalk bg-paper px-2.5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog"
                             onClick={() => handleOpenEdit(wh)}
                             type="button"
-                            style={{ minHeight: "32px", padding: "0 10px", fontSize: "13px" }}
                           >
                             Edit
                           </button>
                           <button
-                            className="dashboard-secondary-action"
+                            className="inline-flex min-h-8 items-center rounded-full border border-chalk bg-paper px-2.5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog"
                             onClick={() => handleRotateSecret(wh.id)}
                             type="button"
-                            style={{ minHeight: "32px", padding: "0 10px", fontSize: "13px" }}
                           >
                             Rotate Secret
                           </button>
                           <button
-                            className="dashboard-secondary-action hover:bg-red-50"
+                            className="inline-flex min-h-8 items-center rounded-full border border-red-200 bg-paper px-2.5 text-sm font-semibold text-red-700 hover:bg-red-50"
                             onClick={() => handleDelete(wh.id)}
                             type="button"
-                            style={{ minHeight: "32px", padding: "0 10px", fontSize: "13px", color: "#dc2626", borderColor: "#fecaca" }}
                           >
                             Delete
                           </button>
@@ -358,37 +342,29 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                   </article>
 
                   {isDelivOpen && (
-                    <div style={{ borderTop: "1px solid #d9dedb", background: "#f9f9f9", padding: "16px" }}>
-                      <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "700" }}>Webhook Deliveries (Last 20)</h4>
+                    <div className="border-t border-chalk bg-fog p-4">
+                      <h4 className="mb-2.5 text-sm font-bold">Webhook Deliveries (Last 20)</h4>
                       {deliveriesLoading ? (
-                        <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>Loading deliveries...</p>
+                        <p className="text-sm text-graphite">Loading deliveries...</p>
                       ) : deliveries.length === 0 ? (
-                        <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>No deliveries recorded for this webhook yet.</p>
+                        <p className="text-sm text-graphite">No deliveries recorded for this webhook yet.</p>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div className="flex flex-col gap-2">
                           {deliveries.map((del) => (
-                            <div key={del.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "8px 12px", border: "1px solid #e8e8e8", borderRadius: "6px", fontSize: "13px" }}>
-                              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                                <span
-                                  style={{
-                                    width: "8px",
-                                    height: "8px",
-                                    borderRadius: "50%",
-                                    background: del.success ? "#137333" : "#c5221f",
-                                    display: "inline-block",
-                                  }}
-                                />
+                            <div key={del.id} className="flex flex-col justify-between gap-2 rounded-lg border border-chalk bg-paper px-3 py-2 text-sm sm:flex-row sm:items-center">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`inline-block size-2 rounded-full ${del.success ? "bg-green-700" : "bg-red-700"}`} />
                                 <strong>{del.eventType}</strong>
-                                <span style={{ color: "#666" }}>Attempts: {del.attemptCount}</span>
-                                {del.statusCode && <span style={{ color: "#666" }}>HTTP {del.statusCode}</span>}
+                                <span className="text-graphite">Attempts: {del.attemptCount}</span>
+                                {del.statusCode && <span className="text-graphite">HTTP {del.statusCode}</span>}
                               </div>
-                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <div className="flex items-center gap-2">
                                 {del.lastError && (
-                                  <span style={{ fontSize: "11px", color: "#c5221f", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={del.lastError}>
+                                  <span className="max-w-52 truncate text-xs text-red-700" title={del.lastError}>
                                     Error: {del.lastError}
                                   </span>
                                 )}
-                                <span style={{ color: "#999", fontSize: "11px" }}>{new Date(del.createdAt).toLocaleString()}</span>
+                                <span className="text-xs text-slate">{new Date(del.createdAt).toLocaleString()}</span>
                               </div>
                             </div>
                           ))}
@@ -404,67 +380,58 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
       </section>
 
       {isOpen && (
-        <div className="modal-backdrop" onClick={handleClose}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
-            <div className="modal-header">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm" onClick={handleClose}>
+          <div className="relative w-full max-w-lg rounded-xl border border-chalk bg-paper p-8 shadow-xl" onClick={(e) => e.stopPropagation()} >
+            <div className="mb-6 flex items-center justify-between border-b border-chalk pb-4">
               <h2>{createdSecret ? "Webhook Added" : "Add Webhook Endpoint"}</h2>
-              <button className="modal-close" onClick={handleClose} type="button" aria-label="Close">
+              <button className="grid size-8 place-items-center rounded-full bg-transparent text-xl text-slate hover:bg-fog hover:text-carbon" onClick={handleClose} type="button" aria-label="Close">
                 &times;
               </button>
             </div>
 
             {createdSecret ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "8px 0" }}>
-                <div style={{ padding: "12px", background: "#fdf8e2", border: "1px solid #fbe69c", borderRadius: "6px", color: "#664d03", fontSize: "14px" }}>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   <strong>IMPORTANT:</strong> Copy this webhook signing secret. You will need it to verify payload signatures. For security reasons, it cannot be shown again.
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: "700", textTransform: "uppercase", color: "#666" }}>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold uppercase text-graphite">
                     Signing Secret
                   </span>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       readOnly
                       value={createdSecret}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        border: "1px solid #d9dedb",
-                        borderRadius: "8px",
-                        fontSize: "14px",
-                        background: "#f9f9f9",
-                        outline: "none",
-                      }}
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="min-w-0 flex-1 rounded-lg border border-chalk bg-fog px-3 py-2 text-sm outline-none"
+                      onClick={(event) => event.currentTarget.select()}
                     />
                     <button
-                      className="dashboard-button"
+                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite"
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(createdSecret);
                         alert("Signing secret copied!");
                       }}
-                      style={{ minHeight: "38px" }}
                     >
                       Copy
                     </button>
                   </div>
                 </div>
-                <button className="dashboard-secondary-action mt-4" onClick={handleClose} type="button">
+                <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog mt-4" onClick={handleClose} type="button">
                   Done
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleCreateSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4">
                 {error && (
-                  <div style={{ padding: "10px", background: "#fdf2f2", border: "1px solid #fde8e8", borderRadius: "6px", color: "#e02424", fontSize: "14px" }}>
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-sm text-red-700">
                     {error}
                   </div>
                 )}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="webhook-url" style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d" }}>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="webhook-url" className="text-sm font-bold uppercase text-graphite">
                     Webhook Destination URL
                   </label>
                   <input
@@ -474,12 +441,12 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                     placeholder="https://your-api.com/webhooks"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    style={{ padding: "8px 12px", border: "1px solid #d9dedb", borderRadius: "8px", fontSize: "14px", outline: "none" }}
+                    className="rounded-lg border border-chalk bg-paper px-3 py-2 text-sm outline-none focus:border-signal-orange"
                   />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="webhook-desc" style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d" }}>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="webhook-desc" className="text-sm font-bold uppercase text-graphite">
                     Description
                   </label>
                   <input
@@ -488,16 +455,16 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                     placeholder="Production delivery alerts"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    style={{ padding: "8px 12px", border: "1px solid #d9dedb", borderRadius: "8px", fontSize: "14px", outline: "none" }}
+                    className="rounded-lg border border-chalk bg-paper px-3 py-2 text-sm outline-none focus:border-signal-orange"
                   />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d", marginBottom: "4px" }}>
+                <div className="flex flex-col gap-1.5">
+                  <span className="mb-1 text-sm font-bold uppercase text-graphite">
                     Event Subscriptions
                   </span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={eventTypes.includes("version.created")}
@@ -505,7 +472,7 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                       />
                       <span><code>version.created</code> — Upload succeeded, new version available</span>
                     </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={eventTypes.includes("version.failed")}
@@ -513,7 +480,7 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                       />
                       <span><code>version.failed</code> — Upload failed processing/validation</span>
                     </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={eventTypes.includes("diff.breaking_detected")}
@@ -524,11 +491,11 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "12px" }}>
-                  <button className="dashboard-secondary-action" onClick={handleClose} type="button" disabled={loading}>
+                <div className="mt-3 flex justify-end gap-3">
+                  <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog" onClick={handleClose} type="button" disabled={loading}>
                     Cancel
                   </button>
-                  <button className="dashboard-button" type="submit" disabled={loading}>
+                  <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" type="submit" disabled={loading}>
                     {loading ? "Adding..." : "Add Endpoint"}
                   </button>
                 </div>
@@ -539,24 +506,24 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
       )}
 
       {isEditOpen && editingWebhook && (
-        <div className="modal-backdrop" onClick={handleClose}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
-            <div className="modal-header">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm" onClick={handleClose}>
+          <div className="relative w-full max-w-lg rounded-xl border border-chalk bg-paper p-8 shadow-xl" onClick={(e) => e.stopPropagation()} >
+            <div className="mb-6 flex items-center justify-between border-b border-chalk pb-4">
               <h2>Edit Webhook</h2>
-              <button className="modal-close" onClick={handleClose} type="button" aria-label="Close">
+              <button className="grid size-8 place-items-center rounded-full bg-transparent text-xl text-slate hover:bg-fog hover:text-carbon" onClick={handleClose} type="button" aria-label="Close">
                 &times;
               </button>
             </div>
 
-            <form onSubmit={handleEditSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
               {error && (
-                <div style={{ padding: "10px", background: "#fdf2f2", border: "1px solid #fde8e8", borderRadius: "6px", color: "#e02424", fontSize: "14px" }}>
+                <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-sm text-red-700">
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label htmlFor="edit-webhook-url" style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d" }}>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="edit-webhook-url" className="text-sm font-bold uppercase text-graphite">
                   Webhook Destination URL
                 </label>
                 <input
@@ -566,26 +533,26 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                   placeholder="https://your-api.com/webhooks"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  style={{ padding: "8px 12px", border: "1px solid #d9dedb", borderRadius: "8px", fontSize: "14px", outline: "none" }}
+                  className="rounded-lg border border-chalk bg-paper px-3 py-2 text-sm outline-none focus:border-signal-orange"
                 />
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer", margin: "4px 0" }}>
+              <div className="my-1 flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   id="edit-webhook-enabled"
                   type="checkbox"
                   checked={enabled}
                   onChange={() => setEnabled(!enabled)}
                 />
-                <label htmlFor="edit-webhook-enabled" style={{ cursor: "pointer", fontWeight: "600" }}>Enable Endpoint</label>
+                <label htmlFor="edit-webhook-enabled" className="cursor-pointer font-semibold">Enable Endpoint</label>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <span style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d", marginBottom: "4px" }}>
+              <div className="flex flex-col gap-1.5">
+                <span className="mb-1 text-sm font-bold uppercase text-graphite">
                   Event Subscriptions
                 </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                <div className="flex flex-col gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={eventTypes.includes("version.created")}
@@ -593,7 +560,7 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                     />
                     <span><code>version.created</code></span>
                   </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={eventTypes.includes("version.failed")}
@@ -601,7 +568,7 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                     />
                     <span><code>version.failed</code></span>
                   </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={eventTypes.includes("diff.breaking_detected")}
@@ -612,11 +579,11 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "12px" }}>
-                <button className="dashboard-secondary-action" onClick={handleClose} type="button" disabled={loading}>
+              <div className="mt-3 flex justify-end gap-3">
+                <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog" onClick={handleClose} type="button" disabled={loading}>
                   Cancel
                 </button>
-                <button className="dashboard-button" type="submit" disabled={loading}>
+                <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" type="submit" disabled={loading}>
                   {loading ? "Saving..." : "Save Changes"}
                 </button>
               </div>

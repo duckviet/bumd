@@ -364,3 +364,11 @@ The authenticated app uses a single command-center dashboard instead of forcing 
 - Status language: queued, processing, ready, and failed versions must be readable as compact pills with distinct neutral/signal treatment.
 - Empty states: show the first useful action, not explanatory marketing copy.
 - Interaction: links and buttons use existing pill/button primitives with 180-220ms transform/opacity transitions only.
+
+## Reusable Application Primitives
+
+- `DashboardButton`: pill command button with `primary`, `secondary`, and `danger` tones; disabled state lowers opacity and removes pointer affordance.
+- `DashboardModal`: centered responsive dialog surface with a carbon overlay, shared header, form field, error, and action-row anatomy.
+- `StatusBadge`: domain-neutral compact label with `neutral`, `warning`, `success`, and `danger` tones. Domain slices map their own state unions to these tones.
+- `VersionStatusBadge`: dashboard entity adapter for `queued`, `processing`, `ready`, `failed`, and no-deploy states.
+- Dashboard shell surfaces use direct Tailwind utilities backed by this file's named tokens; semantic compatibility classes and `@apply` are not permitted.

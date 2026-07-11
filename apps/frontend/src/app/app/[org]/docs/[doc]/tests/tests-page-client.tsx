@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type {
   TestWorkflowDto,
   TestEnvironmentDto,
+  TestWorkflowNode,
 } from "@/entities/test-workflow";
 import type { PaletteOperation } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
 import {
@@ -22,6 +23,14 @@ import { TestWorkflowCanvas } from "@/widgets/test-workflow-canvas/ui/test-workf
 import { NodeInspector } from "@/features/test-workflow-editor/ui/node-inspector";
 import { RunButton } from "@/features/test-workflow-run/ui/run-button";
 import { RunConsole } from "@/features/test-workflow-run/ui/run-console";
+import {
+  DashboardButton,
+  DashboardModal,
+  fieldClassName,
+  FormField,
+  ModalActions,
+  ModalHeader,
+} from "@/shared/ui/dashboard-primitives";
 
 type TestsPageClientProps = {
   readonly org: string;
@@ -166,7 +175,7 @@ const [creating, setCreating] = useState(false);
   };
 
   const handleUpdateNode = useCallback(
-    (nodeId: string, updates: Partial<any>) => {
+    (nodeId: string, updates: Partial<TestWorkflowNode>) => {
       const updatedNodes = state.definition.nodes.map((n) =>
         n.id === nodeId ? { ...n, ...updates } : n,
       );
@@ -207,10 +216,10 @@ const [creating, setCreating] = useState(false);
   );
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-white select-none">
+    <div className="flex min-h-[100dvh] flex-col overflow-hidden bg-paper text-carbon select-none">
       {/* Top Toolbar */}
-      <header className="tw-canvas-toolbar h-14 border-b border-chalk px-4 flex items-center justify-between bg-white shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-chalk bg-paper px-4 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <a href={`/app/${org}/docs/${doc}`} className="text-slate hover:text-carbon font-semibold text-xs flex items-center gap-1">
             &larr; Back to Portal Overview
           </a>
@@ -305,20 +314,20 @@ const [creating, setCreating] = useState(false);
       </header>
 
       {/* Main workspace panels */}
-      <div className="flex-1 flex min-h-0 relative">
+      <div className="relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_340px]">
         {/* Left: Endpoint Palette */}
-        <div className="w-[260px] shrink-0 h-full">
+        <div className="hidden h-full min-h-0 lg:block">
           <EndpointPalette operations={operations} />
         </div>
 
         {/* Center: Canvas */}
-        <div className="flex-1 h-full bg-[#fcfcfc] relative">
+        <div className="relative h-full min-h-[480px] bg-fog/40">
           <TestWorkflowCanvas store={store} operations={operations} />
         </div>
 
         {/* Right: Inspector */}
         {selectedNode && (
-          <div className="w-[340px] shrink-0 h-full">
+          <div className="absolute inset-y-0 right-0 z-20 w-[min(340px,90vw)] shadow-xl xl:static xl:w-auto xl:shadow-none">
             <NodeInspector
               node={selectedNode}
               isStale={isSelectedNodeStale}
@@ -341,18 +350,12 @@ const [creating, setCreating] = useState(false);
       )}
 
       {isCreateOpen ? (
-        <div className="test-workflow-modal-backdrop" role="presentation">
-          <form className="test-workflow-modal" onSubmit={handleCreateWorkflow}>
-            <div className="test-workflow-modal-header">
-              <h2>Create workflow</h2>
-              <button type="button" onClick={() => setIsCreateOpen(false)} aria-label="Close create workflow">
-                ×
-              </button>
-            </div>
-            <label className="test-workflow-field">
-              <span>Name</span>
+        <DashboardModal onSubmit={handleCreateWorkflow}>
+            <ModalHeader onClose={() => setIsCreateOpen(false)}>Create workflow</ModalHeader>
+            <FormField label="Name">
               <input
                 autoFocus
+                className={fieldClassName}
                 value={createName}
                 onChange={(event) => {
                   setCreateName(event.target.value);
@@ -360,24 +363,19 @@ const [creating, setCreating] = useState(false);
                 }}
                 placeholder="Smoke test"
               />
-            </label>
-            {createError ? <p className="test-workflow-error">{createError}</p> : null}
-            <div className="test-workflow-modal-actions">
-              <button type="button" onClick={() => setIsCreateOpen(false)} disabled={creating}>
-                Cancel
-              </button>
-              <button type="submit" disabled={creating}>
-                {creating ? "Creating..." : "Create"}
-              </button>
-            </div>
-          </form>
-        </div>
+            </FormField>
+            {createError ? <p className="text-sm text-red-700">{createError}</p> : null}
+            <ModalActions>
+              <DashboardButton disabled={creating} onClick={() => setIsCreateOpen(false)} tone="secondary">Cancel</DashboardButton>
+              <DashboardButton disabled={creating} type="submit">{creating ? "Creating..." : "Create"}</DashboardButton>
+            </ModalActions>
+        </DashboardModal>
       ) : null}
 
       {/* 409 Conflict reload prompt */}
       {state.conflictRevision !== null && (
         <div className="fixed inset-0 bg-carbon/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
-          <div className="bg-white rounded-lg p-5 max-w-sm flex flex-col gap-3 shadow-xl">
+          <div className="flex max-w-sm flex-col gap-3 rounded-lg border border-chalk bg-paper p-5 shadow-xl">
             <h3 className="font-bold text-carbon text-sm">Save Conflict (409)</h3>
             <p className="text-xs text-graphite">
               This workflow has been modified in another window. Current version: #{state.conflictRevision}.
@@ -386,7 +384,7 @@ const [creating, setCreating] = useState(false);
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="button-primary bg-signal-orange text-white font-semibold text-xs px-4 py-1.5 rounded-full cursor-pointer"
+                className="inline-flex h-9 items-center rounded-full bg-carbon px-4 text-xs font-semibold text-paper hover:bg-graphite"
               >
                 Reload Page
               </button>

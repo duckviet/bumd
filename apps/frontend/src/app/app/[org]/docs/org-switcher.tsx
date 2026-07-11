@@ -15,21 +15,11 @@ export function OrgSwitcher({ currentOrg, memberships }: Props): React.ReactElem
   const router = useRouter();
 
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+    <div className="inline-flex items-center gap-2">
       <select
         value={currentOrg}
         onChange={(e) => router.push(`/app/${e.target.value}`)}
-        style={{
-          background: "#ffffff",
-          border: "1px solid #d9dedb",
-          borderRadius: "8px",
-          padding: "4px 12px 4px 8px",
-          fontSize: "14px",
-          fontWeight: "700",
-          color: "#202020",
-          cursor: "pointer",
-          outline: "none",
-        }}
+        className="cursor-pointer rounded-lg border border-chalk bg-paper py-1 pl-2 pr-3 text-sm font-bold text-carbon outline-none focus:border-signal-orange"
       >
         {memberships.map((m) => (
           <option key={m.organizationSlug} value={m.organizationSlug}>

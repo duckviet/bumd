@@ -46,11 +46,11 @@ export function RequestBuilder({
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <div className="flex border-b border-[#d9dedb] px-4 bg-[#fbfbfa]">
+      <div className="flex border-b border-chalk px-4 bg-fog">
         {(["params", "headers", "body"] as const).map((tab) => (
           <button
             className={`border-b-2 px-3 py-3 text-sm font-medium capitalize transition-all ${
-              requestTab === tab ? "border-[#ff682c] text-[#ff682c]" : "border-transparent text-[#65706b] hover:text-[#202020]"
+              requestTab === tab ? "border-signal-orange text-signal-orange" : "border-transparent text-slate hover:text-carbon"
             }`}
             key={tab}
             onClick={() => onRequestTabChange(tab)}
@@ -67,16 +67,16 @@ export function RequestBuilder({
             {/* Path Parameters Section */}
             {pathParams.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-[#828282] mb-3">Path Parameters</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate mb-3">Path Parameters</h4>
                 <div className="space-y-4">
                   {pathParams.map((param, index) => (
                     <div key={param.id}>
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-semibold text-[#202020] font-mono">
+                        <span className="text-xs font-semibold text-carbon font-mono">
                           {param.key} <span className="text-red-500">*</span>
                         </span>
                         {param.description && (
-                          <span className="text-[10px] text-[#828282] max-w-[70%] truncate" title={param.description}>
+                          <span className="text-[10px] text-slate max-w-[70%] truncate" title={param.description}>
                             {param.description}
                           </span>
                         )}
@@ -86,7 +86,7 @@ export function RequestBuilder({
                         className={`w-full rounded-lg border px-3 py-1.5 text-xs font-mono transition-all ${
                           validationErrors[`path-${param.key}`]
                             ? "border-red-500 bg-red-50/20 focus:border-red-500"
-                            : "border-[#d9dedb] hover:border-[#ff682c]/60 focus:border-[#ff682c] focus:ring-1 focus:ring-[#ff682c] focus:outline-none"
+                            : "border-chalk hover:border-signal-orange/60 focus:border-signal-orange focus:ring-1 focus:ring-signal-orange focus:outline-none"
                         }`}
                         value={param.value}
                         onChange={(e) => onPathParamsChange(index, e.target.value)}
@@ -134,11 +134,11 @@ export function RequestBuilder({
         {requestTab === "body" && (
           <div className="h-full flex flex-col min-h-[340px]">
             <div className="mb-2 flex justify-between items-center">
-              <span className="text-xs font-semibold text-[#828282] uppercase tracking-wider">
+              <span className="text-xs font-semibold text-slate uppercase tracking-wider">
                 JSON Payload {operation.requestBody?.required && <span className="text-red-500">*</span>}
               </span>
               {operation.requestBody?.contentType && (
-                <span className="text-[10px] bg-[#f5f5f5] text-[#4d4d4d] border border-[#d9dedb] px-2 py-0.5 rounded font-mono">
+                <span className="text-[10px] bg-fog text-graphite border border-chalk px-2 py-0.5 rounded font-mono">
                   {operation.requestBody.contentType}
                 </span>
               )}
@@ -147,7 +147,7 @@ export function RequestBuilder({
               className={`flex-1 w-full min-h-[280px] resize-none rounded-lg border p-4 font-mono text-xs leading-5 transition-all focus:outline-none focus:ring-1 ${
                 validationErrors["body"]
                   ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-red-500"
-                  : "border-[#d9dedb] bg-[#fbfbfa] focus:border-[#ff682c] focus:ring-[#ff682c] text-[#202020]"
+                  : "border-chalk bg-fog focus:border-signal-orange focus:ring-signal-orange text-carbon"
               }`}
               value={bodyText}
               onChange={(e) => onBodyTextChange(e.target.value)}

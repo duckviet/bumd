@@ -89,7 +89,7 @@ export function OperationNav({
             title={<span>{group.tag}</span>}
             isCollapsed={isCollapsed}
             onToggle={() => toggleGroup(group.tag)}
-            headerClassName="mb-2 flex w-full items-center justify-between text-left text-xs font-semibold uppercase text-[#828282] hover:text-[#202020] transition-colors cursor-pointer"
+            headerClassName="mb-2 flex w-full items-center justify-between text-left text-xs font-semibold uppercase text-slate hover:text-carbon transition-colors cursor-pointer"
             chevronClassName="h-4 w-4"
           >
             <div className="space-y-1.5">
@@ -100,8 +100,8 @@ export function OperationNav({
                   <a
                     className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition ${
                       isActive
-                        ? "border-[#ff682c] bg-[#fff3ed] text-[#202020]"
-                        : "border-transparent bg-transparent text-[#4d4d4d] hover:border-[#d9dedb] hover:bg-white"
+                        ? "border-signal-orange bg-orange-50 text-carbon"
+                        : "border-transparent bg-transparent text-graphite hover:border-chalk hover:bg-white"
                     }`}
                     href={`#operation-${operation.id}`}
                     key={operation.id}
@@ -113,7 +113,7 @@ export function OperationNav({
                     <MethodBadge method={operation.method} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{operation.summary}</span>
-                      <span className="block truncate font-mono text-xs text-[#65706b]">{operation.path}</span>
+                      <span className="block truncate font-mono text-xs text-slate">{operation.path}</span>
                     </span>
                   </a>
                 );

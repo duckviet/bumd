@@ -5,6 +5,14 @@ import { useState } from "react";
 
 import type { TestWorkflowDto } from "@/entities/test-workflow";
 import { createWorkflow } from "@/shared/api/test-workflows-client";
+import {
+  DashboardButton,
+  DashboardModal,
+  fieldClassName,
+  FormField,
+  ModalActions,
+  ModalHeader,
+} from "@/shared/ui/dashboard-primitives";
 
 type TestsListClientProps = {
   readonly org: string;
@@ -57,48 +65,44 @@ export function TestsListClient({ org, doc, branch, initialWorkflows }: TestsLis
   };
 
   return (
-    <div className="test-workflow-list-page">
-      <div className="test-workflow-list-header">
+    <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6">
+      <header className="flex flex-col items-start justify-between gap-4 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
         <div>
-          <a className="test-workflow-back-link" href={`/app/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}`}>
+          <a className="text-sm font-semibold text-sienna-bronze hover:text-carbon" href={`/app/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}`}>
             Back to document
           </a>
-          <h1>Test workflows</h1>
-          <p>{workflows.length} workflow{workflows.length === 1 ? "" : "s"} on branch {branch}</p>
+          <h1 className="mt-2 text-3xl font-semibold text-carbon">Test workflows</h1>
+          <p className="mt-1 text-sm text-graphite">{workflows.length} workflow{workflows.length === 1 ? "" : "s"} on branch {branch}</p>
         </div>
-        <button type="button" onClick={openCreate}>
-          New workflow
-        </button>
-      </div>
+        <DashboardButton onClick={openCreate}>New workflow</DashboardButton>
+      </header>
 
       {workflows.length === 0 ? (
-        <div className="test-workflow-empty">
-          <h2>No workflows yet</h2>
-          <p>Create a workflow to start arranging endpoint tests on the canvas.</p>
-          <button type="button" onClick={openCreate}>
-            Create workflow
-          </button>
+        <div className="grid justify-items-start gap-2 rounded-lg border border-dashed border-slate bg-paper p-7">
+          <h2 className="text-xl font-semibold">No workflows yet</h2>
+          <p className="text-sm text-graphite">Create a workflow to start arranging endpoint tests on the canvas.</p>
+          <DashboardButton className="mt-2" onClick={openCreate}>Create workflow</DashboardButton>
         </div>
       ) : (
-        <div className="test-workflow-grid">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
           {workflows.map((workflow) => (
-            <a key={workflow.id} className="test-workflow-card" href={workflowPath(workflow.id)}>
+            <a key={workflow.id} className="grid min-h-48 gap-5 rounded-lg border border-chalk bg-paper p-5 transition-[border-color,background-color] duration-200 hover:border-slate hover:bg-fog" href={workflowPath(workflow.id)}>
               <div>
-                <h2>{workflow.name}</h2>
-                <p>{workflow.description || "No description"}</p>
+                <h2 className="text-lg font-semibold">{workflow.name}</h2>
+                <p className="mt-1 text-sm text-graphite">{workflow.description || "No description"}</p>
               </div>
-              <dl>
+              <dl className="grid grid-cols-3 gap-3 self-end">
                 <div>
-                  <dt>Nodes</dt>
-                  <dd>{workflow.definitionJson.nodes.length}</dd>
+                  <dt className="text-xs uppercase text-slate">Nodes</dt>
+                  <dd className="mt-1 text-sm font-semibold">{workflow.definitionJson.nodes.length}</dd>
                 </div>
                 <div>
-                  <dt>Revision</dt>
-                  <dd>{workflow.revision}</dd>
+                  <dt className="text-xs uppercase text-slate">Revision</dt>
+                  <dd className="mt-1 text-sm font-semibold">{workflow.revision}</dd>
                 </div>
                 <div>
-                  <dt>Updated</dt>
-                  <dd>{new Date(workflow.updatedAt).toLocaleDateString()}</dd>
+                  <dt className="text-xs uppercase text-slate">Updated</dt>
+                  <dd className="mt-1 text-sm font-semibold">{new Date(workflow.updatedAt).toLocaleDateString()}</dd>
                 </div>
               </dl>
             </a>
@@ -107,18 +111,12 @@ export function TestsListClient({ org, doc, branch, initialWorkflows }: TestsLis
       )}
 
       {isCreateOpen ? (
-        <div className="test-workflow-modal-backdrop" role="presentation">
-          <form className="test-workflow-modal" onSubmit={create}>
-            <div className="test-workflow-modal-header">
-              <h2>Create workflow</h2>
-              <button type="button" onClick={() => setIsCreateOpen(false)} aria-label="Close create workflow">
-                ×
-              </button>
-            </div>
-            <label className="test-workflow-field">
-              <span>Name</span>
+        <DashboardModal onSubmit={create}>
+            <ModalHeader onClose={() => setIsCreateOpen(false)}>Create workflow</ModalHeader>
+            <FormField label="Name">
               <input
                 autoFocus
+                className={fieldClassName}
                 value={createName}
                 onChange={(event) => {
                   setCreateName(event.target.value);
@@ -126,18 +124,13 @@ export function TestsListClient({ org, doc, branch, initialWorkflows }: TestsLis
                 }}
                 placeholder="Smoke test"
               />
-            </label>
-            {createError ? <p className="test-workflow-error">{createError}</p> : null}
-            <div className="test-workflow-modal-actions">
-              <button type="button" onClick={() => setIsCreateOpen(false)} disabled={creating}>
-                Cancel
-              </button>
-              <button type="submit" disabled={creating}>
-                {creating ? "Creating..." : "Create"}
-              </button>
-            </div>
-          </form>
-        </div>
+            </FormField>
+            {createError ? <p className="text-sm text-red-700">{createError}</p> : null}
+            <ModalActions>
+              <DashboardButton disabled={creating} onClick={() => setIsCreateOpen(false)} tone="secondary">Cancel</DashboardButton>
+              <DashboardButton disabled={creating} type="submit">{creating ? "Creating..." : "Create"}</DashboardButton>
+            </ModalActions>
+        </DashboardModal>
       ) : null}
     </div>
   );

@@ -64,7 +64,7 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
       target: e.target,
       animated: runStatus?.steps.find((s) => s.nodeId === e.source)?.status === "succeeded",
       style: {
-        stroke: selectedEdgeId === e.id ? "#ff682c" : "#d9dedb",
+        stroke: selectedEdgeId === e.id ? "var(--color-signal-orange)" : "var(--color-chalk)",
         strokeWidth: selectedEdgeId === e.id ? 2.5 : 1.5,
       },
     }));
@@ -198,7 +198,7 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
         onEdgesDelete={onEdgesDelete}
         fitView
       >
-        <Background color="#ccc" gap={16} />
+        <Background color="var(--color-chalk)" gap={16} />
         <Controls />
         <MiniMap />
       </ReactFlow>

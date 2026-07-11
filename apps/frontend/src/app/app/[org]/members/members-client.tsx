@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardMember, DashboardInvite } from "@/entities/dashboard";
+import { StatusBadge, type StatusBadgeTone } from "@/shared/ui/status-badge";
 
 type Props = {
   readonly org: string;
@@ -10,6 +11,15 @@ type Props = {
   readonly invites: readonly DashboardInvite[];
   readonly mayManage: boolean;
   readonly currentUserEmail: string;
+};
+
+type InviteStatus = "accepted" | "active" | "expired" | "revoked";
+
+const inviteStatusTone: Record<InviteStatus, StatusBadgeTone> = {
+  accepted: "success",
+  active: "warning",
+  expired: "neutral",
+  revoked: "danger",
 };
 
 export function MembersClient({ org, members, invites, mayManage, currentUserEmail }: Props): React.ReactElement {
@@ -134,7 +144,7 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
     }
   };
 
-  const getInviteStatus = (invite: DashboardInvite) => {
+  const getInviteStatus = (invite: DashboardInvite): InviteStatus => {
     if (invite.acceptedAt) return "accepted";
     if (invite.revokedAt) return "revoked";
     if (new Date(invite.expiresAt).getTime() < Date.now()) return "expired";
@@ -142,61 +152,55 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
   };
 
   return (
-    <div className="dashboard-workspace">
-      <section className="dashboard-hero dashboard-hero-compact">
+    <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
+      <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
         <div>
-          <p className="dashboard-kicker">Workspace</p>
+          <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Workspace</p>
           <h1>Members & Invites</h1>
-          <p className="dashboard-lede">
+          <p className="text-graphite">
             Manage organization members, assign roles, and invite new colleagues to collaborate.
           </p>
         </div>
-        <div className="dashboard-hero-actions">
+        <div className="flex flex-wrap items-center gap-2.5">
           {mayManage && (
-            <button className="dashboard-button" onClick={handleOpen} type="button">
+            <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" onClick={handleOpen} type="button">
               Invite Member
             </button>
           )}
         </div>
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px" }}>
-        <section className="dashboard-panel">
-          <div className="dashboard-section-header">
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
             <div>
-              <p className="dashboard-kicker">{members.length} member{members.length === 1 ? "" : "s"}</p>
+              <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{members.length} member{members.length === 1 ? "" : "s"}</p>
               <h2>Organization Members</h2>
             </div>
           </div>
 
-          <div className="dashboard-doc-list">
+          <div className="grid gap-3">
             {members.map((member) => {
               const isSelf = member.email === currentUserEmail;
               return (
-                <article className="dashboard-doc-row" key={member.id}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>
-                      {member.name} {isSelf && <span style={{ color: "#ff682c", fontSize: "12px" }}>(You)</span>}
+                <article className="grid grid-cols-1 gap-4 rounded-lg border border-chalk bg-paper p-4 sm:grid-cols-[minmax(0,1fr)_auto]" key={member.id}>
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-base font-bold">
+                      {member.name} {isSelf && <span className="text-xs text-signal-orange">(You)</span>}
                     </h3>
-                    <div style={{ display: "flex", gap: "8px", fontSize: "13px", color: "#666" }}>
+                    <div className="flex flex-wrap gap-2 text-sm text-graphite">
                       <span>{member.email}</span>
                       <span>•</span>
                       <span>Joined: {new Date(member.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <div className="dashboard-row-actions" style={{ alignItems: "center" }}>
+                  <div className="flex flex-wrap items-center gap-2.5">
                     {mayManage && !isSelf ? (
                       <>
                         <select
                           value={member.role}
                           onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                          style={{
-                            padding: "4px 8px",
-                            border: "1px solid #d9dedb",
-                            borderRadius: "6px",
-                            fontSize: "13px",
-                            fontWeight: "600",
-                          }}
+                          className="rounded-lg border border-chalk bg-paper px-2 py-1 text-sm font-semibold outline-none focus:border-signal-orange"
                         >
                           <option value="owner">owner</option>
                           <option value="admin">admin</option>
@@ -204,24 +208,15 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
                           <option value="guest">guest</option>
                         </select>
                         <button
-                          className="dashboard-secondary-action hover:bg-red-50"
+                          className="inline-flex min-h-8 items-center rounded-full border border-red-200 bg-paper px-3 text-sm font-semibold text-red-700 hover:bg-red-50"
                           onClick={() => handleRemove(member.id)}
                           type="button"
-                          style={{
-                            minHeight: "32px",
-                            padding: "0 12px",
-                            fontSize: "13px",
-                            color: "#dc2626",
-                            borderColor: "#fecaca",
-                          }}
                         >
                           Remove
                         </button>
                       </>
                     ) : (
-                      <span className="dashboard-badge" style={{ textTransform: "uppercase" }}>
-                        {member.role}
-                      </span>
+                      <StatusBadge label={member.role} />
                     )}
                   </div>
                 </article>
@@ -230,8 +225,8 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
           </div>
         </section>
 
-        <section className="dashboard-panel">
-          <div className="dashboard-section-header">
+        <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
             <div>
               <h2>Pending Invites</h2>
               <p>Active invite tokens</p>
@@ -239,80 +234,31 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
           </div>
 
           {invites.length === 0 ? (
-            <div className="dashboard-empty" style={{ textAlign: "center", padding: "16px" }}>
-              <p style={{ margin: 0, fontSize: "14px" }}>No invites found.</p>
+            <div className="rounded-lg border border-dashed border-slate p-4 text-center text-graphite">
+              <p className="text-sm">No invites found.</p>
             </div>
           ) : (
-            <div className="dashboard-doc-list" style={{ gap: "8px" }}>
+            <div className="grid gap-2">
               {invites.map((invite) => {
                 const status = getInviteStatus(invite);
                 const isActive = status === "active";
                 return (
-                  <div
-                    key={invite.id}
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #d9dedb",
-                      borderRadius: "8px",
-                      background: "#ffffff",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div className="rounded-lg border border-chalk bg-paper p-3" key={invite.id}>
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <strong style={{ fontSize: "14px", color: "#202020", display: "block" }}>
+                        <strong className="block text-sm text-carbon">
                           {invite.email || "Any User (Open Link)"}
                         </strong>
-                        <span style={{ fontSize: "12px", color: "#666" }}>Role: {invite.role}</span>
+                        <span className="text-xs text-graphite">Role: {invite.role}</span>
                       </div>
-                      <span
-                        className="dashboard-badge"
-                        style={{
-                          fontSize: "11px",
-                          padding: "0 6px",
-                          minHeight: "18px",
-                          background:
-                            status === "accepted"
-                              ? "#e6f4ea"
-                              : status === "revoked"
-                              ? "#fce8e6"
-                              : status === "expired"
-                              ? "#f1f3f4"
-                              : "#fff3ed",
-                          color:
-                            status === "accepted"
-                              ? "#137333"
-                              : status === "revoked"
-                              ? "#c5221f"
-                              : status === "expired"
-                              ? "#3c4043"
-                              : "#9c3d13",
-                          borderColor:
-                            status === "accepted"
-                              ? "#ceead6"
-                              : status === "revoked"
-                              ? "#fad2cf"
-                              : status === "expired"
-                              ? "#dadce0"
-                              : "#ffd5c2",
-                        }}
-                      >
-                        {status}
-                      </span>
+                      <StatusBadge label={status} tone={inviteStatusTone[status]} />
                     </div>
                     {isActive && mayManage && (
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                      <div className="mt-2 flex justify-end">
                         <button
                           onClick={() => handleRevokeInvite(invite.id)}
                           type="button"
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#dc2626",
-                            fontSize: "12px",
-                            fontWeight: "700",
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
+                          className="bg-transparent p-0 text-xs font-bold text-red-700 hover:underline"
                         >
                           Revoke Invite
                         </button>
@@ -327,67 +273,58 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
       </div>
 
       {isOpen && (
-        <div className="modal-backdrop" onClick={handleClose}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
-            <div className="modal-header">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm" onClick={handleClose}>
+          <div className="relative w-full max-w-lg rounded-xl border border-chalk bg-paper p-8 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-6 flex items-center justify-between border-b border-chalk pb-4">
               <h2>{createdInviteLink ? "Invite Created" : "Invite New Member"}</h2>
-              <button className="modal-close" onClick={handleClose} type="button" aria-label="Close">
+              <button className="grid size-8 place-items-center rounded-full bg-transparent text-xl text-slate hover:bg-fog hover:text-carbon" onClick={handleClose} type="button" aria-label="Close">
                 &times;
               </button>
             </div>
 
             {createdInviteLink ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "8px 0" }}>
-                <div style={{ padding: "12px", background: "#fdf8e2", border: "1px solid #fbe69c", borderRadius: "6px", color: "#664d03", fontSize: "14px" }}>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   <strong>IMPORTANT:</strong> Copy the invite link below. You can send it directly to the user to join this organization.
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: "700", textTransform: "uppercase", color: "#666" }}>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold uppercase text-graphite">
                     Invite Link
                   </span>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       readOnly
                       value={createdInviteLink}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        border: "1px solid #d9dedb",
-                        borderRadius: "8px",
-                        fontSize: "14px",
-                        background: "#f9f9f9",
-                        outline: "none",
-                      }}
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="min-w-0 flex-1 rounded-lg border border-chalk bg-fog px-3 py-2 text-sm outline-none"
+                      onClick={(event) => event.currentTarget.select()}
                     />
                     <button
-                      className="dashboard-button"
+                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite"
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(createdInviteLink);
                         alert("Invite link copied to clipboard!");
                       }}
-                      style={{ minHeight: "38px" }}
                     >
                       Copy
                     </button>
                   </div>
                 </div>
-                <button className="dashboard-secondary-action mt-4" onClick={handleClose} type="button">
+                <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog mt-4" onClick={handleClose} type="button">
                   Done
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
                 {error && (
-                  <div style={{ padding: "10px", background: "#fdf2f2", border: "1px solid #fde8e8", borderRadius: "6px", color: "#e02424", fontSize: "14px" }}>
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-sm text-red-700">
                     {error}
                   </div>
                 )}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="invite-email" style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d" }}>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-bold uppercase text-graphite" htmlFor="invite-email">
                     Email Address (Optional)
                   </label>
                   <input
@@ -396,35 +333,22 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
                     placeholder="colleague@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid #d9dedb",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      outline: "none",
-                    }}
+                    className="rounded-lg border border-chalk bg-paper px-3 py-2 text-sm outline-none focus:border-signal-orange"
                   />
-                  <small style={{ color: "#666", fontSize: "11px" }}>
+                  <small className="text-xs text-graphite">
                     Leave blank to create a generic invite link that anyone can use.
                   </small>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="invite-role" style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", color: "#4d4d4d" }}>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-bold uppercase text-graphite" htmlFor="invite-role">
                     Organization Role
                   </label>
                   <select
                     id="invite-role"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid #d9dedb",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      outline: "none",
-                      background: "#ffffff",
-                    }}
+                    className="rounded-lg border border-chalk bg-paper px-3 py-2 text-sm outline-none focus:border-signal-orange"
                   >
                     <option value="owner">owner</option>
                     <option value="admin">admin</option>
@@ -433,11 +357,11 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
                   </select>
                 </div>
 
-                <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "12px" }}>
-                  <button className="dashboard-secondary-action" onClick={handleClose} type="button" disabled={loading}>
+                <div className="mt-3 flex justify-end gap-3">
+                  <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog" onClick={handleClose} type="button" disabled={loading}>
                     Cancel
                   </button>
-                  <button className="dashboard-button" type="submit" disabled={loading}>
+                  <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" type="submit" disabled={loading}>
                     {loading ? "Generating..." : "Generate Invite"}
                   </button>
                 </div>

@@ -1,6 +1,7 @@
 import { latestVersion, listDashboardDocs, type DashboardDoc } from "@/entities/dashboard";
 import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 import { CreateDocModal } from "@/app/app/[org]/docs/create-doc-modal";
+import { VersionStatusBadge } from "@/entities/dashboard";
 
 type PageProps = {
   readonly params: Promise<{
@@ -45,28 +46,13 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
   const mayManage = canManage(membership.role);
   const recentDocs = docs.slice(0, 4);
 
-  function renderStatusBadge(doc: DashboardDoc) {
+  function renderVersionStatusBadge(doc: DashboardDoc) {
     const latest = latestVersion(doc);
     if (latest === null) {
-      return (
-        <span className="px-3 py-0.5 text-xs font-semibold rounded-full border border-chalk bg-fog text-slate uppercase">
-          No deploys
-        </span>
-      );
+      return <VersionStatusBadge />;
     }
-    
-    const isReady = latest.status === "ready";
-    const badgeColorClass = isReady
-      ? "bg-green-50 text-green-700 border-green-200"
-      : latest.status === "failed"
-      ? "bg-red-50 text-red-700 border-red-200"
-      : "bg-orange-50 text-orange-700 border-orange-200 animate-pulse";
-      
-    return (
-      <span className={`px-3 py-0.5 text-xs font-semibold rounded-full border uppercase ${badgeColorClass}`}>
-        {latest.label} {latest.status}
-      </span>
-    );
+
+    return <VersionStatusBadge label={latest.label} status={latest.status} />;
   }
 
   return dashboardShell({
@@ -76,22 +62,22 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
     memberships: session.memberships,
     tab: "overview",
     children: (
-      <div className="dashboard-workspace flex flex-col gap-8">
-        <section className="dashboard-hero bg-paper p-6 rounded-lg border border-chalk flex items-center justify-between transition-all">
+      <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6 flex flex-col gap-8">
+        <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row bg-paper p-6 rounded-lg border border-chalk flex items-center justify-between transition-all">
           <div>
-            <p className="dashboard-kicker">Workspace</p>
+            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Workspace</p>
             <h1 className="text-3xl font-bold tracking-tight text-carbon">{org}</h1>
-            <p className="dashboard-lede mt-2 text-graphite">Docs, deploys, versions, and publication status are now reachable from one operating view.</p>
+            <p className="text-graphite mt-2 text-graphite">Docs, deploys, versions, and publication status are now reachable from one operating view.</p>
           </div>
-          <div className="dashboard-hero-actions flex gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 flex gap-3">
             {mayManage ? <CreateDocModal org={org} /> : null}
-            <a className="button-link button-secondary" href={`/app/${org}/docs`}>
+            <a className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite border-carbon bg-transparent text-carbon hover:bg-chalk" href={`/app/${org}/docs`}>
               Browse docs
             </a>
           </div>
         </section>
 
-        <div className="dashboard-facts flex flex-wrap gap-6 mt-0">
+        <div className="mt-6 flex flex-wrap gap-6 flex flex-wrap gap-6 mt-0">
           <div className="bg-paper p-6 rounded-lg border border-chalk flex-1 min-w-[200px] hover:border-signal-orange transition-all">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate mb-1 block">Total docs</span>
             <strong className="text-4xl font-bold font-polysans text-carbon block mt-1">{stats.docs}</strong>
@@ -111,7 +97,7 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <section className="lg:col-span-2 bg-paper p-8 rounded-lg border border-chalk flex flex-col gap-6">
-            <div className="dashboard-section-header flex items-center justify-between border-b border-chalk pb-4 mb-2">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4 flex items-center justify-between border-b border-chalk pb-4 mb-2">
               <div>
                 <p className="text-xs uppercase tracking-wider font-semibold text-signal-orange">Primary surface</p>
                 <h2 className="text-2xl font-bold tracking-tight text-carbon mt-1">Documentation portals</h2>
@@ -122,13 +108,13 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
             </div>
             
             {recentDocs.length === 0 ? (
-              <div className="dashboard-empty border-2 border-dashed border-chalk p-8 rounded-lg text-center flex flex-col items-center gap-4">
+              <div className="rounded-lg border border-dashed border-slate p-6 text-graphite border-2 border-dashed border-chalk p-8 rounded-lg text-center flex flex-col items-center gap-4">
                 <h3 className="text-lg font-semibold text-carbon">No docs yet</h3>
                 <p className="text-sm text-graphite max-w-sm">Create the first portal to unlock deploys, version history, diffs, and public documentation.</p>
                 {mayManage ? <CreateDocModal org={org} /> : null}
               </div>
             ) : (
-              <div className="dashboard-doc-list flex flex-col gap-3.5">
+              <div className="grid gap-3 flex flex-col gap-3.5">
                 {recentDocs.map((doc) => (
                   <a 
                     className="flex items-center justify-between p-5 bg-fog hover:bg-chalk border border-chalk hover:border-signal-orange rounded-lg transition-all" 
@@ -139,7 +125,7 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
                       <strong className="text-base font-semibold text-carbon">{doc.name}</strong>
                       <small className="text-xs text-slate">{doc.slug} / {doc.theme}</small>
                     </span>
-                    {renderStatusBadge(doc)}
+                    {renderVersionStatusBadge(doc)}
                   </a>
                 ))}
               </div>

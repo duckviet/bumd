@@ -217,12 +217,12 @@ function TryItOutModalContent({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#202020]/40 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className="relative grid h-[calc(100dvh-32px)] lg:h-[min(760px,calc(100dvh-48px))] w-full max-w-[1160px] overflow-hidden rounded-xl border border-[#d9dedb] bg-white shadow-2xl shadow-[#202020]/20 grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_440px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className="relative grid h-[calc(100dvh-32px)] lg:h-[min(760px,calc(100dvh-48px))] w-full max-w-[1160px] overflow-hidden rounded-xl border border-chalk bg-white shadow-2xl shadow-carbon/20 grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_440px]">
         
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-[#65706b] hover:text-[#202020] hover:bg-[#f5f5f5] transition-all p-1.5 rounded-lg z-20 cursor-pointer"
+          className="absolute top-3 right-3 text-slate hover:text-carbon hover:bg-fog transition-all p-1.5 rounded-lg z-20 cursor-pointer"
           aria-label="Close modal"
           type="button"
         >
@@ -231,8 +231,8 @@ function TryItOutModalContent({
           </svg>
         </button>
 
-        <aside className="hidden border-r border-[#d9dedb] bg-[#f5f5f5] p-4 lg:flex lg:flex-col overflow-y-auto">
-          <div className="mb-3 rounded-lg border border-[#d9dedb] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-[#65706b]">
+        <aside className="hidden border-r border-chalk bg-fog p-4 lg:flex lg:flex-col overflow-y-auto">
+          <div className="mb-3 rounded-lg border border-chalk bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate">
             Operations
           </div>
           <div className="space-y-1 overflow-y-auto flex-1 pr-1">
@@ -240,8 +240,8 @@ function TryItOutModalContent({
               <button
                 className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition-all ${
                   op.id === operation.id
-                    ? "bg-[#fff3ed] border border-[#f0c8b6] text-[#9c3d13] font-medium"
-                    : "hover:bg-white/60 text-[#202020] border border-transparent"
+                    ? "bg-orange-50 border border-orange-200 text-orange-800 font-medium"
+                    : "hover:bg-white/60 text-carbon border border-transparent"
                 }`}
                 key={op.id}
                 onClick={() => onSelectOperation?.(op)}
@@ -251,27 +251,27 @@ function TryItOutModalContent({
                 <MethodBadge method={op.method} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-semibold" title={op.summary}>{op.summary}</span>
-                  <span className="block truncate font-mono text-[10px] text-[#65706b]" title={op.path}>{op.path}</span>
+                  <span className="block truncate font-mono text-[10px] text-slate" title={op.path}>{op.path}</span>
                 </span>
               </button>
             ))}
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-col border-r border-[#d9dedb]">
-          <header className="flex flex-wrap items-center gap-2 border-b border-[#d9dedb] px-4 py-3 bg-[#fbfbfa] pr-12 lg:pr-4">
+        <section className="flex min-w-0 flex-col border-r border-chalk">
+          <header className="flex flex-wrap items-center gap-2 border-b border-chalk px-4 py-3 bg-fog pr-12 lg:pr-4">
             <MethodBadge method={operation.method} />
             <input
               aria-label="Base URL"
-              className="h-8 w-[200px] min-w-[200px] rounded-md border border-[#d9dedb] hover:border-[#ff682c]/60 bg-white px-2 font-mono text-xs text-[#202020] focus:border-[#ff682c] focus:ring-1 focus:ring-[#ff682c] focus:outline-none transition-all shadow-sm"
+              className="h-8 w-[200px] min-w-[200px] rounded-md border border-chalk hover:border-signal-orange/60 bg-white px-2 font-mono text-xs text-carbon focus:border-signal-orange focus:ring-1 focus:ring-signal-orange focus:outline-none transition-all shadow-sm"
               onChange={(event) => setBaseUrl(event.target.value)}
               value={baseUrl}
             />
-            <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold text-[#202020] cursor-help hover:text-[#ff682c] transition-colors" title={resolvedPath}>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold text-carbon cursor-help hover:text-signal-orange transition-colors" title={resolvedPath}>
               {resolvedPath}
             </span>
             <button
-              className="rounded-lg bg-[#ff682c] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#e65b24] disabled:cursor-not-allowed disabled:bg-[#828282] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="rounded-lg bg-signal-orange px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-signal-orange/80 disabled:cursor-not-allowed disabled:bg-slate hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
               disabled={isSending}
               onClick={sendRequest}
               type="button"

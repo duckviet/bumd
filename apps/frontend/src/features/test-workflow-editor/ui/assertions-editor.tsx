@@ -87,7 +87,7 @@ export function AssertionsEditor({ node, onChange }: AssertionsEditorProps) {
       ) : (
         <div className="flex flex-col gap-3">
           {assertions.map((a) => (
-            <div key={a.id} className="flex flex-col gap-2 rounded border border-chalk bg-[#fbfbfa] p-2 relative">
+            <div key={a.id} className="flex flex-col gap-2 rounded border border-chalk bg-fog p-2 relative">
               <button
                 type="button"
                 onClick={() => handleRemoveAssertion(a.id)}

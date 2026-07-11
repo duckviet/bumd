@@ -23,28 +23,28 @@ export default async function VersionHistoryPage({ params }: PageProps): Promise
     role: membership.role,
     memberships: session.memberships,
     children: (
-      <section className="dashboard-panel">
-        <div className="dashboard-section-header">
+      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
           <div>
             <h2>{doc.name} versions</h2>
             <p>Immutable history, newest first</p>
           </div>
           <a href={`/app/${org}/docs/${doc.slug}`}>Overview</a>
         </div>
-        <ol className="dashboard-list" style={{ display: "grid", gap: "12px", listStyle: "none", padding: 0 }}>
+        <ol className="grid list-none gap-3 p-0">
           {versions.map((version) => (
-            <li className="dashboard-doc-row" key={version.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <li className="flex flex-col justify-between gap-4 rounded-lg border border-chalk bg-paper p-4 sm:flex-row sm:items-center" key={version.id}>
               <div>
-                <h3 style={{ margin: 0 }}>
-                  <a href={`/app/${org}/docs/${docSlug}/versions/${version.id}`} style={{ color: "#202020", textDecoration: "none", fontWeight: "800" }}>
+                <h3>
+                  <a className="font-extrabold text-carbon" href={`/app/${org}/docs/${docSlug}/versions/${version.id}`}>
                     {version.label}
                   </a>
                 </h3>
-                <p style={{ margin: "4px 0 0", color: "#4d4d4d", fontSize: "14px" }}>
+                <p className="mt-1 text-sm text-graphite">
                   {version.status} · sequence {version.sequenceNumber} · sha256 {version.sha256.slice(0, 12)}...
                 </p>
               </div>
-              <time style={{ fontSize: "13px", color: "#828282" }}>{new Date(version.createdAt).toLocaleString()}</time>
+              <time className="text-sm text-slate">{new Date(version.createdAt).toLocaleString()}</time>
             </li>
           ))}
         </ol>
