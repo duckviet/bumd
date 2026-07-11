@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { SearchResponse } from "../../../shared/api/portal-client";
+import type { SearchResponse } from "@/shared/api/portal-client";
 
 export function SearchBox({
   orgSlug,

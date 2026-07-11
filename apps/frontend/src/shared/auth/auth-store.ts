@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { hashPassword, verifyPassword } from "./password";
-import { getDb } from "../db";
+import { hashPassword, verifyPassword } from "@/shared/auth/password";
+import { getDb } from "@/shared/db";
 import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";

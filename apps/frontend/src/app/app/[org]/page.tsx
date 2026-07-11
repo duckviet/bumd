@@ -1,6 +1,6 @@
-import { latestVersion, listDashboardDocs, type DashboardDoc } from "../../../entities/dashboard";
-import { canManage, dashboardShell, requireDashboardRead } from "./docs/dashboard-helpers";
-import { CreateDocModal } from "./docs/create-doc-modal";
+import { latestVersion, listDashboardDocs, type DashboardDoc } from "@/entities/dashboard";
+import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { CreateDocModal } from "@/app/app/[org]/docs/create-doc-modal";
 
 type PageProps = {
   readonly params: Promise<{

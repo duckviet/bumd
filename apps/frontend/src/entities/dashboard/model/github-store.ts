@@ -1,4 +1,4 @@
-import { getDb } from "../../../shared/db";
+import { getDb } from "@/shared/db";
 import { randomUUID } from "node:crypto";
 
 export type DbGithubRepository = {

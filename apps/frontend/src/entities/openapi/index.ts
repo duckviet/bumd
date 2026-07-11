@@ -1,1 +1,1 @@
-export * from "./model/model";
+export * from "@/entities/openapi/model/model";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DashboardMember, DashboardInvite } from "../../../../entities/dashboard";
+import type { DashboardMember, DashboardInvite } from "@/entities/dashboard";
 
 type Props = {
   readonly org: string;

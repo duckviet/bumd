@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { registerUser } from "../../shared/auth/auth-store";
-import { styledHtmlPage } from "../../shared/ui/styled-html";
+import { registerUser } from "@/shared/auth/auth-store";
+import { styledHtmlPage } from "@/shared/ui/styled-html";
 
 export async function GET(request: Request): Promise<Response> {
   let csrfToken = "";

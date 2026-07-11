@@ -1,2 +1,2 @@
-export { ChangelogList } from "./ui/changelog-list";
-export { DiffMarkdown } from "./ui/diff-markdown";
+export { ChangelogList } from "@/widgets/changelog/ui/changelog-list";
+export { DiffMarkdown } from "@/widgets/changelog/ui/diff-markdown";

@@ -1,1 +1,1 @@
-export { SearchBox } from "./ui/search-box";
+export { SearchBox } from "@/widgets/search-box/ui/search-box";

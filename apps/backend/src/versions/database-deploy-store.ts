@@ -121,6 +121,11 @@ export class DatabaseDeployStore implements DeployStore {
           'INSERT INTO "Branch" (id, "organizationId", "docId", name, slug, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
           [branchId, orgId, docId, input.branchSlug, input.branchSlug],
         );
+        // Set default branch on Doc if it is currently null
+        await client.query(
+          'UPDATE "Doc" SET "defaultBranchId" = $1 WHERE id = $2 AND "defaultBranchId" IS NULL',
+          [branchId, docId],
+        );
       }
 
       // Lock Branch to allocate sequence number safely

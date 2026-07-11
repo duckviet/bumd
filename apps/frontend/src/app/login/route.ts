@@ -1,4 +1,4 @@
-import { styledHtmlPage } from "../../shared/ui/styled-html";
+import { styledHtmlPage } from "@/shared/ui/styled-html";
 
 
 export async function GET(request: Request): Promise<Response> {

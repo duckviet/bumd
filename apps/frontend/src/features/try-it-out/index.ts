@@ -1,2 +1,2 @@
-export { TryItOutModal } from "./ui/try-it-out-modal";
-export { TryItOutPanel } from "./ui/try-it-out-panel";
+export { TryItOutModal } from "@/features/try-it-out/ui/try-it-out-modal";
+export { TryItOutPanel } from "@/features/try-it-out/ui/try-it-out-panel";

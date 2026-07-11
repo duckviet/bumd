@@ -1,6 +1,6 @@
-import { latestVersion, listDashboardDocs, type DashboardDoc } from "../../../../entities/dashboard";
-import { canManage, dashboardShell, requireDashboardRead } from "./dashboard-helpers";
-import { CreateDocModal } from "./create-doc-modal";
+import { latestVersion, listDashboardDocs, type DashboardDoc } from "@/entities/dashboard";
+import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { CreateDocModal } from "@/app/app/[org]/docs/create-doc-modal";
 
 type PageProps = {
   readonly params: Promise<{
@@ -60,7 +60,7 @@ export default async function DocsPage({ params }: PageProps): Promise<React.Rea
                 <article className="dashboard-doc-row" key={doc.slug}>
                   <a href={`/app/${org}/docs/${doc.slug}`}>
                     <strong>{doc.name}</strong>
-                    <small>{doc.slug} / {doc.visibility} / {doc.theme}</small>
+                    <small className="ml-4 text-xs text-slate">{doc.visibility} / {doc.theme}</small>
                   </a>
                   <span className="dashboard-status">{versionSummary(doc)}</span>
                   <div className="dashboard-row-actions">

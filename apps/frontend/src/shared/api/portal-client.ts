@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { backendBaseUrl, PortalRevalidateSeconds } from "../config/env";
+import { backendBaseUrl, PortalRevalidateSeconds } from "@/shared/config/env";
 
 const visibilitySchema = z.union([z.literal("public"), z.literal("private")]);
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { acceptInvite } from "../../../shared/auth/auth-store";
-import { getCurrentSession } from "../../../shared/auth/session";
+import { acceptInvite } from "@/shared/auth/auth-store";
+import { getCurrentSession } from "@/shared/auth/session";
 
 type RouteContext = {
   readonly params: Promise<{

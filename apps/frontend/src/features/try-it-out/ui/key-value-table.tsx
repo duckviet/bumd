@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyValueRow } from "../../../entities/openapi";
+import type { KeyValueRow } from "@/entities/openapi";
 
 type KeyValueTableProps = {
   readonly title: string;

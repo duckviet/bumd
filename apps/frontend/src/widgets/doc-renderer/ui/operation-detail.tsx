@@ -1,7 +1,7 @@
 "use client";
 
-import type { ApiOperation } from "../../../entities/openapi";
-import { Badge, MethodBadge, Surface } from "../../../shared/ui/portal-primitives";
+import type { ApiOperation } from "@/entities/openapi";
+import { Badge, MethodBadge, Surface } from "@/shared/ui/portal-primitives";
 
 type OperationDetailProps = {
   readonly branchSlug: string;

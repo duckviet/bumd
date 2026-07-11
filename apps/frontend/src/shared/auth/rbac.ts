@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
-import { getUserByEmail, membershipForOrg, membershipsForUser, type Membership, type MembershipRole } from "./auth-store";
+import { getUserByEmail, membershipForOrg, membershipsForUser, type Membership, type MembershipRole } from "@/shared/auth/auth-store";
 
 export type CurrentSession = {
   readonly userId: string;

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { requireDashboardManage } from "../../../dashboard-helpers";
-import { backendBaseUrl } from "../../../../../../../shared/config/env";
+import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
+import { backendBaseUrl } from "@/shared/config/env";
 
 type RouteContext = {
   readonly params: Promise<{

@@ -1,7 +1,7 @@
 "use client";
 
-import { TryItOutPanel as TryItOutPanelFeature } from "../../../features/try-it-out";
-import type { ApiOperation } from "../../../entities/openapi";
+import { TryItOutPanel as TryItOutPanelFeature } from "@/features/try-it-out";
+import type { ApiOperation } from "@/entities/openapi";
 
 export function TryItOutPanel({
   orgSlug,

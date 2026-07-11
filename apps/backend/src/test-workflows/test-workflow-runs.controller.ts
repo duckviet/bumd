@@ -112,7 +112,7 @@ export class TestWorkflowRunsController {
        FROM "Organization" o
        JOIN "Doc" d ON d."organizationId" = o.id AND d.slug = $2
        JOIN "Branch" b ON b."docId" = d.id AND b.slug = $3
-       WHERE o.id = $1`,
+       WHERE (o.id = $1 OR o.slug = $1)`,
       [organizationId, docSlug, branchSlug],
     );
     const row = result.rows[0];

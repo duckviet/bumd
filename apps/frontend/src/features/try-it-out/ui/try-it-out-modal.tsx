@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { type ApiOperation, type KeyValueRow, createTryItOutDraft } from "../../../entities/openapi";
-import { type TryItOutResponse } from "../../../shared/api/portal-client";
-import { MethodBadge } from "../../../shared/ui/portal-primitives";
-import { resolvePath, rowsToRecord } from "../../../shared/api/try-it-out-helpers";
-import { type TryItOutModalProps } from "../model/types";
-import { RequestBuilder } from "./request-builder";
-import { ResponseConsole } from "./response-console";
+import { type ApiOperation, type KeyValueRow, createTryItOutDraft } from "@/entities/openapi";
+import { type TryItOutResponse } from "@/shared/api/portal-client";
+import { MethodBadge } from "@/shared/ui/portal-primitives";
+import { resolvePath, rowsToRecord } from "@/shared/api/try-it-out-helpers";
+import { type TryItOutModalProps } from "@/features/try-it-out/model/types";
+import { RequestBuilder } from "@/features/try-it-out/ui/request-builder";
+import { ResponseConsole } from "@/features/try-it-out/ui/response-console";
 
 export function TryItOutModal(props: TryItOutModalProps) {
   if (!props.isOpen || !props.operation) {

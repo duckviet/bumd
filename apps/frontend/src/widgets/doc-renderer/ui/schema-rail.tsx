@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import type { ApiSchemaSummary } from "../../../entities/openapi";
-import { Badge, Surface } from "../../../shared/ui/portal-primitives";
+import type { ApiSchemaSummary } from "@/entities/openapi";
+import { Badge, Surface } from "@/shared/ui/portal-primitives";
 
 type SchemaRailProps = {
   readonly schemas: readonly ApiSchemaSummary[];

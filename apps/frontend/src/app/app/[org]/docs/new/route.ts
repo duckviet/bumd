@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { createDashboardDoc } from "../../../../../entities/dashboard";
-import { requireDashboardManage } from "../dashboard-helpers";
-import { styledHtmlPage } from "../../../../../shared/ui/styled-html";
+import { createDashboardDoc } from "@/entities/dashboard";
+import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
+import { styledHtmlPage } from "@/shared/ui/styled-html";
 
 
 type RouteContext = {

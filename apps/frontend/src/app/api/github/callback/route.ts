@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getDb } from "../../../../shared/db";
-import { getInstallationDetails } from "../../../../shared/github-app";
+import { getDb } from "@/shared/db";
+import { getInstallationDetails } from "@/shared/github-app";
 import { randomUUID } from "node:crypto";
 
 export async function GET(request: Request): Promise<Response> {

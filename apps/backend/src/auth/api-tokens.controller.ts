@@ -14,7 +14,7 @@ const createTokenSchema = z.object({
     z.literal(ApiTokenRole.Member),
     z.literal(ApiTokenRole.Guest),
   ]),
-  scopes: z.array(z.union([z.literal(ApiTokenScope.DocsDeploy), z.literal(ApiTokenScope.DocsRead)])).min(1),
+  scopes: z.array(z.union([z.literal(ApiTokenScope.DocsDeploy), z.literal(ApiTokenScope.DocsRead), z.literal(ApiTokenScope.DocsTest)])).min(1),
   expiresAt: z.string().datetime().optional(),
 });
 

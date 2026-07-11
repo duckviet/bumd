@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { searchPortalDoc } from "../../../shared/api/portal-client";
+import { searchPortalDoc } from "@/shared/api/portal-client";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = request.nextUrl;

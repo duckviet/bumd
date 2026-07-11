@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getDashboardDoc, latestVersion, versionHistory } from "../../../../../entities/dashboard";
-import { canManage, dashboardShell, requireDashboardRead } from "../dashboard-helpers";
+import { getDashboardDoc, latestVersion, versionHistory } from "@/entities/dashboard";
+import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 
 type PageProps = {
   readonly params: Promise<{
@@ -36,6 +36,7 @@ export default async function DocOverviewPage({ params }: PageProps): Promise<Re
             <a href={doc.publicUrl}>Public URL</a>
             <a href={`/${org}/${doc.slug}/changes`}>Changelog</a>
             <a href={`/app/${org}/docs/${doc.slug}/versions`}>Versions</a>
+            <a href={`/app/${org}/docs/${doc.slug}/tests`}>Tests</a>
             {mayManage ? <a href={`/app/${org}/docs/${doc.slug}/settings`}>Settings</a> : null}
           </div>
         </div>

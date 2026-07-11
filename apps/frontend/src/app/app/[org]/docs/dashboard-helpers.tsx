@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { MembershipRole, type Membership } from "../../../../shared/auth/auth-store";
-import { requireOrgRole } from "../../../../shared/auth/session";
-import { OrgSwitcher } from "./org-switcher";
+import { MembershipRole, type Membership } from "@/shared/auth/auth-store";
+import { requireOrgRole } from "@/shared/auth/session";
+import { OrgSwitcher } from "@/app/app/[org]/docs/org-switcher";
 
 export const ManageRoles = [MembershipRole.Owner, MembershipRole.Admin, MembershipRole.Member] as const;
 export const ReadRoles = [MembershipRole.Owner, MembershipRole.Admin, MembershipRole.Member, MembershipRole.Guest] as const;

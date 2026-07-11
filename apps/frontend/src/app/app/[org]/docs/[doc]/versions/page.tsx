@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getDashboardDoc, versionHistory } from "../../../../../../entities/dashboard";
-import { dashboardShell, requireDashboardRead } from "../../dashboard-helpers";
+import { getDashboardDoc, versionHistory } from "@/entities/dashboard";
+import { dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 
 type PageProps = {
   readonly params: Promise<{

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-import type { ApiOperation } from "../../../entities/openapi";
-import { MethodBadge } from "../../../shared/ui/portal-primitives";
-import { Collapsible } from "./collapsible";
+import type { ApiOperation } from "@/entities/openapi";
+import { MethodBadge } from "@/shared/ui/portal-primitives";
+import { Collapsible } from "@/widgets/doc-renderer/ui/collapsible";
 
 export type OperationGroup = {
   readonly tag: string;

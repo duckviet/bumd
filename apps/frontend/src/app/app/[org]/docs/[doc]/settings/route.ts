@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import { getDashboardDoc, updateDashboardDocSettings, deleteDashboardDoc } from "../../../../../../entities/dashboard";
-import { requireDashboardManage } from "../../dashboard-helpers";
-import { styledHtmlPage } from "../../../../../../shared/ui/styled-html";
+import { getDashboardDoc, updateDashboardDocSettings, deleteDashboardDoc } from "@/entities/dashboard";
+import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
+import { styledHtmlPage } from "@/shared/ui/styled-html";
 import {
   getLinkedRepoForDoc,
   listOrgInstallations,
@@ -14,11 +14,11 @@ import {
   type DbGithubRepository,
   type DbGithubInstallation,
   type DbBranchMapping,
-} from "../../../../../../entities/dashboard";
-import { getDb } from "../../../../../../shared/db";
+} from "@/entities/dashboard";
+import { getDb } from "@/shared/db";
 import { randomUUID, createHmac } from "node:crypto";
-import { backendBaseUrl } from "../../../../../../shared/config/env";
-import { listInstallationRepositories, listRepositoryBranches } from "../../../../../../shared/github-app";
+import { backendBaseUrl } from "@/shared/config/env";
+import { listInstallationRepositories, listRepositoryBranches } from "@/shared/github-app";
 
 async function getAvailableRepositories(installations: readonly DbGithubInstallation[]): Promise<Array<{ githubInstallationId: string; githubRepoId: string; fullName: string }>> {
   const availableRepos: Array<{ githubInstallationId: string; githubRepoId: string; fullName: string }> = [];

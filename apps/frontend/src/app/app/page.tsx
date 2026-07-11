@@ -1,4 +1,4 @@
-import { requireUserSession } from "../../shared/auth/session";
+import { requireUserSession } from "@/shared/auth/session";
 
 export default async function DashboardPage(): Promise<React.ReactElement> {
   const session = await requireUserSession("/app");

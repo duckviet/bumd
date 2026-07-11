@@ -1,4 +1,4 @@
-import { getDb } from "../../../shared/db";
+import { getDb } from "@/shared/db";
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 
 export type DashboardMember = {

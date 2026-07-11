@@ -1,4 +1,4 @@
-import { getDb } from "../../../shared/db";
+import { getDb } from "@/shared/db";
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";

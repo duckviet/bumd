@@ -1,9 +1,9 @@
 "use client";
 
-import type { ApiOperation } from "../../../entities/openapi";
-import type { TryItOutResponse } from "../../../shared/api/portal-client";
-import { getStatusColorClass } from "../model/types";
-import { prettyBody } from "../../../shared/api/try-it-out-helpers";
+import type { ApiOperation } from "@/entities/openapi";
+import type { TryItOutResponse } from "@/shared/api/portal-client";
+import { getStatusColorClass } from "@/features/try-it-out/model/types";
+import { prettyBody } from "@/shared/api/try-it-out-helpers";
 
 type ResponseConsoleProps = {
   readonly response: TryItOutResponse | null;

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ApiOperation, KeyValueRow } from "../../../entities/openapi";
-import { KeyValueTable } from "./key-value-table";
+import type { ApiOperation, KeyValueRow } from "@/entities/openapi";
+import { KeyValueTable } from "@/features/try-it-out/ui/key-value-table";
 
 type RequestBuilderProps = {
   readonly requestTab: "params" | "headers" | "body";

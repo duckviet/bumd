@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import type { ApiDocument, ApiOperation } from "../../../entities/openapi";
-import { Badge, PortalContainer, PortalShell, Surface } from "../../../shared/ui/portal-primitives";
-import { SearchBox } from "../../search-box";
-import { TryItOutPanel } from "../../try-it-out-panel";
-import { OperationNav, groupOperations } from "./operation-nav";
-import { OperationDetail } from "./operation-detail";
-import { SchemaRail } from "./schema-rail";
-import { Collapsible } from "./collapsible";
-import { TryItOutModal } from "../../../features/try-it-out";
+import type { ApiDocument, ApiOperation } from "@/entities/openapi";
+import { Badge, PortalContainer, PortalShell, Surface } from "@/shared/ui/portal-primitives";
+import { SearchBox } from "@/widgets/search-box";
+import { TryItOutPanel } from "@/widgets/try-it-out-panel";
+import { OperationNav, groupOperations } from "@/widgets/doc-renderer/ui/operation-nav";
+import { OperationDetail } from "@/widgets/doc-renderer/ui/operation-detail";
+import { SchemaRail } from "@/widgets/doc-renderer/ui/schema-rail";
+import { Collapsible } from "@/widgets/doc-renderer/ui/collapsible";
+import { TryItOutModal } from "@/features/try-it-out";
 
 type DocRendererProps = {
   readonly orgSlug: string;
