@@ -54,6 +54,7 @@ export const TestWorkflowErrorCode = {
   AssertionFailed: "ASSERTION_FAILED",
   ExportFailed: "EXPORT_FAILED",
   WorkerInterrupted: "WORKER_INTERRUPTED",
+  RunFailed: "RUN_FAILED",
   RunAlreadyTerminal: "RUN_ALREADY_TERMINAL",
   InternalError: "INTERNAL_ERROR",
 } as const;

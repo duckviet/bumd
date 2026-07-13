@@ -19,6 +19,11 @@ import { interpolate, type CollectedRef, type InterpolationContext } from "./tes
 import { evaluateAssertions } from "./test-workflow-assertions.js";
 import { extractExports } from "./test-workflow-exports.js";
 import { redactSensitiveHeaders, redactSecretValues, truncateBody } from "./test-workflow-redaction.js";
+import { TestWorkflowError } from "../test-workflow-errors.js";
+import {
+  classifyWorkflowRunError,
+  classifyWorkflowStepError,
+} from "./test-workflow-error-classifier.js";
 
 const RUN_TIMEOUT_MINUTES = 10;
 
@@ -56,7 +61,7 @@ export class TestWorkflowRunnerService {
       return;
     }
 
-    await this.markRunStatus(run.id, TestWorkflowRunStatus.Running, new Date());
+    await this.markRunStatus(run.id, TestWorkflowRunStatus.Running);
     const startedAt = Date.now();
 
     try {
@@ -65,13 +70,15 @@ export class TestWorkflowRunnerService {
       await this.finalizeRun(run.id, TestWorkflowRunStatus.Succeeded, durationMs, null, null);
     } catch (err) {
       const durationMs = Date.now() - startedAt;
-      const code =
-        err instanceof Error && err.message.startsWith("WORKER_INTERRUPTED")
-          ? TestWorkflowErrorCode.WorkerInterrupted
-          : TestWorkflowErrorCode.InternalError;
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      await this.finalizeRun(run.id, TestWorkflowRunStatus.Failed, durationMs, code, msg);
-      this.logger.error(`Run ${run.id} failed: ${msg}`);
+      const classified = classifyWorkflowRunError(err);
+      await this.finalizeRun(
+        run.id,
+        TestWorkflowRunStatus.Failed,
+        durationMs,
+        classified.code,
+        classified.message,
+      );
+      this.logger.error(`Run ${run.id} failed: ${classified.message}`);
     }
   }
 
@@ -136,7 +143,7 @@ export class TestWorkflowRunnerService {
       }
 
       // ── Execute step ────────────────────────────────────────────────────────
-      await this.markStepStatus(run.id, nodeId, TestWorkflowStepStatus.Running, new Date());
+      await this.markStepStatus(run.id, nodeId, TestWorkflowStepStatus.Running);
       const stepStartedAt = Date.now();
 
       try {
@@ -240,8 +247,6 @@ export class TestWorkflowRunnerService {
             assertionsJson: assertionResults,
             exportsJson: exports,
             inputsJson: inputsRecord,
-            startedAt: new Date(stepStartedAt),
-            finishedAt: new Date(),
             durationMs,
             errorCode: TestWorkflowErrorCode.AssertionFailed,
             errorMessage: `Assertion "${firstFailed.id}" failed`,
@@ -261,26 +266,14 @@ export class TestWorkflowRunnerService {
           assertionsJson: assertionResults,
           exportsJson: exports,
           inputsJson: inputsRecord,
-          startedAt: new Date(stepStartedAt),
-          finishedAt: new Date(),
           durationMs,
           errorCode: null,
           errorMessage: null,
         });
       } catch (err) {
         const durationMs = Date.now() - stepStartedAt;
-        let errorCode: string = TestWorkflowErrorCode.RequestFailed;
-        let errorMessage = err instanceof Error ? err.message : "Unknown error";
-
-        if (errorMessage.startsWith("ENV_VAR_MISSING")) {
-          errorCode = TestWorkflowErrorCode.EnvVarMissing;
-        } else if (errorMessage.startsWith("VAR_REF_INVALID")) {
-          errorCode = TestWorkflowErrorCode.VarRefInvalid;
-        } else if (errorMessage.startsWith("EXPORT_FAILED")) {
-          errorCode = TestWorkflowErrorCode.ExportFailed;
-        }
-
-        errorMessage = redactSecretValues(errorMessage, secretValueSet) as string;
+        const classified = classifyWorkflowStepError(err);
+        const errorMessage = redactSecretValues(classified.message, secretValueSet) as string;
 
         await this.persistStep(run.id, nodeId, {
           status: TestWorkflowStepStatus.Failed,
@@ -289,10 +282,8 @@ export class TestWorkflowRunnerService {
           assertionsJson: null,
           exportsJson: null,
           inputsJson: null,
-          startedAt: new Date(stepStartedAt),
-          finishedAt: new Date(),
           durationMs,
-          errorCode,
+          errorCode: classified.code,
           errorMessage,
         });
         failedNodes.add(nodeId);
@@ -301,7 +292,11 @@ export class TestWorkflowRunnerService {
 
     // If any steps failed, mark run as failed
     if (failedNodes.size > 0) {
-      throw new Error("One or more steps failed");
+      throw new TestWorkflowError(
+        TestWorkflowErrorCode.RunFailed,
+        422,
+        "One or more workflow steps failed",
+      );
     }
   }
 
@@ -349,12 +344,12 @@ export class TestWorkflowRunnerService {
     return row;
   }
 
-  private async markRunStatus(runId: string, status: TestWorkflowRunStatus, startedAt?: Date): Promise<void> {
+  private async markRunStatus(runId: string, status: TestWorkflowRunStatus): Promise<void> {
     await this.pool.query(
       `UPDATE "TestWorkflowRun"
-       SET status = $1, "startedAt" = COALESCE("startedAt", $2), "updatedAt" = NOW()
-       WHERE id = $3`,
-      [status, startedAt ?? null, runId],
+       SET status = $1, "startedAt" = COALESCE("startedAt", NOW()), "updatedAt" = NOW()
+       WHERE id = $2`,
+      [status, runId],
     );
   }
 
@@ -378,13 +373,14 @@ export class TestWorkflowRunnerService {
     runId: string,
     nodeId: string,
     status: TestWorkflowStepStatus,
-    startedAt?: Date,
   ): Promise<void> {
     await this.pool.query(
       `UPDATE "TestWorkflowStepRun"
-       SET status = $1, "startedAt" = COALESCE("startedAt", $2), "updatedAt" = NOW()
+       SET status = $1,
+           "startedAt" = CASE WHEN $1 = $2 THEN COALESCE("startedAt", NOW()) ELSE "startedAt" END,
+           "updatedAt" = NOW()
        WHERE "runId" = $3 AND "nodeId" = $4`,
-      [status, startedAt ?? null, runId, nodeId],
+      [status, TestWorkflowStepStatus.Running, runId, nodeId],
     );
   }
 
@@ -398,8 +394,6 @@ export class TestWorkflowRunnerService {
       assertionsJson: unknown;
       exportsJson: unknown;
       inputsJson: unknown;
-      startedAt: Date;
-      finishedAt: Date;
       durationMs: number;
       errorCode: string | null;
       errorMessage: string | null;
@@ -409,9 +403,9 @@ export class TestWorkflowRunnerService {
       `UPDATE "TestWorkflowStepRun"
        SET status = $1, "requestJson" = $2, "responseJson" = $3,
            "assertionsJson" = $4, "exportsJson" = $5, "inputsJson" = $6,
-           "startedAt" = $7, "finishedAt" = $8, "durationMs" = $9,
-           "errorCode" = $10, "errorMessage" = $11, "updatedAt" = NOW()
-       WHERE "runId" = $12 AND "nodeId" = $13`,
+           "startedAt" = COALESCE("startedAt", NOW()), "finishedAt" = NOW(), "durationMs" = $7,
+           "errorCode" = $8, "errorMessage" = $9, "updatedAt" = NOW()
+       WHERE "runId" = $10 AND "nodeId" = $11`,
       [
         data.status,
         data.requestJson !== null ? JSON.stringify(data.requestJson) : null,
@@ -419,8 +413,6 @@ export class TestWorkflowRunnerService {
         data.assertionsJson !== null ? JSON.stringify(data.assertionsJson) : null,
         data.exportsJson !== null ? JSON.stringify(data.exportsJson) : null,
         data.inputsJson !== null ? JSON.stringify(data.inputsJson) : null,
-        data.startedAt,
-        data.finishedAt,
         data.durationMs,
         data.errorCode,
         data.errorMessage,

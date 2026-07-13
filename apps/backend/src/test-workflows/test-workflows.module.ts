@@ -20,6 +20,7 @@ import { TestEnvironmentsService } from "./test-environments.service.js";
 import { TestWorkflowRunsController } from "./test-workflow-runs.controller.js";
 import { TestWorkflowRunsService } from "./test-workflow-runs.service.js";
 import { TestWorkflowRunnerService } from "./runner/test-workflow-runner.service.js";
+import { TestWorkflowBullMqWorkerService } from "./runner/test-workflow-bullmq-worker.service.js";
 import { TestWorkflowReaperService } from "./runner/test-workflow-reaper.service.js";
 
 @Module({
@@ -39,6 +40,7 @@ import { TestWorkflowReaperService } from "./runner/test-workflow-reaper.service
     TestEnvironmentsService,
     TestWorkflowRunsService,
     TestWorkflowRunnerService,
+    TestWorkflowBullMqWorkerService,
     TestWorkflowReaperService,
     {
       provide: TRY_IT_OUT_HTTP_CLIENT,

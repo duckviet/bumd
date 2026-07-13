@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import ky from "ky";
+import ky, { TimeoutError } from "ky";
 import type { TryItOutHttpClient, TryItOutResponse } from "./try-it-out-types.js";
+import { TryItOutError, TryItOutErrorCode } from "./try-it-out-errors.js";
 
 const BlockedResponseHeaders = new Set(["set-cookie", "set-cookie2", "connection", "transfer-encoding"]);
 
@@ -13,20 +14,27 @@ export class KyTryItOutHttpClient implements TryItOutHttpClient {
     readonly body?: string;
     readonly timeoutMs: number;
   }): Promise<TryItOutResponse> {
-    const response = await ky(input.url, {
-      method: input.method,
-      headers: input.headers,
-      timeout: input.timeoutMs,
-      throwHttpErrors: false,
-      retry: 0,
-      redirect: "manual",
-      ...(input.body === undefined ? {} : { body: input.body }),
-    });
-    return {
-      status: response.status,
-      headers: responseHeaders(response.headers),
-      body: await response.text(),
-    };
+    try {
+      const response = await ky(input.url, {
+        method: input.method,
+        headers: input.headers,
+        timeout: input.timeoutMs,
+        throwHttpErrors: false,
+        retry: 0,
+        redirect: "manual",
+        ...(input.body === undefined ? {} : { body: input.body }),
+      });
+      return {
+        status: response.status,
+        headers: responseHeaders(response.headers),
+        body: await response.text(),
+      };
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        throw new TryItOutError(TryItOutErrorCode.Timeout, "Upstream request timed out.", 504);
+      }
+      throw new TryItOutError(TryItOutErrorCode.RequestFailed, "Upstream request failed.", 502);
+    }
   }
 }
 

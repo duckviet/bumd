@@ -16,7 +16,7 @@ export class BullMqWebhookQueue implements WebhookQueue {
     readonly delayMs: number;
   }): Promise<void> {
     const options: JobsOptions = {
-      jobId: `webhook:${input.job.event.id}:${input.job.webhookId}:${input.job.attemptNumber}`,
+      jobId: `webhook-${input.job.event.id}-${input.job.webhookId}-${input.job.attemptNumber}`,
       attempts: 1,
       delay: input.delayMs,
     };

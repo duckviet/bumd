@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types --test --test-concurrency=1 ../../tests/try-it-out-helpers.test.mjs ../../tests/frontend-fsd-boundaries.test.mjs ../../tests/frontend-tailwind-contract.test.mjs ../../tests/frontend-status-badge-contract.test.mjs ../../tests/frontend-doc-portal.test.mjs ../../tests/frontend-dashboard.test.mjs"
+    "test": "node --experimental-strip-types --test --test-concurrency=1 ../../tests/try-it-out-helpers.test.mjs ../../tests/frontend-fsd-boundaries.test.mjs ../../tests/frontend-tailwind-contract.test.mjs ../../tests/frontend-status-badge-contract.test.mjs ../../tests/frontend-test-workflow-editor.test.mjs ../../tests/frontend-doc-portal.test.mjs ../../tests/frontend-dashboard.test.mjs"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.2",

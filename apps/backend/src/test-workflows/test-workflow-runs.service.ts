@@ -21,8 +21,8 @@ import { validateDefinitionForRun } from "./runner/test-workflow-validator.js";
 import type { CreateTestWorkflowRunDto } from "./dto/create-test-workflow-run.dto.js";
 import { CreateTestWorkflowRunDtoSchema } from "./dto/create-test-workflow-run.dto.js";
 import type { TestWorkflowJobData } from "./runner/test-workflow-runner.service.js";
+import { TEST_WORKFLOW_QUEUE_NAME } from "./runner/test-workflow-queue.js";
 
-const TEST_WORKFLOW_QUEUE_NAME = "test-workflow-runs";
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 100;
 
@@ -311,7 +311,7 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
   private async enqueueJob(data: TestWorkflowJobData): Promise<void> {
     if (this.queue !== null) {
       const jobOptions: JobsOptions = {
-        jobId: `test-workflow:${data.runId}`,
+        jobId: `test-workflow-${data.runId}`,
         attempts: 1,
         removeOnComplete: true,
         removeOnFail: true,

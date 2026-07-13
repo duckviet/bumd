@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { TestWorkflowNode, TestWorkflowRequestTemplate } from "@/entities/test-workflow";
+import type {
+  TestEnvironmentDto,
+  TestWorkflowNode,
+  TestWorkflowRequestTemplate,
+} from "@/entities/test-workflow";
 
 type RequestTemplateEditorProps = {
   readonly node: TestWorkflowNode;
+  readonly environment: TestEnvironmentDto | null;
   readonly onChange: (template: TestWorkflowRequestTemplate) => void;
 };
 
@@ -13,7 +18,7 @@ type KeyValuePair = {
   readonly value: string;
 };
 
-export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorProps) {
+export function RequestTemplateEditor({ node, environment, onChange }: RequestTemplateEditorProps) {
   const { requestTemplate } = node;
 
   const [serverUrl, setServerUrl] = useState(requestTemplate.serverUrl ?? "");
@@ -79,6 +84,40 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
       pathParams: pairsToRecord(updates.pathParams || pathParams),
       body: Object.keys(bodyObj).length > 0 ? bodyObj : undefined,
     });
+  };
+
+  const environmentVariableTemplate = (key: string): string => `{{env.${key}}}`;
+
+  const renderEnvironmentVariableSelect = (
+    value: string,
+    onSelect: (value: string) => void,
+    fieldLabel: string,
+  ) => {
+    if (!environment || environment.variables.length === 0) {
+      return null;
+    }
+
+    const templates = environment.variables.map((variable) => environmentVariableTemplate(variable.key));
+
+    return (
+      <select
+        aria-label={`Use environment variable for ${fieldLabel}`}
+        value={templates.includes(value) ? value : ""}
+        onChange={(event) => {
+          if (event.target.value) {
+            onSelect(event.target.value);
+          }
+        }}
+        className="w-full min-w-0 max-w-[125px] flex-1 rounded border border-chalk bg-fog px-1.5 py-1 font-mono text-[10px] text-carbon focus:border-signal-orange focus:outline-none"
+      >
+        <option value="">Env variable...</option>
+        {environment.variables.map((variable) => (
+          <option key={variable.id} value={environmentVariableTemplate(variable.key)}>
+            {variable.key}
+          </option>
+        ))}
+      </select>
+    );
   };
 
   const handlePairChange = (
@@ -153,14 +192,20 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
       {/* Server URL */}
       <div className="flex flex-col gap-1">
         <label className="font-semibold text-carbon">Override Server URL</label>
-        <input
-          type="text"
-          value={serverUrl}
-          onChange={(e) => setServerUrl(e.target.value)}
-          onBlur={() => triggerChange({ serverUrl })}
-          placeholder="https://api.example.com/v1"
-          className="rounded border border-chalk bg-white px-2 py-1.5 focus:border-signal-orange focus:outline-none"
-        />
+        <div className="flex gap-1">
+          <input
+            type="text"
+            value={serverUrl}
+            onChange={(e) => setServerUrl(e.target.value)}
+            onBlur={() => triggerChange({ serverUrl })}
+            placeholder="https://api.example.com/v1"
+            className="min-w-0 flex-1 rounded border border-chalk bg-white px-2 py-1.5 focus:border-signal-orange focus:outline-none"
+          />
+          {renderEnvironmentVariableSelect(serverUrl, (value) => {
+            setServerUrl(value);
+            triggerChange({ serverUrl: value });
+          }, "server URL")}
+        </div>
       </div>
 
       {/* Path Params */}
@@ -199,21 +244,28 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
         ) : (
           <div className="flex flex-col gap-1">
             {pairs.map((p, index) => (
-              <div key={index} className="flex items-center gap-1">
+              <div key={index} className="flex items-start gap-1">
                 <input
                   type="text"
                   value={p.key}
                   onChange={(e) => handlePairChange(type, index, "key", e.target.value)}
                   placeholder="Key"
-                  className="w-1/2 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
+                  className="w-1/2 min-w-0 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
                 />
-                <input
-                  type="text"
-                  value={p.value}
-                  onChange={(e) => handlePairChange(type, index, "value", e.target.value)}
-                  placeholder="Value"
-                  className="w-1/2 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
-                />
+                <div className="flex w-1/2 min-w-0 flex-col gap-1">
+                  <input
+                    type="text"
+                    value={p.value}
+                    onChange={(e) => handlePairChange(type, index, "value", e.target.value)}
+                    placeholder="Value"
+                    className="w-full min-w-0 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
+                  />
+                  {renderEnvironmentVariableSelect(
+                    p.value,
+                    (value) => handlePairChange(type, index, "value", value),
+                    `${title} value`,
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => handleRemovePair(type, index)}

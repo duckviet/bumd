@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { TestWorkflowNode } from "@/entities/test-workflow";
+import type { TestEnvironmentDto, TestWorkflowNode } from "@/entities/test-workflow";
 import { RequestTemplateEditor } from "@/features/test-workflow-editor/ui/request-template-editor";
 import { ExportsEditor } from "@/features/test-workflow-editor/ui/exports-editor";
 import { AssertionsEditor } from "@/features/test-workflow-editor/ui/assertions-editor";
 
 type NodeInspectorProps = {
   readonly node: TestWorkflowNode;
+  readonly environment: TestEnvironmentDto | null;
   readonly isStale: boolean;
   readonly onUpdateNode: (nodeId: string, updates: Partial<TestWorkflowNode>) => void;
   readonly onDeleteNode: (nodeId: string) => void;
 };
 
-export function NodeInspector({ node, isStale, onUpdateNode, onDeleteNode }: NodeInspectorProps) {
+export function NodeInspector({ node, environment, isStale, onUpdateNode, onDeleteNode }: NodeInspectorProps) {
   const [activeTab, setActiveTab] = useState<"request" | "exports" | "assertions">("request");
 
   const handleTemplateChange = (template: TestWorkflowNode["requestTemplate"]) => {
@@ -78,7 +79,7 @@ export function NodeInspector({ node, isStale, onUpdateNode, onDeleteNode }: Nod
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === "request" && (
-          <RequestTemplateEditor node={node} onChange={handleTemplateChange} />
+          <RequestTemplateEditor node={node} environment={environment} onChange={handleTemplateChange} />
         )}
         {activeTab === "exports" && (
           <ExportsEditor node={node} onChange={handleExportsChange} />

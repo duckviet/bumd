@@ -205,6 +205,30 @@ export class DatabaseDeployStore implements DeployStore {
     return mapVersionRow(row);
   }
 
+  public async getVersionForRoute(input: {
+    readonly versionId: string;
+    readonly orgSlug: string;
+    readonly docSlug: string;
+    readonly branchSlug: string;
+  }): Promise<VersionRecord | null> {
+    const result = await this.pool.query<VersionRow>(
+      `
+        SELECT v.id, v."organizationId", v."docId", v."branchId", v."sequenceNumber",
+               v.sha256, v."sourceFormat", v."rawSpecObjectKey",
+               v.status, v."createdByTokenId", v."createdByUserId", v."createdAt", v."readyAt"
+        FROM "Version" v
+        JOIN "Organization" o ON o.id = v."organizationId"
+        JOIN "Doc" d ON d.id = v."docId" AND d."organizationId" = o.id
+        JOIN "Branch" b ON b.id = v."branchId" AND b."docId" = d.id
+        WHERE v.id = $1 AND o.slug = $2 AND d.slug = $3 AND b.slug = $4
+        LIMIT 1
+      `,
+      [input.versionId, input.orgSlug, input.docSlug, input.branchSlug],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : mapVersionRow(row);
+  }
+
   public async getRawSpec(versionId: string): Promise<string> {
     const version = await this.getVersion(versionId);
     return this.objectStore.get(version.rawSpecObjectKey);

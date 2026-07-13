@@ -516,11 +516,13 @@ Detailed flow:
 5. Store raw spec bytes in object storage using a content-addressed key.
 6. Create version in `queued` status.
 7. Enqueue deterministic BullMQ jobs:
-   - `version:{versionId}:parse`
-   - `version:{versionId}:diff`
-   - `version:{versionId}:render`
-   - `version:{versionId}:search`
-   - `version:{versionId}:webhooks`
+   - `version-{versionId}-parse`
+   - `version-{versionId}-diff`
+   - `version-{versionId}-render`
+   - `version-{versionId}-search`
+   - `version-{versionId}-webhooks`
+
+   Durable PostgreSQL `jobKey` values may retain the colon-delimited semantic form. BullMQ custom `jobId` values must use the colon-free form above because BullMQ rejects custom IDs containing `:`.
 8. Workers acquire jobs independently and must be safe to retry.
 9. A failed parse or validation marks the version `failed`, records a validation summary, and emits failure webhooks if subscribed.
 10. A ready version becomes eligible as the base for the next branch diff.

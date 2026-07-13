@@ -95,12 +95,15 @@ const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
     if (!current) {
       return;
     }
+    if (state.workflowId === current.id) {
+      return;
+    }
 
     dispatch({ type: "LOAD_WORKFLOW", workflow: current, defaultServerUrl });
     if (!initialWorkflowId) {
       router.replace(workflowPath(current.id));
     }
-  }, [initialWorkflowId, workflows, dispatch, router, workflowPath, defaultServerUrl]);
+  }, [initialWorkflowId, workflows, state.workflowId, dispatch, router, workflowPath, defaultServerUrl]);
 
   const handleOpenCreateWorkflow = () => {
     setCreateName("");
@@ -216,6 +219,7 @@ const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
 
   // Node selection inspector resolution
   const selectedNode = state.definition.nodes.find((n) => n.id === state.selectedNodeId);
+  const selectedEnvironment = environments.find((environment) => environment.id === selectedEnvId) ?? null;
   const isSelectedNodeStale = selectedNode
     ? !operations.some((op) => op.operationId === selectedNode.operationId)
     : false;
@@ -360,6 +364,7 @@ const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
           <div className="absolute inset-y-0 right-0 z-20 w-[min(340px,90vw)] shadow-xl xl:static xl:w-auto xl:shadow-none">
             <NodeInspector
               node={selectedNode}
+              environment={selectedEnvironment}
               isStale={isSelectedNodeStale}
               onUpdateNode={handleUpdateNode}
               onDeleteNode={handleDeleteNode}

@@ -73,7 +73,11 @@ function interpolateString(
     const resolved = resolveRef(namespace, key, ctx, refs);
 
     if (resolved !== null && typeof resolved === "object") {
-      throw new Error(`VAR_REF_INVALID: Cannot embed object/array value inside a string template ("${match[0]}")`);
+      throw new TestWorkflowError(
+        TestWorkflowErrorCode.VarRefInvalid,
+        422,
+        `Cannot embed object/array value inside a string template ("${match[0]}")`,
+      );
     }
 
     const strValue = resolved === null || resolved === undefined ? "" : String(resolved);
@@ -101,7 +105,11 @@ function resolveRef(
   if (namespace === "env") {
     const value = ctx.env[key];
     if (value === undefined) {
-      throw new Error(`ENV_VAR_MISSING: Environment variable "{{env.${key}}}" is not defined`);
+      throw new TestWorkflowError(
+        TestWorkflowErrorCode.EnvVarMissing,
+        422,
+        `Environment variable "{{env.${key}}}" is not defined`,
+      );
     }
     refs.push({ kind: "env", key, isSecret: ctx.secretKeys.has(key) });
     return value;
@@ -109,7 +117,11 @@ function resolveRef(
 
   // vars
   if (!(key in ctx.vars)) {
-    throw new Error(`VAR_REF_INVALID: Variable "{{vars.${key}}}" is not available at this step`);
+    throw new TestWorkflowError(
+      TestWorkflowErrorCode.VarRefInvalid,
+      422,
+      `Variable "{{vars.${key}}}" is not available at this step`,
+    );
   }
   const value = ctx.vars[key];
   refs.push({ kind: "var", name: key, value });
@@ -151,3 +163,5 @@ function collectRefsFromValue(value: unknown, envRefs: string[], varRefs: string
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+import { TestWorkflowError } from "../test-workflow-errors.js";
+import { TestWorkflowErrorCode } from "../test-workflow-types.js";

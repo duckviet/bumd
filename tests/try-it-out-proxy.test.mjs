@@ -5,6 +5,79 @@ import test from "node:test";
 
 const HOST = "127.0.0.1";
 
+test("proxy resolves version ownership through route slugs when stored IDs differ", async () => {
+  const { TryItOutService } = await import("../apps/backend/dist/try-it-out/try-it-out.service.js");
+  let receivedScope = null;
+  const store = {
+    getVersionForRoute: async (input) => {
+      receivedScope = input;
+      return {
+        id: input.versionId,
+        organizationId: "org_acme_internal",
+        docId: "doc_payments_internal",
+        branchId: "br_main_internal",
+      };
+    },
+    getRawSpec: async () => JSON.stringify({ servers: [{ url: "https://api.example.com" }] }),
+  };
+  const httpClient = {
+    send: async () => ({ status: 200, headers: {}, body: "{}" }),
+  };
+  const service = new TryItOutService(store, httpClient);
+
+  const response = await service.execute({
+    orgSlug: "acme",
+    docSlug: "payments",
+    branchSlug: "main",
+    versionId: "ver_payments_1",
+    body: {
+      serverUrl: "https://api.example.com",
+      method: "GET",
+      path: "/payments",
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(receivedScope, {
+    versionId: "ver_payments_1",
+    orgSlug: "acme",
+    docSlug: "payments",
+    branchSlug: "main",
+  });
+});
+
+test("proxy preserves the server base path when resolving an operation path", async () => {
+  const { TryItOutService } = await import("../apps/backend/dist/try-it-out/try-it-out.service.js");
+  let requestedUrl = null;
+  const store = {
+    getVersionForRoute: async () => ({ id: "ver_1" }),
+    getRawSpec: async () =>
+      JSON.stringify({ servers: [{ url: "https://api.example.com/api/v1" }] }),
+  };
+  const httpClient = {
+    send: async (input) => {
+      requestedUrl = input.url.toString();
+      return { status: 200, headers: {}, body: "{}" };
+    },
+  };
+  const service = new TryItOutService(store, httpClient);
+
+  await service.execute({
+    orgSlug: "acme",
+    docSlug: "payments",
+    branchSlug: "main",
+    versionId: "ver_1",
+    body: {
+      serverUrl: "https://api.example.com/api/v1",
+      method: "POST",
+      path: "/auth/login",
+      query: { source: "workflow" },
+    },
+  });
+
+  assert.equal(requestedUrl, "https://api.example.com/api/v1/auth/login?source=workflow");
+});
+
 async function createHarness() {
   const module = await import("../apps/backend/dist/testing/create-test-server.js");
   return module.createTestServer();
