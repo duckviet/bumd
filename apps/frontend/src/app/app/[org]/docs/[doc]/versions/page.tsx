@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDashboardDoc, versionHistory } from "@/entities/dashboard";
 import { dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { DashboardSection } from "@/shared/ui/dashboard-primitives";
 
 type PageProps = {
   readonly params: Promise<{
@@ -23,14 +24,18 @@ export default async function VersionHistoryPage({ params }: PageProps): Promise
     role: membership.role,
     memberships: session.memberships,
     children: (
-      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
-          <div>
-            <h2>{doc.name} versions</h2>
-            <p>Immutable history, newest first</p>
-          </div>
-          <a href={`/app/${org}/docs/${doc.slug}`}>Overview</a>
-        </div>
+      <DashboardSection
+        kicker="Immutable history, newest first"
+        title={`${doc.name} versions`}
+        actions={
+          <a
+            className="inline-flex h-9 items-center justify-center rounded-full border border-chalk bg-paper px-4 text-xs font-semibold text-carbon transition-all hover:border-carbon hover:bg-fog hover:scale-[1.02] active:scale-[0.98]"
+            href={`/app/${org}/docs/${doc.slug}`}
+          >
+            Overview
+          </a>
+        }
+      >
         <ol className="grid list-none gap-3 p-0">
           {versions.map((version) => (
             <li className="flex flex-col justify-between gap-4 rounded-lg border border-chalk bg-paper p-4 sm:flex-row sm:items-center" key={version.id}>
@@ -48,7 +53,7 @@ export default async function VersionHistoryPage({ params }: PageProps): Promise
             </li>
           ))}
         </ol>
-      </section>
+      </DashboardSection>
     ),
   });
 }

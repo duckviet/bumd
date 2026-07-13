@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index cb62241befa0d0e76ebf64194683b2c4d3e9c035..f9d4fe61e2ea8ab19552003670b0a651532fa50a 100644
+--- a/package.json
++++ b/package.json
+@@ -55,6 +55,7 @@
+   "types": "types/base64.single.d.ts",
+   "exports": {
+     ".": {
++      "types": "./types/base64.single.d.ts",
+       "import": "./src/base64.js",
+       "require": "./dist/base64.cjs",
+       "browser": "./dist/base64.min.js"

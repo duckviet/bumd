@@ -10,6 +10,9 @@ import { GithubOidcTokenController } from "../auth/github-oidc-token.controller.
 import { GithubOidcTokenService } from "../auth/github-oidc-token.service.js";
 import { GithubOAuthController } from "../auth/github-oauth.controller.js";
 import { GithubOAuthService } from "../auth/github-oauth.service.js";
+import { DashboardAuthController } from "../auth/dashboard-auth.controller.js";
+import { DashboardAuthService } from "../auth/dashboard-auth.service.js";
+import { DashboardSessionGuard } from "../auth/dashboard-session.guard.js";
 import { GITHUB_OIDC_AUTHORIZATION_STORE, GITHUB_OIDC_VERIFIER } from "../auth/github-oidc-types.js";
 import { createGithubOidcVerifier } from "../auth/github-oidc-verifier.js";
 import { InMemoryWebhookQueue } from "../webhooks/in-memory-webhook-queue.js";
@@ -32,6 +35,7 @@ import { OasdiffDeployDiffEngine } from "./diff-engine-adapter.js";
 import { InMemoryDeployQueue } from "./in-memory-deploy-queue.js";
 import { InMemoryDeployStore } from "./in-memory-deploy-store.js";
 import { DeploysController, VersionsController } from "./versions.controller.js";
+import { DashboardDeploysController } from "./dashboard-deploys.controller.js";
 import { VersionsService } from "./versions.service.js";
 import { VersionsWorker } from "./versions-worker.js";
 import { StorageModule } from "../storage/storage.module.js";
@@ -57,6 +61,8 @@ export function createDeployQueue(inMemoryQueue: InMemoryDeployQueue): DeployQue
     ApiTokensController,
     GithubOidcTokenController,
     GithubOAuthController,
+    DashboardAuthController,
+    DashboardDeploysController,
     SearchController,
     TryItOutController,
   ],
@@ -66,6 +72,8 @@ export function createDeployQueue(inMemoryQueue: InMemoryDeployQueue): DeployQue
     ApiTokenGuard,
     GithubOidcTokenService,
     GithubOAuthService,
+    DashboardAuthService,
+    DashboardSessionGuard,
     VersionsService,
     VersionsWorker,
     OasdiffDeployDiffEngine,
@@ -96,6 +104,6 @@ export function createDeployQueue(inMemoryQueue: InMemoryDeployQueue): DeployQue
     { provide: WEBHOOK_QUEUE, inject: [InMemoryWebhookQueue], useFactory: createWebhookQueue },
     { provide: WEBHOOK_HTTP_CLIENT, useExisting: KyWebhookHttpClient },
   ],
-  exports: [VersionsWorker, InMemoryDeployQueue, InMemoryDeployStore, InMemoryWebhookQueue, InMemorySearchIndex, WebhookDeliveryWorker, DEPLOY_STORE, DEPLOY_QUEUE],
+  exports: [VersionsWorker, InMemoryDeployQueue, InMemoryDeployStore, InMemoryWebhookQueue, InMemorySearchIndex, WebhookDeliveryWorker, DashboardAuthService, DashboardSessionGuard, DEPLOY_STORE, DEPLOY_QUEUE],
 })
 export class VersionsModule {}

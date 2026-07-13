@@ -65,7 +65,8 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
     readonly sha256: string;
     readonly sourceFormat: SourceFormat;
     readonly rawSpec: string;
-    readonly createdByTokenId: string;
+    readonly createdByTokenId: string | null;
+    readonly createdByUserId?: string | null;
   }): Promise<{ readonly version: VersionRecord; readonly job: DeployJobRecord }> {
     const versionId = `ver_${this.nextSequenceNumber}`;
     const version: MutableVersion = {
@@ -79,6 +80,7 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
       rawSpecObjectKey: `specs/${input.sha256}`,
       status: VersionStatus.Queued,
       createdByTokenId: input.createdByTokenId,
+      createdByUserId: input.createdByUserId ?? null,
       createdAt: new Date().toISOString(),
     };
     const job: DeployJobRecord = {

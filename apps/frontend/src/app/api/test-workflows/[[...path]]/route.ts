@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { getMembershipForOrg } from "@/shared/auth/session";
 import { backendBaseUrl } from "@/shared/config/env";
+import { dashboardCredentials } from "@/shared/auth/dashboard-credentials";
 
 type RouteContext = {
   readonly params: Promise<{
@@ -61,40 +62,13 @@ async function handleProxy(request: NextRequest, context: RouteContext): Promise
     }
   }
 
-  // Authenticate to backend using admin token to issue a scoped API token
-  const adminToken = process.env["BUMD_ADMIN_SESSION_TOKEN"];
-  if (!adminToken || adminToken.trim() === "") {
-    if (process.env["NODE_ENV"] === "production") {
-      return new Response("BUMD_ADMIN_SESSION_TOKEN environment variable is not configured", { status: 500 });
-    }
-  }
-  const finalAdminToken = adminToken || "test_admin_session_not_secret";
-
-  const tokenRes = await fetch(`${backendBaseUrl()}/v1/orgs/${orgSlug}/api-tokens`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${finalAdminToken}`,
-    },
-    body: JSON.stringify({
-      name: `web-session-${Date.now()}`,
-      role: "owner",
-      scopes: ["docs:deploy", "docs:read", "docs:test"],
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    const errText = await tokenRes.text();
-    return new Response(`Failed to authenticate with backend: ${errText}`, { status: 500 });
-  }
-
-  const tokenData = await tokenRes.json();
-  const apiToken = tokenData.token;
+  const credentials = await dashboardCredentials();
+  if (credentials === null) return new Response("Unauthorized", { status: 401 });
 
   // Forward the request to backend
   const backendUrl = `${backendBaseUrl()}/v1${path}${url.search}`;
   const requestHeaders = new Headers();
-  requestHeaders.set("Authorization", `Bearer ${apiToken}`);
+  requestHeaders.set("Authorization", `Bearer ${credentials.dashboardAccessCredential}`);
   requestHeaders.set("Content-Type", "application/json");
 
   const init: RequestInit = {

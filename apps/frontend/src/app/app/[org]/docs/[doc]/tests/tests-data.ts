@@ -2,19 +2,8 @@ import { notFound } from "next/navigation";
 
 import type { TestWorkflowDto } from "@/entities/test-workflow";
 import { fetchLatestReadyVersion } from "@/shared/api/portal-client";
-import { getDb } from "@/shared/db";
+import { dashboardTestsContext } from "@/shared/api/dashboard-management-client";
 import type { PaletteOperation } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
-
-type WorkflowRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  readonly description: string | null;
-  readonly definitionJson: unknown;
-  readonly revision: number;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
 
 type TestsPageData = {
   readonly organizationId: string;
@@ -23,6 +12,7 @@ type TestsPageData = {
   readonly branchSlug: string;
   readonly workflows: readonly TestWorkflowDto[];
   readonly operations: readonly PaletteOperation[];
+  readonly defaultServerUrl?: string | undefined;
 };
 
 type OpenApiOperation = {
@@ -33,80 +23,47 @@ type OpenApiOperation = {
 };
 
 export async function loadTestsPageData(orgSlug: string, docSlug: string): Promise<TestsPageData> {
-  const db = getDb();
-  const docResult = await db.query<{
-    readonly docId: string;
-    readonly organizationId: string;
-    readonly branchId: string | null;
-    readonly branchSlug: string | null;
-  }>(
-    `SELECT d.id AS "docId", d."organizationId", b.id AS "branchId", b.slug AS "branchSlug"
-     FROM "Doc" d
-     INNER JOIN "Organization" o ON o.id = d."organizationId"
-     LEFT JOIN "Branch" b ON b.id = d."defaultBranchId"
-     WHERE o.slug = $1 AND d.slug = $2`,
-    [orgSlug, docSlug],
-  );
-
-  const doc = docResult.rows[0];
-  if (!doc) {
+  const context = await dashboardTestsContext(orgSlug, docSlug);
+  if (context === null) {
     notFound();
   }
-
-  const branch = await resolveBranch(db, doc.docId, doc.branchId, doc.branchSlug);
-  if (!branch) {
-    notFound();
-  }
-
-  const workflowsResult = await db.query<WorkflowRow>(
-    `SELECT id, name, slug, description, "definitionJson", revision, "createdAt", "updatedAt"
-     FROM "TestWorkflow"
-     WHERE "organizationId" = $1 AND "docId" = $2 AND "branchId" = $3 AND "deletedAt" IS NULL
-     ORDER BY "createdAt" DESC
-     LIMIT 100`,
-    [doc.organizationId, doc.docId, branch.id],
-  );
-
-  const latest = await fetchLatestReadyVersion({ orgSlug, docSlug, branchSlug: branch.slug });
+  const latest = context.branchSlug !== ""
+    ? await fetchLatestReadyVersion({ orgSlug, docSlug, branchSlug: context.branchSlug })
+    : null;
 
   return {
-    organizationId: doc.organizationId,
-    docId: doc.docId,
-    branchId: branch.id,
-    branchSlug: branch.slug,
-    workflows: workflowsResult.rows.map(mapWorkflow),
+    organizationId: context.organizationId,
+    docId: context.docId,
+    branchId: context.branchId,
+    branchSlug: context.branchSlug,
+    workflows: context.workflows.map((workflow) => ({ ...workflow, definitionJson: workflow.definitionJson as TestWorkflowDto["definitionJson"] })),
     operations: latest ? extractOperations(latest.spec) : [],
+    defaultServerUrl: latest ? extractDefaultServerUrl(latest.spec) : undefined,
   };
 }
 
-async function resolveBranch(
-  db: ReturnType<typeof getDb>,
-  docId: string,
-  branchId: string | null,
-  branchSlug: string | null,
-): Promise<{ readonly id: string; readonly slug: string } | null> {
-  if (branchId && branchSlug) {
-    return { id: branchId, slug: branchSlug };
+function extractDefaultServerUrl(spec: unknown): string | undefined {
+  if (!isRecord(spec)) return undefined;
+
+  // Try servers array (OpenAPI 3.x)
+  if (Array.isArray(spec["servers"]) && spec["servers"].length > 0) {
+    const first = spec["servers"][0];
+    if (isRecord(first) && typeof first["url"] === "string") {
+      return first["url"];
+    }
   }
 
-  const branchResult = await db.query<{ readonly id: string; readonly slug: string }>(
-    `SELECT id, slug FROM "Branch" WHERE "docId" = $1 ORDER BY "createdAt" ASC LIMIT 1`,
-    [docId],
-  );
-  return branchResult.rows[0] ?? null;
-}
+  // Legacy OpenAPI/Swagger 2.0 host and basePath
+  const host = stringValue(spec["host"]);
+  if (host) {
+    const schemes = Array.isArray(spec["schemes"]) && typeof spec["schemes"][0] === "string"
+      ? spec["schemes"][0]
+      : "http";
+    const basePath = stringValue(spec["basePath"]) ?? "";
+    return `${schemes}://${host}${basePath}`;
+  }
 
-function mapWorkflow(row: WorkflowRow): TestWorkflowDto {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description,
-    definitionJson: row.definitionJson as TestWorkflowDto["definitionJson"],
-    revision: row.revision,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  return undefined;
 }
 
 function extractOperations(spec: unknown): PaletteOperation[] {

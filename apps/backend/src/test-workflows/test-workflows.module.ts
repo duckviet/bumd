@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ApiTokenCrypto } from "../auth/api-token-crypto.js";
 import { ApiTokenGuard } from "../auth/api-token.guard.js";
+import { DashboardOrApiTokenGuard } from "../auth/dashboard-or-api-token.guard.js";
 import { API_TOKEN_STORE } from "../auth/auth-ports.js";
 import { createApiTokenStore } from "../auth/database-api-token-store.js";
 import { VersionsModule } from "../versions/versions.module.js";
@@ -31,6 +32,7 @@ import { TestWorkflowReaperService } from "./runner/test-workflow-reaper.service
   providers: [
     ApiTokenCrypto,
     ApiTokenGuard,
+    DashboardOrApiTokenGuard,
     KyTryItOutHttpClient,
     TryItOutService,
     TestWorkflowsService,

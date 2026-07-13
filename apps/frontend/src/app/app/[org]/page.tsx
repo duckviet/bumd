@@ -2,6 +2,7 @@ import { latestVersion, listDashboardDocs, type DashboardDoc } from "@/entities/
 import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 import { CreateDocModal } from "@/app/app/[org]/docs/create-doc-modal";
 import { VersionStatusBadge } from "@/entities/dashboard";
+import { DashboardPageHeader } from "@/shared/ui/dashboard-primitives";
 
 type PageProps = {
   readonly params: Promise<{
@@ -33,11 +34,6 @@ function buildStats(docs: readonly DashboardDoc[]): DashboardStats {
   );
 }
 
-function latestLabel(doc: DashboardDoc): string {
-  const latest = latestVersion(doc);
-  return latest === null ? "No deploys" : `${latest.label} ${latest.status}`;
-}
-
 export default async function OrganizationDashboard({ params }: PageProps): Promise<React.ReactElement> {
   const { org } = await params;
   const { session, membership } = await requireDashboardRead(org);
@@ -62,68 +58,77 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
     memberships: session.memberships,
     tab: "overview",
     children: (
-      <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6 flex flex-col gap-8">
-        <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row bg-paper p-6 rounded-lg border border-chalk flex items-center justify-between transition-all">
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Workspace</p>
-            <h1 className="text-3xl font-bold tracking-tight text-carbon">{org}</h1>
-            <p className="text-graphite mt-2 text-graphite">Docs, deploys, versions, and publication status are now reachable from one operating view.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5 flex gap-3">
-            {mayManage ? <CreateDocModal org={org} /> : null}
-            <a className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite border-carbon bg-transparent text-carbon hover:bg-chalk" href={`/app/${org}/docs`}>
-              Browse docs
-            </a>
-          </div>
-        </section>
+      <div className="flex flex-col gap-4 p-6">
+        <DashboardPageHeader
+          kicker="Workspace"
+          title={org}
+          description="Docs, deploys, versions, and publication status in one operating view."
+          actions={
+            <>
+              {mayManage ? <CreateDocModal org={org} /> : null}
+              <a
+                className="inline-flex h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon transition-colors hover:border-carbon hover:bg-fog"
+                href={`/app/${org}/docs`}
+              >
+                Browse docs
+              </a>
+            </>
+          }
+        />
 
-        <div className="mt-6 flex flex-wrap gap-6 flex flex-wrap gap-6 mt-0">
-          <div className="bg-paper p-6 rounded-lg border border-chalk flex-1 min-w-[200px] hover:border-signal-orange transition-all">
-            <span className="text-xs uppercase tracking-wider font-semibold text-slate mb-1 block">Total docs</span>
-            <strong className="text-4xl font-bold font-polysans text-carbon block mt-1">{stats.docs}</strong>
-            <p className="text-xs text-graphite mt-2">{stats.publicDocs} public, {stats.privateDocs} private</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-chalk bg-paper p-6 transition-colors hover:border-signal-orange">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate">Total docs</span>
+            <strong className="mt-1 block font-polysans text-4xl font-bold text-carbon">{stats.docs}</strong>
+            <p className="mt-2 text-xs text-graphite">
+              {stats.publicDocs} public, {stats.privateDocs} private
+            </p>
           </div>
-          <div className="bg-paper p-6 rounded-lg border border-chalk flex-1 min-w-[200px] hover:border-signal-orange transition-all">
-            <span className="text-xs uppercase tracking-wider font-semibold text-slate mb-1 block">Deploy coverage</span>
-            <strong className="text-4xl font-bold font-polysans text-carbon block mt-1">{stats.activeVersions}</strong>
-            <p className="text-xs text-graphite mt-2">Docs with at least one version</p>
+          <div className="rounded-lg border border-chalk bg-paper p-6 transition-colors hover:border-signal-orange">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate">Deploy coverage</span>
+            <strong className="mt-1 block font-polysans text-4xl font-bold text-carbon">{stats.activeVersions}</strong>
+            <p className="mt-2 text-xs text-graphite">Docs with at least one version</p>
           </div>
-          <div className="bg-paper p-6 rounded-lg border border-chalk flex-1 min-w-[200px] hover:border-signal-orange transition-all">
-            <span className="text-xs uppercase tracking-wider font-semibold text-slate mb-1 block">Ready latest</span>
-            <strong className="text-4xl font-bold font-polysans text-carbon block mt-1">{stats.readyVersions}</strong>
-            <p className="text-xs text-graphite mt-2">Latest versions ready to publish</p>
+          <div className="rounded-lg border border-chalk bg-paper p-6 transition-colors hover:border-signal-orange">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate">Ready latest</span>
+            <strong className="mt-1 block font-polysans text-4xl font-bold text-carbon">{stats.readyVersions}</strong>
+            <p className="mt-2 text-xs text-graphite">Latest versions ready to publish</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          <section className="lg:col-span-2 bg-paper p-8 rounded-lg border border-chalk flex flex-col gap-6">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4 flex items-center justify-between border-b border-chalk pb-4 mb-2">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          <section className="flex flex-col gap-5 rounded-lg border border-chalk bg-paper p-6   lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
               <div>
-                <p className="text-xs uppercase tracking-wider font-semibold text-signal-orange">Primary surface</p>
-                <h2 className="text-2xl font-bold tracking-tight text-carbon mt-1">Documentation portals</h2>
+                <p className="text-xs font-semibold uppercase tracking-wider text-signal-orange">Primary surface</p>
+                <h2 className="mt-1 font-polysans text-2xl font-bold tracking-tight text-carbon">Documentation portals</h2>
               </div>
-              <a className="text-sm font-semibold text-signal-orange hover:underline transition-all" href={`/app/${org}/docs`}>
+              <a className="text-sm font-semibold text-signal-orange hover:underline" href={`/app/${org}/docs`}>
                 View all
               </a>
             </div>
-            
+
             {recentDocs.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate p-6 text-graphite border-2 border-dashed border-chalk p-8 rounded-lg text-center flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-chalk p-8 text-center">
                 <h3 className="text-lg font-semibold text-carbon">No docs yet</h3>
-                <p className="text-sm text-graphite max-w-sm">Create the first portal to unlock deploys, version history, diffs, and public documentation.</p>
-                {mayManage ? <CreateDocModal org={org} /> : null}
+                <p className="max-w-sm text-sm text-graphite">
+                  Create the first portal to unlock deploys, version history, diffs, and public documentation.
+                </p>
+                {mayManage ? <CreateDocModal org={org} triggerLabel="Create first doc" /> : null}
               </div>
             ) : (
-              <div className="grid gap-3 flex flex-col gap-3.5">
+              <div className="flex flex-col gap-3">
                 {recentDocs.map((doc) => (
-                  <a 
-                    className="flex items-center justify-between p-5 bg-fog hover:bg-chalk border border-chalk hover:border-signal-orange rounded-lg transition-all" 
-                    href={`/app/${org}/docs/${doc.slug}`} 
+                  <a
+                    className="flex items-center justify-between rounded-lg border border-chalk bg-fog p-5 transition-colors hover:border-signal-orange hover:bg-chalk"
+                    href={`/app/${org}/docs/${doc.slug}`}
                     key={doc.slug}
                   >
                     <span className="flex flex-col gap-1">
                       <strong className="text-base font-semibold text-carbon">{doc.name}</strong>
-                      <small className="text-xs text-slate">{doc.slug} / {doc.theme}</small>
+                      <small className="text-xs text-slate">
+                        {doc.slug} / {doc.theme}
+                      </small>
                     </span>
                     {renderVersionStatusBadge(doc)}
                   </a>
@@ -132,34 +137,49 @@ export default async function OrganizationDashboard({ params }: PageProps): Prom
             )}
           </section>
 
-          <aside className="bg-paper p-8 rounded-lg border border-chalk flex flex-col gap-6">
+          <aside className="flex flex-col gap-5 rounded-lg border border-chalk bg-paper p-6  ">
             <div className="border-b border-chalk pb-4">
-              <p className="text-xs uppercase tracking-wider font-semibold text-signal-orange">Next actions</p>
-              <h2 className="text-2xl font-bold tracking-tight text-carbon mt-1">Operate faster</h2>
+              <p className="text-xs font-semibold uppercase tracking-wider text-signal-orange">Next actions</p>
+              <h2 className="mt-1 font-polysans text-2xl font-bold tracking-tight text-carbon">Operate faster</h2>
             </div>
-            <nav className="flex flex-col gap-3" aria-label="Dashboard shortcuts">
-              <a href={`/app/${org}/docs/new`} className="flex items-center justify-between p-4 bg-fog hover:bg-chalk border border-chalk hover:border-signal-orange rounded-lg transition-all font-medium text-carbon text-sm">
-                <span>Upload a spec</span>
-                <span className="text-signal-orange font-bold font-polysans">→</span>
-              </a>
-              <a href={`/app/${org}/docs`} className="flex items-center justify-between p-4 bg-fog hover:bg-chalk border border-chalk hover:border-signal-orange rounded-lg transition-all font-medium text-carbon text-sm">
+            <nav aria-label="Dashboard shortcuts" className="flex flex-col gap-3">
+              {mayManage ? (
+                <div className="rounded-lg border border-chalk bg-fog p-4">
+                  <p className="mb-3 text-sm font-medium text-carbon">Create a documentation portal</p>
+                  <CreateDocModal org={org} triggerClassName="w-full" triggerLabel="New doc" />
+                </div>
+              ) : null}
+              <a
+                className="flex items-center justify-between rounded-lg border border-chalk bg-fog p-4 text-sm font-medium text-carbon transition-colors hover:border-signal-orange hover:bg-chalk"
+                href={`/app/${org}/docs`}
+              >
                 <span>Review portals</span>
-                <span className="text-signal-orange font-bold font-polysans">→</span>
+                <span className="font-polysans font-bold text-signal-orange">→</span>
               </a>
               {recentDocs[0] ? (
-                <a href={recentDocs[0].publicUrl} target="_blank" className="flex items-center justify-between p-4 bg-fog hover:bg-chalk border border-chalk hover:border-signal-orange rounded-lg transition-all font-medium text-carbon text-sm">
+                <a
+                  className="flex items-center justify-between rounded-lg border border-chalk bg-fog p-4 text-sm font-medium text-carbon transition-colors hover:border-signal-orange hover:bg-chalk"
+                  href={recentDocs[0].publicUrl}
+                  target="_blank"
+                >
                   <span>Open public docs</span>
-                  <span className="text-signal-orange font-bold font-polysans">→</span>
+                  <span className="font-polysans font-bold text-signal-orange">→</span>
                 </a>
               ) : (
-                <div className="flex items-center justify-between p-4 bg-fog opacity-50 border border-chalk rounded-lg font-medium text-slate text-sm cursor-not-allowed" title="No documentation portals are available yet.">
+                <div
+                  className="flex cursor-not-allowed items-center justify-between rounded-lg border border-chalk bg-fog p-4 text-sm font-medium text-slate opacity-50"
+                  title="No documentation portals are available yet."
+                >
                   <span>Open public docs</span>
-                  <span className="font-bold font-polysans text-slate">→</span>
+                  <span className="font-polysans font-bold text-slate">→</span>
                 </div>
               )}
-              <a href={`/app/${org}/docs`} className="flex items-center justify-between p-4 bg-fog hover:bg-chalk border border-chalk hover:border-signal-orange rounded-lg transition-all font-medium text-carbon text-sm">
+              <a
+                className="flex items-center justify-between rounded-lg border border-chalk bg-fog p-4 text-sm font-medium text-carbon transition-colors hover:border-signal-orange hover:bg-chalk"
+                href={`/app/${org}/docs`}
+              >
                 <span>Check latest statuses</span>
-                <span className="text-signal-orange font-bold font-polysans">→</span>
+                <span className="font-polysans font-bold text-signal-orange">→</span>
               </a>
             </nav>
           </aside>

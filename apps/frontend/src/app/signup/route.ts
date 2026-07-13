@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { registerUser } from "@/shared/auth/auth-store";
+import { registerDashboard } from "@/shared/auth/dashboard-auth-client";
 import { styledHtmlPage } from "@/shared/ui/styled-html";
 
 export async function GET(request: Request): Promise<Response> {
@@ -53,11 +53,14 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const form = await request.formData();
-  await registerUser({
+  const registered = await registerDashboard({
     email: stringValue(form.get("email")),
     password: stringValue(form.get("password")),
     name: stringValue(form.get("name")),
   });
+  if (!registered) {
+    return new Response("Unable to create account.", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+  }
   redirect("/login?created=1");
 }
 

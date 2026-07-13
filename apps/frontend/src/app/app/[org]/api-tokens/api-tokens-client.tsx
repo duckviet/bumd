@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardApiToken } from "@/entities/dashboard";
+import { DashboardPageHeader, DashboardSection } from "@/shared/ui/dashboard-primitives";
 
 type Props = {
   readonly org: string;
@@ -103,30 +104,23 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
-      <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
-        <div>
-          <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Security</p>
-          <h1>API Tokens</h1>
-          <p className="text-graphite">
-            Issue and revoke API tokens to allow automated deployments (e.g. from GitHub Actions) or doc searches.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {mayManage && (
+      <DashboardPageHeader
+        kicker="Security"
+        title="API Tokens"
+        description="Issue and revoke API tokens to allow automated deployments (e.g. from GitHub Actions) or doc searches."
+        actions={
+          mayManage && (
             <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" onClick={handleOpen} type="button">
               Create Token
             </button>
-          )}
-        </div>
-      </section>
+          )
+        }
+      />
 
-      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{tokens.length} active token{tokens.length === 1 ? "" : "s"}</p>
-            <h2>Active API Tokens</h2>
-          </div>
-        </div>
+      <DashboardSection
+        kicker={`${tokens.length} active token${tokens.length === 1 ? "" : "s"}`}
+        title="Active API Tokens"
+      >
 
         {tokens.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate p-6 text-graphite">
@@ -171,7 +165,7 @@ export function ApiTokensClient({ org, tokens, mayManage }: Props): React.ReactE
             ))}
           </div>
         )}
-      </section>
+      </DashboardSection>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm" onClick={handleClose}>

@@ -146,3 +146,20 @@ test("Enforce FSD import boundaries and cross-slice public API usage", () => {
 
   assert.deepEqual(violations, []);
 });
+
+test("Frontend has no direct PostgreSQL dependency or database credential contract", () => {
+  const forbiddenSourcePatterns = [/@\/shared\/db/u, /\bgetDb\s*\(/u, /\bDATABASE_URL\b/u, /\bBUMD_ADMIN_SESSION_TOKEN\b/u];
+  const violations = [];
+
+  for (const sourceFile of getSourceFiles(srcDir)) {
+    const source = fs.readFileSync(sourceFile, "utf8");
+    if (forbiddenSourcePatterns.some((pattern) => pattern.test(source))) {
+      violations.push(path.relative(rootDir, sourceFile));
+    }
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, "apps/frontend/package.json"), "utf8"));
+  assert.equal(manifest.dependencies?.pg, undefined);
+  assert.equal(manifest.devDependencies?.["@types/pg"], undefined);
+  assert.deepEqual(violations, []);
+});

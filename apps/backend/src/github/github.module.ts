@@ -5,6 +5,7 @@ import {
   GithubMappingsController,
   GithubWebhookController,
 } from "./github.controller.js";
+import { DashboardGithubController } from "./dashboard-github.controller.js";
 import { GithubService } from "./github.service.js";
 import { GithubWorker } from "./github-worker.js";
 import { GITHUB_QUEUE, InMemoryGithubQueue } from "./github-queue.js";
@@ -18,6 +19,7 @@ import { VersionsModule } from "../versions/versions.module.js";
     GithubRepositoriesController,
     GithubMappingsController,
     GithubWebhookController,
+    DashboardGithubController,
   ],
   providers: [
     GithubService,

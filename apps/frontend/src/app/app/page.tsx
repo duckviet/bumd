@@ -4,7 +4,7 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   const session = await requireUserSession("/app");
   return (
     <main className="min-h-[100dvh] bg-fog text-carbon">
-      <div className="rounded-lg border border-chalk bg-paper p-5 sm:p-8 max-w-lg mx-auto">
+      <div className="rounded-lg border border-chalk bg-paper p-5   max-w-lg mx-auto">
         <div className="mb-6">
           <span className="text-xs uppercase tracking-wider font-semibold text-signal-orange">ventriloc</span>
           <h1 className="text-4xl mt-1">Dashboard</h1>

@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* Cache bust: change hash to avoid test collisions */
 @import "tailwindcss";
 
 @theme {
@@ -53,16 +54,6 @@
   --leading-display: 0.91;
   --tracking-display: -1.32px;
 
-  /* Spacing */
-  --spacing-8: 8px;
-  --spacing-12: 12px;
-  --spacing-16: 16px;
-  --spacing-20: 20px;
-  --spacing-36: 36px;
-  --spacing-40: 40px;
-  --spacing-60: 60px;
-  --spacing-140: 140px;
-
   /* Border Radius */
   --radius-sm: 3px;
   --radius-lg: 8px;
@@ -109,40 +100,44 @@
   --del-bg: rgba(239, 68, 68, 0.15);
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    --dummy-hash-buster: 1px;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-inter);
+    background-color: var(--color-mist);
+    color: var(--color-carbon);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-polysans);
+    color: var(--color-carbon);
+    letter-spacing: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+  }
+
+  a:hover {
+    opacity: 0.8;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  min-height: 100dvh;
-  font-family: var(--font-inter);
-  background-color: var(--color-mist);
-  color: var(--color-carbon);
-  -webkit-font-smoothing: antialiased;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-polysans);
-  color: var(--color-carbon);
-  letter-spacing: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-  transition: opacity 0.15s ease;
-}
-
-a:hover {
-  opacity: 0.8;
-}

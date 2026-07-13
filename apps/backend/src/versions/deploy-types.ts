@@ -41,7 +41,8 @@ export type VersionRecord = {
   readonly sourceFormat: SourceFormat;
   readonly rawSpecObjectKey: string;
   readonly status: VersionStatus;
-  readonly createdByTokenId: string;
+  readonly createdByTokenId: string | null;
+  readonly createdByUserId: string | null;
   readonly createdAt: string;
   readonly readyAt?: string;
 };

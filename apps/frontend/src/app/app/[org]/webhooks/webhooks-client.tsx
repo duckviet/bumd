@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardWebhook, DashboardWebhookDelivery } from "@/entities/dashboard";
+import { StatusBadge } from "@/shared/ui/status-badge";
+import { DashboardPageHeader, DashboardSection } from "@/shared/ui/dashboard-primitives";
 
 type Props = {
   readonly org: string;
@@ -210,22 +212,18 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
-      <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
-        <div>
-          <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Integrations</p>
-          <h1>Webhooks</h1>
-          <p className="text-graphite">
-            Configure HTTP webhooks to receive real-time updates when specs are uploaded, fail validation, or contain breaking changes.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {mayManage && (
+      <DashboardPageHeader
+        kicker="Integrations"
+        title="Webhooks"
+        description="Configure HTTP webhooks to receive real-time updates when specs are uploaded, fail validation, or contain breaking changes."
+        actions={
+          mayManage && (
             <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" onClick={handleOpenCreate} type="button">
               Add Webhook
             </button>
-          )}
-        </div>
-      </section>
+          )
+        }
+      />
 
       {rotatedSecret && (
         <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -260,13 +258,10 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
         </div>
       )}
 
-      <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{webhooks.length} webhook{webhooks.length === 1 ? "" : "s"} configured</p>
-            <h2>Configured Endpoints</h2>
-          </div>
-        </div>
+      <DashboardSection
+        kicker={`${webhooks.length} webhook${webhooks.length === 1 ? "" : "s"} configured`}
+        title="Configured Endpoints"
+      >
 
         {webhooks.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate p-6 text-graphite">
@@ -377,7 +372,7 @@ export function WebhooksClient({ org, webhooks, mayManage }: Props): React.React
             })}
           </div>
         )}
-      </section>
+      </DashboardSection>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm" onClick={handleClose}>

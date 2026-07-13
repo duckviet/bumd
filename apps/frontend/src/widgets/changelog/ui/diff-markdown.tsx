@@ -83,7 +83,7 @@ export function DiffMarkdown({ detail, diff, diffMarkdown, markdown, orgSlug, do
           </div>
         </header>
 
-        <Surface className="mt-5 p-5 sm:p-8">
+        <Surface className="mt-5 p-5  ">
           <article>{lines.map(renderLine)}</article>
         </Surface>
       </PortalContainer>

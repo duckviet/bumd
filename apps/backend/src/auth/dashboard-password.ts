@@ -2,13 +2,13 @@ import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 
 const KeyLength = 32;
 
-export async function hashPassword(password: string): Promise<string> {
+export async function hashDashboardPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const key = await derive(password, salt);
   return `scrypt:${salt}:${key.toString("hex")}`;
 }
 
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+export async function verifyDashboardPassword(password: string, stored: string): Promise<boolean> {
   const [scheme, salt, expectedHex, extra] = stored.split(":");
   if (scheme !== "scrypt" || salt === undefined || expectedHex === undefined || extra !== undefined) {
     return false;

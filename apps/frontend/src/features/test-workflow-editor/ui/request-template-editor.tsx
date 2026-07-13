@@ -20,7 +20,7 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
   const [headers, setHeaders] = useState<KeyValuePair[]>([]);
   const [query, setQuery] = useState<KeyValuePair[]>([]);
   const [pathParams, setPathParams] = useState<KeyValuePair[]>([]);
-  const [bodyText, setBodyText] = useState("");
+  const [bodyPairs, setBodyPairs] = useState<KeyValuePair[]>([]);
 
   // Populate from template when node changes
   useEffect(() => {
@@ -30,13 +30,22 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
     setPathParams(recordToPairs(requestTemplate.pathParams));
     
     if (requestTemplate.body === undefined || requestTemplate.body === null) {
-      setBodyText("");
-    } else if (typeof requestTemplate.body === "string") {
-      setBodyText(requestTemplate.body);
+      setBodyPairs([]);
+    } else if (typeof requestTemplate.body === "object") {
+      setBodyPairs(recordToPairs(requestTemplate.body as Record<string, unknown>));
     } else {
-      setBodyText(JSON.stringify(requestTemplate.body, null, 2));
+      try {
+        const parsed = JSON.parse(requestTemplate.body as string);
+        if (typeof parsed === "object" && parsed !== null) {
+          setBodyPairs(recordToPairs(parsed));
+        } else {
+          setBodyPairs([{ key: "body", value: String(requestTemplate.body) }]);
+        }
+      } catch {
+        setBodyPairs([{ key: "body", value: String(requestTemplate.body) }]);
+      }
     }
-  }, [node.id, requestTemplate]);
+  }, [node.id]);
 
   function recordToPairs(rec?: Record<string, unknown>): KeyValuePair[] {
     if (!rec) return [];
@@ -58,48 +67,31 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
     readonly headers?: KeyValuePair[];
     readonly query?: KeyValuePair[];
     readonly pathParams?: KeyValuePair[];
-    readonly body?: unknown;
-    readonly useRawBodyText?: boolean;
+    readonly bodyPairs?: KeyValuePair[];
   }) => {
-    let parsedBody: unknown = updates.body;
-    if (updates.useRawBodyText) {
-      if (bodyText.trim() !== "") {
-        try {
-          parsedBody = JSON.parse(bodyText);
-        } catch {
-          parsedBody = bodyText;
-        }
-      } else {
-        parsedBody = undefined;
-      }
-    } else if (updates.body === undefined) {
-      if (bodyText.trim() !== "") {
-        try {
-          parsedBody = JSON.parse(bodyText);
-        } catch {
-          parsedBody = bodyText;
-        }
-      } else {
-        parsedBody = undefined;
-      }
-    }
+    const nextBodyPairs = updates.bodyPairs || bodyPairs;
+    const bodyObj = pairsToRecord(nextBodyPairs);
 
     onChange({
       serverUrl: updates.serverUrl !== undefined ? updates.serverUrl : serverUrl || undefined,
       headers: pairsToRecord(updates.headers || headers),
       query: pairsToRecord(updates.query || query),
       pathParams: pairsToRecord(updates.pathParams || pathParams),
-      body: parsedBody,
+      body: Object.keys(bodyObj).length > 0 ? bodyObj : undefined,
     });
   };
 
   const handlePairChange = (
-    type: "headers" | "query" | "pathParams",
+    type: "headers" | "query" | "pathParams" | "body",
     index: number,
     field: "key" | "value",
     val: string,
   ) => {
-    const list = type === "headers" ? headers : type === "query" ? query : pathParams;
+    const list =
+      type === "headers" ? headers :
+      type === "query" ? query :
+      type === "pathParams" ? pathParams :
+      bodyPairs;
     const updated = list.map((item, idx) => (idx === index ? { ...item, [field]: val } : item));
     if (type === "headers") {
       setHeaders(updated);
@@ -107,26 +99,39 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
     } else if (type === "query") {
       setQuery(updated);
       triggerChange({ query: updated });
-    } else {
+    } else if (type === "pathParams") {
       setPathParams(updated);
       triggerChange({ pathParams: updated });
+    } else {
+      setBodyPairs(updated);
+      triggerChange({ bodyPairs: updated });
     }
   };
 
-  const handleAddPair = (type: "headers" | "query" | "pathParams") => {
-    const list = type === "headers" ? headers : type === "query" ? query : pathParams;
+  const handleAddPair = (type: "headers" | "query" | "pathParams" | "body") => {
+    const list =
+      type === "headers" ? headers :
+      type === "query" ? query :
+      type === "pathParams" ? pathParams :
+      bodyPairs;
     const updated = [...list, { key: "", value: "" }];
     if (type === "headers") {
       setHeaders(updated);
     } else if (type === "query") {
       setQuery(updated);
-    } else {
+    } else if (type === "pathParams") {
       setPathParams(updated);
+    } else {
+      setBodyPairs(updated);
     }
   };
 
-  const handleRemovePair = (type: "headers" | "query" | "pathParams", index: number) => {
-    const list = type === "headers" ? headers : type === "query" ? query : pathParams;
+  const handleRemovePair = (type: "headers" | "query" | "pathParams" | "body", index: number) => {
+    const list =
+      type === "headers" ? headers :
+      type === "query" ? query :
+      type === "pathParams" ? pathParams :
+      bodyPairs;
     const updated = list.filter((_, idx) => idx !== index);
     if (type === "headers") {
       setHeaders(updated);
@@ -134,14 +139,13 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
     } else if (type === "query") {
       setQuery(updated);
       triggerChange({ query: updated });
-    } else {
+    } else if (type === "pathParams") {
       setPathParams(updated);
       triggerChange({ pathParams: updated });
+    } else {
+      setBodyPairs(updated);
+      triggerChange({ bodyPairs: updated });
     }
-  };
-
-  const handleBodyBlur = () => {
-    triggerChange({ useRawBodyText: true });
   };
 
   return (
@@ -169,21 +173,15 @@ export function RequestTemplateEditor({ node, onChange }: RequestTemplateEditorP
       {renderKeyValueSection("Headers", "headers", headers)}
 
       {/* Request Body */}
-      <div className="flex flex-col gap-1">
-        <label className="font-semibold text-carbon">Request Body (JSON or Plain Text)</label>
-        <textarea
-          value={bodyText}
-          onChange={(e) => setBodyText(e.target.value)}
-          onBlur={handleBodyBlur}
-          placeholder='{\n  "key": "value"\n}'
-          rows={6}
-          className="rounded border border-chalk bg-white p-2 font-mono text-[11px] focus:border-signal-orange focus:outline-none"
-        />
-      </div>
+      {renderKeyValueSection("Request Body (JSON)", "body", bodyPairs)}
     </div>
   );
 
-  function renderKeyValueSection(title: string, type: "headers" | "query" | "pathParams", pairs: KeyValuePair[]) {
+  function renderKeyValueSection(
+    title: string,
+    type: "headers" | "query" | "pathParams" | "body",
+    pairs: KeyValuePair[],
+  ) {
     return (
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">

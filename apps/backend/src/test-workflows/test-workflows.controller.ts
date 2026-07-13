@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
-import { ApiTokenGuard } from "../auth/api-token.guard.js";
+import { DashboardOrApiTokenGuard } from "../auth/dashboard-or-api-token.guard.js";
 import type { ApiTokenRequest } from "../auth/api-token-request.js";
 import { TestWorkflowError, testWorkflowHttpException } from "./test-workflow-errors.js";
 import { TestWorkflowsService } from "./test-workflows.service.js";
 
 @Controller("v1/orgs/:orgSlug/docs/:docSlug/branches/:branchSlug/test-workflows")
-@UseGuards(ApiTokenGuard)
+@UseGuards(DashboardOrApiTokenGuard)
 export class TestWorkflowsController {
   public constructor(private readonly service: TestWorkflowsService) {}
 

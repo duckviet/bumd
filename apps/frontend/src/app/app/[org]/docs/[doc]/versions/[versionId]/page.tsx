@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getDb } from "@/shared/db";
+import { dashboardVersionDetail } from "@/shared/api/dashboard-management-client";
 import { dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 import { VersionStatusBadge } from "@/entities/dashboard";
 import { StatusBadge, type StatusBadgeTone } from "@/shared/ui/status-badge";
@@ -31,34 +31,11 @@ export default async function VersionDetailPage({ params }: PageProps): Promise<
   const { org, doc: docSlug, versionId } = await params;
   const { session, membership } = await requireDashboardRead(org);
 
-  const db = getDb();
-
-  // Fetch Version details
-  const versionRes = await db.query(
-    `SELECT v.*, b.name AS "branchName", d.name AS "docName"
-     FROM "Version" v
-     INNER JOIN "Branch" b ON b.id = v."branchId"
-     INNER JOIN "Doc" d ON d.id = v."docId"
-     INNER JOIN "Organization" o ON o.id = d."organizationId"
-     WHERE o.slug = $1 AND d.slug = $2 AND v.id = $3`,
-    [org, docSlug, versionId]
-  );
-
-  if (versionRes.rows.length === 0) {
+  const version = await dashboardVersionDetail(org, docSlug, versionId);
+  if (version === null) {
     notFound();
   }
-
-  const version = versionRes.rows[0];
-
-  // Fetch optional associated Diff
-  const diffRes = await db.query(
-    `SELECT id, classification::text AS classification, "hasBreaking"
-     FROM "Diff"
-     WHERE "headVersionId" = $1`,
-    [versionId]
-  );
-
-  const diff = diffRes.rows[0] || null;
+  const diff = version.diff;
 
   return dashboardShell({
     organizationSlug: org,
@@ -83,7 +60,7 @@ export default async function VersionDetailPage({ params }: PageProps): Promise<
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+          <section className="rounded-lg border border-chalk bg-paper p-5  ">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
               <h2>Version Metadata</h2>
             </div>
@@ -91,7 +68,12 @@ export default async function VersionDetailPage({ params }: PageProps): Promise<
               <MetadataRow label="Version ID"><code>{version.id}</code></MetadataRow>
               <MetadataRow label="Status"><VersionStatusBadge status={version.status} /></MetadataRow>
               <MetadataRow label="SHA-256 Hash"><code className="text-slate" title={version.sha256}>{version.sha256.slice(0, 16)}...</code></MetadataRow>
-              <MetadataRow label="Uploaded By Token"><code>{version.createdByTokenId}</code></MetadataRow>
+              {version.createdByTokenId ? (
+                <MetadataRow label="Uploaded By Token"><code>{version.createdByTokenId}</code></MetadataRow>
+              ) : null}
+              {version.createdByUserId ? (
+                <MetadataRow label="Uploaded By User"><code>{version.createdByUserId}</code></MetadataRow>
+              ) : null}
               <MetadataRow label="Created At">{new Date(version.createdAt).toLocaleString()}</MetadataRow>
               {version.readyAt && (
                 <MetadataRow label="Processed At">{new Date(version.readyAt).toLocaleString()}</MetadataRow>
@@ -99,7 +81,7 @@ export default async function VersionDetailPage({ params }: PageProps): Promise<
             </dl>
           </section>
 
-          <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+          <section className="rounded-lg border border-chalk bg-paper p-5  ">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
               <h2>API Diff Analysis</h2>
             </div>

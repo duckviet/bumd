@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { getDb } from "@/shared/db";
 import { getInstallationDetails } from "@/shared/github-app";
-import { randomUUID } from "node:crypto";
+import { githubUpsertInstallation } from "@/shared/api/dashboard-github-client";
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -27,23 +26,10 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const { accountName } = await getInstallationDetails(appId, privateKey, installationId);
 
-    const db = getDb();
-    const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [orgSlug]);
-    if (orgRes.rows.length === 0) {
-      return new Response("Organization not found", { status: 404 });
-    }
-    const orgId = orgRes.rows[0].id;
-
-    const id = `ghinst_${randomUUID()}`;
-    await db.query(
-      `INSERT INTO "GithubInstallation" (id, "organizationId", "githubInstallationId", "accountName", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, NOW(), NOW())
-       ON CONFLICT ("githubInstallationId") DO UPDATE SET "accountName" = EXCLUDED."accountName", "updatedAt" = NOW()`,
-      [id, orgId, installationId, accountName]
-    );
-  } catch (error: any) {
-    console.error("GitHub App callback error:", error);
-    return new Response(`Failed to complete GitHub App installation: ${error.message || error}`, { status: 500 });
+    await githubUpsertInstallation(orgSlug, installationId, accountName);
+  } catch (error) {
+    console.error("GitHub App callback failed");
+    return new Response(error instanceof Error ? "Failed to complete GitHub App installation" : "GitHub App installation failed", { status: 500 });
   }
 
   redirect(`/app/${orgSlug}/docs/${docSlug}/settings`);

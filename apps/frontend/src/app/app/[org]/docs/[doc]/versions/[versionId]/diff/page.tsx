@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getDb } from "@/shared/db";
+import { dashboardDiffDetail } from "@/shared/api/dashboard-management-client";
 import { dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 import { z } from "zod";
 
@@ -40,37 +40,11 @@ export default async function DiffDetailPage({ params }: PageProps): Promise<Rea
   const { org, doc: docSlug, versionId } = await params;
   const { session, membership } = await requireDashboardRead(org);
 
-  const db = getDb();
-
-  // Fetch Version details
-  const versionRes = await db.query(
-    `SELECT v.*, d.name AS "docName"
-     FROM "Version" v
-     INNER JOIN "Doc" d ON d.id = v."docId"
-     INNER JOIN "Organization" o ON o.id = d."organizationId"
-     WHERE o.slug = $1 AND d.slug = $2 AND v.id = $3`,
-    [org, docSlug, versionId]
-  );
-
-  if (versionRes.rows.length === 0) {
+  const diff = await dashboardDiffDetail(org, docSlug, versionId);
+  if (diff === null) {
     notFound();
   }
-
-  const version = versionRes.rows[0];
-
-  // Fetch Diff details
-  const diffRes = await db.query(
-    `SELECT *
-     FROM "Diff"
-     WHERE "headVersionId" = $1`,
-    [versionId]
-  );
-
-  if (diffRes.rows.length === 0) {
-    notFound();
-  }
-
-  const diff = diffRes.rows[0];
+  const version = { docName: diff.docName, sequenceNumber: diff.sequenceNumber };
 
   // Safely extract changes
   const parsedChanges = parseChanges(diff.changes);
@@ -99,7 +73,7 @@ export default async function DiffDetailPage({ params }: PageProps): Promise<Rea
           </div>
         </section>
 
-        <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+        <section className="rounded-lg border border-chalk bg-paper p-5  ">
           <h2>Summary</h2>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-chalk bg-fog p-4">
@@ -124,7 +98,7 @@ export default async function DiffDetailPage({ params }: PageProps): Promise<Rea
         </section>
 
         {breakingChanges.length > 0 && (
-          <section className="rounded-lg border border-red-200 bg-paper p-5 sm:p-8">
+          <section className="rounded-lg border border-red-200 bg-paper p-5  ">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
               <h2 className="text-red-700">Breaking Changes ({breakingChanges.length})</h2>
               <p>These changes require immediate attention as they break contract compatibility.</p>
@@ -144,7 +118,7 @@ export default async function DiffDetailPage({ params }: PageProps): Promise<Rea
           </section>
         )}
 
-        <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
+        <section className="rounded-lg border border-chalk bg-paper p-5  ">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
             <h2>All Changes ({parsedChanges.length})</h2>
             <p>Complete list of modifications between spec versions.</p>

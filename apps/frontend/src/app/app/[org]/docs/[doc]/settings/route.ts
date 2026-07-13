@@ -11,13 +11,14 @@ import {
   listDocMappings,
   createDocMapping,
   deleteDocMapping,
+  createAndLinkRepository,
+  simulateGithubPush,
+  upsertGithubInstallation,
   type DbGithubRepository,
   type DbGithubInstallation,
   type DbBranchMapping,
 } from "@/entities/dashboard";
-import { getDb } from "@/shared/db";
-import { randomUUID, createHmac } from "node:crypto";
-import { backendBaseUrl } from "@/shared/config/env";
+import { randomUUID } from "node:crypto";
 import { listInstallationRepositories, listRepositoryBranches } from "@/shared/github-app";
 
 async function getAvailableRepositories(installations: readonly DbGithubInstallation[]): Promise<Array<{ githubInstallationId: string; githubRepoId: string; fullName: string }>> {
@@ -69,35 +70,14 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     notFound();
   }
 
-  const db = getDb();
-  const docIdRes = await db.query(
-    `SELECT d.id FROM "Doc" d
-     INNER JOIN "Organization" o ON o.id = d."organizationId"
-     WHERE o.slug = $1 AND d.slug = $2`,
-    [org, docSlug]
-  );
-  if (docIdRes.rows.length === 0) {
-    notFound();
-  }
-  const docId = docIdRes.rows[0].id as string;
+  const docId = doc.id;
 
   const linkedRepo = await getLinkedRepoForDoc(org, docId);
   const installations = await listOrgInstallations(org);
   const mappings = await listDocMappings(org, docId);
   const availableRepos = await getAvailableRepositories(installations);
 
-  const unlinkedRes = await db.query(
-    `SELECT r.id, r."githubRepoId", r."fullName"
-     FROM "GithubRepository" r
-     INNER JOIN "Organization" o ON o.id = r."organizationId"
-     WHERE o.slug = $1 AND (r."docId" IS NULL OR r."docId" = '')`,
-    [org]
-  );
-  const unlinkedRepos = unlinkedRes.rows.map((row) => ({
-    id: row.id,
-    githubRepoId: row.githubRepoId,
-    fullName: row.fullName,
-  }));
+  const unlinkedRepos = (await listOrgRepos(org)).filter((repo) => repo.docId === null);
 
   const appId = process.env["GITHUB_APP_ID"];
   const privateKey = process.env["GITHUB_APP_PRIVATE_KEY"];
@@ -109,16 +89,9 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
   if (linkedRepo) {
     if (!showSimulate && appId && privateKey) {
       try {
-        const repoRes = await db.query(
-          `SELECT "githubInstallationId" FROM "GithubRepository" WHERE "id" = $1`,
-          [linkedRepo.id]
-        );
-        if (repoRes.rows.length > 0) {
-          const githubInstallationId = repoRes.rows[0].githubInstallationId;
-          const branches = await listRepositoryBranches(appId, privateKey, githubInstallationId, linkedRepo.fullName);
-          if (branches && branches.length > 0) {
-            availableBranches = branches;
-          }
+        const branches = await listRepositoryBranches(appId, privateKey, linkedRepo.githubInstallationId, linkedRepo.fullName);
+        if (branches && branches.length > 0) {
+          availableBranches = branches;
         }
       } catch (err) {
         console.error("Failed to fetch branches for settings dropdown:", err);
@@ -155,17 +128,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     notFound();
   }
 
-  const db = getDb();
-  const docIdRes = await db.query(
-    `SELECT d.id FROM "Doc" d
-     INNER JOIN "Organization" o ON o.id = d."organizationId"
-     WHERE o.slug = $1 AND d.slug = $2`,
-    [org, docSlug]
-  );
-  if (docIdRes.rows.length === 0) {
-    notFound();
-  }
-  const docId = docIdRes.rows[0].id as string;
+  const docId = doc.id;
 
   const form = await request.formData();
   const action = form.get("action");
@@ -176,18 +139,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     if (isProduction && !isTest) {
       return new Response("Simulate actions are not allowed in production", { status: 403 });
     }
-    const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [org]);
-    const orgId = orgRes.rows[0]?.id;
-    if (orgId) {
-      const id = `ghinst_${randomUUID()}`;
-      const randomInstId = `inst_${randomUUID().slice(0, 8)}`;
-      await db.query(
-        `INSERT INTO "GithubInstallation" (id, "organizationId", "githubInstallationId", "accountName", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, NOW(), NOW())
-         ON CONFLICT ("githubInstallationId") DO NOTHING`,
-        [id, orgId, randomInstId, `octo-${org}`]
-      );
-    }
+    await upsertGithubInstallation(org, `inst_${randomUUID().slice(0, 8)}`, `octo-${org}`);
     redirect(`/app/${org}/docs/${docSlug}/settings`);
   }
 
@@ -198,74 +150,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       return new Response("Simulate actions are not allowed in production", { status: 403 });
     }
     const mappingId = stringValue(form.get("mappingId"));
-    if (mappingId) {
-      const mapRes = await db.query(
-        `SELECT m."branchName", m."specPath", m."githubRepoId", d.slug as "docSlug"
-         FROM "GithubRepoBranchMapping" m
-         INNER JOIN "Doc" d ON d.id = m."docId"
-         WHERE m.id = $1`,
-        [mappingId]
-      );
-      if (mapRes.rows.length > 0) {
-        const { branchName, specPath, docSlug: targetDocSlug } = mapRes.rows[0];
-        
-        const mockSpec = `openapi: 3.0.0
-info:
-  title: Simulated GitHub API (${branchName})
-  version: ${String(Math.floor(1000 + Math.random() * 9000))}
-paths:
-  /hello-${branchName}:
-    get:
-      summary: Simulated endpoint for spec at ${specPath}
-      responses:
-        '200':
-          description: OK`;
-          
-        const fileBase64 = Buffer.from(mockSpec, "utf8").toString("base64");
-        
-        const adminToken = process.env["BUMD_ADMIN_SESSION_TOKEN"];
-        if (!adminToken || adminToken.trim() === "") {
-          if (process.env["NODE_ENV"] === "production") {
-            throw new Error("BUMD_ADMIN_SESSION_TOKEN environment variable is not configured");
-          }
-        }
-        const finalAdminToken = adminToken || "test_admin_session_not_secret";
-
-        const tokenRes = await fetch(`${backendBaseUrl()}/v1/orgs/${org}/api-tokens`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${finalAdminToken}`,
-          },
-          body: JSON.stringify({
-            name: `web-simulated-push-${Date.now()}`,
-            role: "member",
-            scopes: ["docs:deploy"],
-          }),
-        });
-        
-        if (tokenRes.ok) {
-          const tokenData = await tokenRes.json();
-          const apiToken = tokenData.token;
-          
-          await fetch(`${backendBaseUrl()}/v1/orgs/${org}/docs/${targetDocSlug}/branches/${branchName}/deploys`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiToken}`,
-            },
-            body: JSON.stringify({
-              orgSlug: org,
-              docSlug: targetDocSlug,
-              branchSlug: branchName,
-              filename: "openapi.yaml",
-              sourceFormat: "openapi",
-              specBase64: fileBase64,
-            }),
-          });
-        }
-      }
-    }
+    if (mappingId) await simulateGithubPush(org, mappingId);
     redirect(`/app/${org}/docs/${docSlug}/settings`);
   }
 
@@ -276,44 +161,7 @@ paths:
       return new Response("Simulate actions are not allowed in production", { status: 403 });
     }
     const mappingId = stringValue(form.get("mappingId"));
-    if (mappingId) {
-      const mapRes = await db.query(
-        `SELECT m."branchName", m."specPath", m."githubRepoId", r."fullName", d.slug as "docSlug"
-         FROM "GithubRepoBranchMapping" m
-         INNER JOIN "GithubRepository" r ON r."githubRepoId" = m."githubRepoId"
-         INNER JOIN "Doc" d ON d.id = m."docId"
-         WHERE m.id = $1`,
-        [mappingId]
-      );
-      if (mapRes.rows.length > 0) {
-        const { branchName, specPath, githubRepoId, fullName, docSlug: targetDocSlug } = mapRes.rows[0];
-        
-        // Build mock payload
-        const payloadObj = {
-          ref: `refs/heads/${branchName}`,
-          after: "main",
-          repository: {
-            id: Number(githubRepoId),
-            full_name: fullName,
-          },
-        };
-        const rawBody = JSON.stringify(payloadObj);
-        
-        // Sign payload
-        const secret = process.env["GITHUB_WEBHOOK_SECRET"] || "";
-        const signature = `sha256=${createHmac("sha256", secret).update(Buffer.from(rawBody, "utf8")).digest("hex")}`;
-        
-        await fetch(`${backendBaseUrl()}/v1/github/webhooks`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Github-Event": "push",
-            "X-Hub-Signature-256": signature,
-          },
-          body: rawBody,
-        });
-      }
-    }
+    if (mappingId) await simulateGithubPush(org, mappingId);
     redirect(`/app/${org}/docs/${docSlug}/settings`);
   }
 
@@ -356,17 +204,7 @@ paths:
       const isMock = !isValidKey;
 
       const finalRepoId = repoId || (isMock ? `mock_${randomUUID().slice(0, 8)}` : String(Math.floor(100000 + Math.random() * 900000)));
-      const orgRes = await db.query('SELECT id FROM "Organization" WHERE slug = $1', [org]);
-      const orgId = orgRes.rows[0]?.id;
-      if (orgId) {
-        const id = `ghrepo_${randomUUID()}`;
-        await db.query(
-          `INSERT INTO "GithubRepository" (id, "organizationId", "githubInstallationId", "githubRepoId", "fullName", "docId", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-           ON CONFLICT ("githubRepoId") DO UPDATE SET "docId" = $6`,
-          [id, orgId, installationId, finalRepoId, fullName, docId]
-        );
-      }
+      await createAndLinkRepository(org, docId, { githubInstallationId: installationId, githubRepoId: finalRepoId, fullName });
     }
     redirect(`/app/${org}/docs/${docSlug}/settings`);
   }
@@ -387,45 +225,8 @@ paths:
     if (githubRepoId && branchName && specPath) {
       await createDocMapping(org, docId, githubRepoId, branchName, specPath);
 
-      // Trigger automatic initial deploy of this newly added mapping by calling webhook receiver
-      const repoRes = await db.query(
-        `SELECT "githubInstallationId", "fullName" FROM "GithubRepository" WHERE "githubRepoId" = $1 AND "organizationId" = (SELECT id FROM "Organization" WHERE slug = $2)`,
-        [githubRepoId, org]
-      );
-      if (repoRes.rows.length > 0) {
-        const { githubInstallationId, fullName } = repoRes.rows[0];
-        
-        // Build payload targeting the branch
-        const payloadObj = {
-          ref: `refs/heads/${branchName}`,
-          after: branchName,
-          repository: {
-            id: Number(githubRepoId),
-            full_name: fullName,
-          },
-          installation: {
-            id: Number(githubInstallationId),
-          },
-        };
-        const rawBody = JSON.stringify(payloadObj);
-        
-        const secret = process.env["GITHUB_WEBHOOK_SECRET"] || "";
-        const signature = `sha256=${createHmac("sha256", secret).update(Buffer.from(rawBody, "utf8")).digest("hex")}`;
-        
-        try {
-          await fetch(`${backendBaseUrl()}/v1/github/webhooks`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Github-Event": "push",
-              "X-Hub-Signature-256": signature,
-            },
-            body: rawBody,
-          });
-        } catch (err) {
-          console.error("Failed to trigger initial deploy for new mapping:", err);
-        }
-      }
+      const created = (await listDocMappings(org, docId)).find((mapping) => mapping.githubRepoId === githubRepoId && mapping.branchName === branchName && mapping.specPath === specPath);
+      if (created) await simulateGithubPush(org, created.id);
     }
     redirect(`/app/${org}/docs/${docSlug}/settings`);
   }
@@ -452,18 +253,7 @@ paths:
     const mappings = await listDocMappings(org, docId);
     const availableRepos = await getAvailableRepositories(installations);
 
-    const unlinkedRes = await db.query(
-      `SELECT r.id, r."githubRepoId", r."fullName"
-       FROM "GithubRepository" r
-       INNER JOIN "Organization" o ON o.id = r."organizationId"
-       WHERE o.slug = $1 AND (r."docId" IS NULL OR r."docId" = '')`,
-      [org]
-    );
-    const unlinkedRepos = unlinkedRes.rows.map((row) => ({
-      id: row.id,
-      githubRepoId: row.githubRepoId,
-      fullName: row.fullName,
-    }));
+    const unlinkedRepos = (await listOrgRepos(org)).filter((repo) => repo.docId === null);
 
     const appId = process.env["GITHUB_APP_ID"];
     const privateKey = process.env["GITHUB_APP_PRIVATE_KEY"];

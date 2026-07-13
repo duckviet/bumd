@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { createDashboardDoc } from "@/entities/dashboard";
 import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
-import { styledHtmlPage } from "@/shared/ui/styled-html";
-
 
 type RouteContext = {
   readonly params: Promise<{
@@ -10,10 +8,11 @@ type RouteContext = {
   }>;
 };
 
+/** Create-doc UI is the dashboard modal only. GET redirects to the portals list. */
 export async function GET(_request: Request, context: RouteContext): Promise<Response> {
   const { org } = await context.params;
   await requireDashboardManage(org);
-  return htmlResponse(newDocForm(org, null));
+  redirect(`/app/${org}/docs`);
 }
 
 export async function POST(request: Request, context: RouteContext): Promise<Response> {
@@ -27,34 +26,22 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     theme: stringValue(form.get("theme")),
   });
 
-  const accept = request.headers.get("accept") ?? "";
-  if (accept.includes("application/json")) {
-    if (result.kind !== "created") {
-      return Response.json({ error: result.kind }, { status: 400 });
-    }
-    return Response.json({ redirectUrl: `/app/${org}/docs/${result.doc.slug}` });
-  }
+  const wantsJson = (request.headers.get("accept") ?? "").includes("application/json");
 
   if (result.kind !== "created") {
-    return htmlResponse(newDocForm(org, result.kind), 400);
+    if (wantsJson) {
+      return Response.json({ error: result.kind }, { status: 400 });
+    }
+    redirect(`/app/${org}/docs`);
   }
-  redirect(`/app/${org}/docs/${result.doc.slug}`);
-}
 
-
-function newDocForm(organizationSlug: string, error: string | null): string {
-  const content = `<h1>New doc</h1>${error === null ? "" : `<p class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">${escapeHtml(error)}</p>`}<form method="post" action="/app/${escapeHtml(organizationSlug)}/docs/new"><label>Name <input name="name" required></label><label>Slug <input name="slug" required></label><label>Visibility <select name="visibility"><option value="public">public</option><option value="private">private</option></select></label><label>Theme <input name="theme" value="classic" required></label><button type="submit">Create doc</button></form><a href="/app/${escapeHtml(organizationSlug)}/docs">Docs</a>`;
-  return styledHtmlPage("New doc", organizationSlug, content);
-}
-
-function htmlResponse(body: string, status = 200): Response {
-  return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+  const redirectUrl = `/app/${org}/docs/${result.doc.slug}`;
+  if (wantsJson) {
+    return Response.json({ redirectUrl });
+  }
+  redirect(redirectUrl);
 }
 
 function stringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value : "";
-}
-
-function escapeHtml(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }

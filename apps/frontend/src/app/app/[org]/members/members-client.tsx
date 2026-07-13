@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardMember, DashboardInvite } from "@/entities/dashboard";
 import { StatusBadge, type StatusBadgeTone } from "@/shared/ui/status-badge";
+import { DashboardPageHeader, DashboardSection } from "@/shared/ui/dashboard-primitives";
 
 type Props = {
   readonly org: string;
@@ -153,31 +154,24 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
-      <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
-        <div>
-          <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">Workspace</p>
-          <h1>Members & Invites</h1>
-          <p className="text-graphite">
-            Manage organization members, assign roles, and invite new colleagues to collaborate.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {mayManage && (
+      <DashboardPageHeader
+        kicker="Workspace"
+        title="Members & Invites"
+        description="Manage organization members, assign roles, and invite new colleagues to collaborate."
+        actions={
+          mayManage && (
             <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-carbon bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite" onClick={handleOpen} type="button">
               Invite Member
             </button>
-          )}
-        </div>
-      </section>
+          )
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
-            <div>
-              <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{members.length} member{members.length === 1 ? "" : "s"}</p>
-              <h2>Organization Members</h2>
-            </div>
-          </div>
+        <DashboardSection
+          kicker={`${members.length} member${members.length === 1 ? "" : "s"}`}
+          title="Organization Members"
+        >
 
           <div className="grid gap-3">
             {members.map((member) => {
@@ -223,15 +217,12 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
               );
             })}
           </div>
-        </section>
+        </DashboardSection>
 
-        <section className="rounded-lg border border-chalk bg-paper p-5 sm:p-8">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
-            <div>
-              <h2>Pending Invites</h2>
-              <p>Active invite tokens</p>
-            </div>
-          </div>
+        <DashboardSection
+          kicker="Active invite tokens"
+          title="Pending Invites"
+        >
 
           {invites.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate p-4 text-center text-graphite">
@@ -269,7 +260,7 @@ export function MembersClient({ org, members, invites, mayManage, currentUserEma
               })}
             </div>
           )}
-        </section>
+        </DashboardSection>
       </div>
 
       {isOpen && (

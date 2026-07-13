@@ -1,6 +1,16 @@
 import { redirect } from "next/navigation";
-import { auth } from "../../../auth";
-import { getUserByEmail, membershipForOrg, membershipsForUser, type Membership, type MembershipRole } from "@/shared/auth/auth-store";
+import { currentDashboardUser, type DashboardMembership, type DashboardMembershipRole } from "@/shared/auth/dashboard-auth-client";
+import { dashboardCredentials } from "@/shared/auth/dashboard-credentials";
+
+export const MembershipRole = {
+  Owner: "owner",
+  Admin: "admin",
+  Member: "member",
+  Guest: "guest",
+} as const;
+
+export type MembershipRole = DashboardMembershipRole;
+export type Membership = DashboardMembership & { readonly userId: string };
 
 export type CurrentSession = {
   readonly userId: string;
@@ -10,21 +20,19 @@ export type CurrentSession = {
 };
 
 export async function getCurrentSession(): Promise<CurrentSession | null> {
-  const session = await auth();
-  const email = session?.user?.email;
-  if (email === undefined || email === null) {
+  const credentials = await dashboardCredentials();
+  if (credentials === null) {
     return null;
   }
-  const user = await getUserByEmail(email);
-  if (user === null) {
+  const current = await currentDashboardUser(credentials.dashboardAccessCredential);
+  if (current === null) {
     return null;
   }
-  const memberships = await membershipsForUser(user.id);
   return {
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    memberships,
+    userId: current.user.id,
+    email: current.user.email,
+    name: current.user.name,
+    memberships: current.memberships.map((membership) => ({ ...membership, userId: current.user.id })),
   };
 }
 
@@ -41,7 +49,7 @@ export async function requireOrgRole(organizationSlug: string, allowedRoles: rea
   readonly membership: Membership;
 }> {
   const session = await requireUserSession(`/app/${organizationSlug}`);
-  const membership = await membershipForOrg(session.userId, organizationSlug);
+  const membership = session.memberships.find((candidate) => candidate.organizationSlug === organizationSlug) ?? null;
   if (membership === null || !allowedRoles.includes(membership.role)) {
     redirect("/app");
   }
@@ -53,6 +61,5 @@ export async function getMembershipForOrg(organizationSlug: string): Promise<Mem
   if (session === null) {
     return null;
   }
-  return await membershipForOrg(session.userId, organizationSlug);
+  return session.memberships.find((candidate) => candidate.organizationSlug === organizationSlug) ?? null;
 }
-

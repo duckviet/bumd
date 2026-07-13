@@ -50,6 +50,7 @@ export type ApiTokenAuthContext = {
   readonly organizationId: string;
   readonly role: ApiTokenRole;
   readonly scopes: readonly ApiTokenScope[];
+  readonly userId?: string;
 };
 
 export type CreateApiTokenInput = {

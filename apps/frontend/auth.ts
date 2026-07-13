@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authenticateUser, registerUser } from "./src/shared/auth/auth-store";
+import { loginDashboard, loginDashboardGithub, refreshDashboard, type DashboardSessionBundle } from "./src/shared/auth/dashboard-auth-client";
 
 type AuthSession = {
   readonly user?: {
@@ -25,6 +25,29 @@ type UnknownFunction = (...args: readonly unknown[]) => unknown;
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+const dashboardBundleSchema = z.object({
+  user: z.object({ id: z.string(), email: z.string().email(), name: z.string() }),
+  accessCredential: z.string().min(1),
+  refreshCredential: z.string().min(1),
+  accessExpiresAt: z.string().datetime(),
+});
+const dashboardUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  accessCredential: z.string().min(1),
+  refreshCredential: z.string().min(1),
+  accessExpiresAt: z.string().datetime(),
+});
+const jwtInputSchema = z.object({
+  token: z.record(z.string(), z.unknown()),
+  user: z.unknown().optional(),
+  account: z.unknown().optional(),
+});
+const sessionInputSchema = z.object({
+  session: z.record(z.string(), z.unknown()),
+  token: z.record(z.string(), z.unknown()),
 });
 
 const nextAuthPackage = "next-" + "auth";
@@ -52,11 +75,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) {
           return null;
         }
-        const user = await authenticateUser(parsed.data.email, parsed.data.password);
-        if (user === null) {
+        const bundle = await loginDashboard(parsed.data);
+        if (bundle === null) {
           return null;
         }
-        return { id: user.id, email: user.email, name: user.name };
+        return authUser(bundle);
       },
     }),
     Github({
@@ -65,33 +88,87 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({
-      user,
-      account,
-    }: {
-      readonly user: { readonly email?: string | null; readonly name?: string | null };
-      readonly account: { readonly provider: string } | null;
-    }) {
-      if (account?.provider === "github") {
-        const email = user.email;
-        const name = user.name || email || "GitHub User";
-        if (email) {
-          try {
-            await registerUser({
-              email,
-              password: "github_oauth_placeholder_password",
-              name,
-            });
-          } catch (err) {
-            console.error("Failed to auto-register GitHub user:", err);
-            return false;
-          }
+    async jwt(input: unknown): Promise<Record<string, unknown>> {
+      const parsed = jwtInputSchema.safeParse(input);
+      if (!parsed.success) {
+        return {};
+      }
+      const created = dashboardUserSchema.safeParse(parsed.data.user);
+      if (created.success) {
+        return dashboardToken(parsed.data.token, bundleFromUser(created.data));
+      }
+      const githubAccount = z.object({ provider: z.literal("github"), access_token: z.string().min(1) }).safeParse(parsed.data.account);
+      if (githubAccount.success) {
+        const githubBundle = await loginDashboardGithub(githubAccount.data.access_token);
+        if (githubBundle !== null) {
+          return dashboardToken(parsed.data.token, githubBundle);
         }
       }
-      return true;
+      const existing = dashboardBundleSchema.safeParse({
+        user: {
+          id: parsed.data.token["sub"],
+          email: parsed.data.token["email"],
+          name: parsed.data.token["name"],
+        },
+        accessCredential: parsed.data.token["dashboardAccessCredential"],
+        refreshCredential: parsed.data.token["dashboardRefreshCredential"],
+        accessExpiresAt: parsed.data.token["dashboardAccessExpiresAt"],
+      });
+      if (!existing.success || Date.parse(existing.data.accessExpiresAt) > Date.now() + 60_000) {
+        return parsed.data.token;
+      }
+      const refreshed = await refreshDashboard(existing.data.refreshCredential);
+      return refreshed === null ? parsed.data.token : dashboardToken(parsed.data.token, refreshed);
+    },
+    async session(input: unknown): Promise<Record<string, unknown>> {
+      const parsed = sessionInputSchema.safeParse(input);
+      if (!parsed.success) {
+        return {};
+      }
+      const tokenUser = z.object({ id: z.string(), email: z.string().email(), name: z.string() }).safeParse({
+        id: parsed.data.token["sub"],
+        email: parsed.data.token["email"],
+        name: parsed.data.token["name"],
+      });
+      if (!tokenUser.success) {
+        return parsed.data.session;
+      }
+      return { ...parsed.data.session, user: tokenUser.data };
     },
   },
 });
+
+function authUser(bundle: DashboardSessionBundle): Record<string, string> {
+  return {
+    id: bundle.user.id,
+    email: bundle.user.email,
+    name: bundle.user.name,
+    accessCredential: bundle.accessCredential,
+    refreshCredential: bundle.refreshCredential,
+    accessExpiresAt: bundle.accessExpiresAt,
+  };
+}
+
+function dashboardToken(token: Record<string, unknown>, bundle: DashboardSessionBundle): Record<string, unknown> {
+  return {
+    ...token,
+    sub: bundle.user.id,
+    email: bundle.user.email,
+    name: bundle.user.name,
+    dashboardAccessCredential: bundle.accessCredential,
+    dashboardRefreshCredential: bundle.refreshCredential,
+    dashboardAccessExpiresAt: bundle.accessExpiresAt,
+  };
+}
+
+function bundleFromUser(user: z.infer<typeof dashboardUserSchema>): DashboardSessionBundle {
+  return {
+    user: { id: user.id, email: user.email, name: user.name },
+    accessCredential: user.accessCredential,
+    refreshCredential: user.refreshCredential,
+    accessExpiresAt: user.accessExpiresAt,
+  };
+}
 
 function nextAuthFactory(moduleValue: unknown): NextAuthFactory {
   const factory = isRecord(moduleValue) ? moduleValue["default"] : null;

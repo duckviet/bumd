@@ -28,6 +28,7 @@ export default async function TestWorkflowCanvasPage({ params }: PageProps): Pro
       initialWorkflows={data.workflows}
       initialWorkflowId={workflowId}
       operations={data.operations}
+      defaultServerUrl={data.defaultServerUrl}
     />
   );
 }

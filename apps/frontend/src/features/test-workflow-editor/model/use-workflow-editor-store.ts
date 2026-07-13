@@ -26,10 +26,11 @@ export type TestWorkflowEditorState = {
   readonly currentRunId: string | null;
   readonly runStatus: TestWorkflowRunDetailDto | null;
   readonly lastSavedAt: string | null;
+  readonly defaultServerUrl?: string | undefined;
 };
 
 type Action =
-  | { type: "LOAD_WORKFLOW"; workflow: TestWorkflowDto }
+  | { type: "LOAD_WORKFLOW"; workflow: TestWorkflowDto; defaultServerUrl?: string | undefined }
   | { type: "SET_NODES"; nodes: readonly TestWorkflowNode[] }
   | { type: "SET_EDGES"; edges: readonly TestWorkflowEdge[] }
   | { type: "SELECT_NODE"; nodeId: string }
@@ -63,17 +64,35 @@ const initialState: TestWorkflowEditorState = {
   currentRunId: null,
   runStatus: null,
   lastSavedAt: null,
+  defaultServerUrl: undefined,
 };
 
 function reducer(state: TestWorkflowEditorState, action: Action): TestWorkflowEditorState {
   switch (action.type) {
-    case "LOAD_WORKFLOW":
+    case "LOAD_WORKFLOW": {
+      const definition = action.workflow.definitionJson;
+      const hasAnyServerUrl = definition.nodes.some((n) => n.requestTemplate?.serverUrl);
+      const updatedNodes =
+        !hasAnyServerUrl && action.defaultServerUrl
+          ? definition.nodes.map((n) => ({
+              ...n,
+              requestTemplate: {
+                ...n.requestTemplate,
+                serverUrl: action.defaultServerUrl,
+              },
+            }))
+          : definition.nodes;
+
       return {
         ...state,
         workflowId: action.workflow.id,
         revision: action.workflow.revision,
-        definition: action.workflow.definitionJson,
-        dirty: false,
+        definition: {
+          ...definition,
+          nodes: updatedNodes,
+        },
+        defaultServerUrl: action.defaultServerUrl ?? state.defaultServerUrl,
+        dirty: !hasAnyServerUrl && !!action.defaultServerUrl && definition.nodes.length > 0,
         saving: false,
         saveError: null,
         conflictRevision: null,
@@ -83,6 +102,7 @@ function reducer(state: TestWorkflowEditorState, action: Action): TestWorkflowEd
         currentRunId: null,
         running: false,
       };
+    }
 
     case "SET_NODES":
       return {
@@ -119,17 +139,23 @@ function reducer(state: TestWorkflowEditorState, action: Action): TestWorkflowEd
         selectedEdgeId: null,
       };
 
-    case "UPDATE_NODE_TEMPLATE":
+    case "UPDATE_NODE_TEMPLATE": {
+      const updatedServerUrl = action.template.serverUrl;
       return {
         ...state,
         definition: {
           ...state.definition,
-          nodes: state.definition.nodes.map((n) =>
-            n.id === action.nodeId ? { ...n, requestTemplate: action.template } : n,
-          ),
+          nodes: state.definition.nodes.map((n) => {
+            const nextTemplate =
+              n.id === action.nodeId
+                ? action.template
+                : { ...n.requestTemplate, serverUrl: updatedServerUrl };
+            return { ...n, requestTemplate: nextTemplate };
+          }),
         },
         dirty: true,
       };
+    }
 
     case "UPDATE_NODE_EXPORTS":
       return {
@@ -155,15 +181,26 @@ function reducer(state: TestWorkflowEditorState, action: Action): TestWorkflowEd
         dirty: true,
       };
 
-    case "ADD_NODE":
+    case "ADD_NODE": {
+      const existingServerUrl = state.definition.nodes.find(
+        (n) => n.requestTemplate?.serverUrl,
+      )?.requestTemplate?.serverUrl;
+      const newNode = {
+        ...action.node,
+        requestTemplate: {
+          ...action.node.requestTemplate,
+          serverUrl: existingServerUrl ?? state.defaultServerUrl ?? action.node.requestTemplate?.serverUrl,
+        },
+      };
       return {
         ...state,
         definition: {
           ...state.definition,
-          nodes: [...state.definition.nodes, action.node],
+          nodes: [...state.definition.nodes, newNode],
         },
         dirty: true,
       };
+    }
 
     case "REMOVE_NODE":
       return {

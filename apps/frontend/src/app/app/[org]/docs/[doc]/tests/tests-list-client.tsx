@@ -72,12 +72,29 @@ export function TestsListClient({ org, doc, branch, initialWorkflows }: TestsLis
             Back to document
           </a>
           <h1 className="mt-2 text-3xl font-semibold text-carbon">Test workflows</h1>
-          <p className="mt-1 text-sm text-graphite">{workflows.length} workflow{workflows.length === 1 ? "" : "s"} on branch {branch}</p>
+          <p className="mt-1 text-sm text-graphite">
+            {branch ? `${workflows.length} workflow${workflows.length === 1 ? "" : "s"} on branch ${branch}` : "No active branches found for this document"}
+          </p>
         </div>
-        <DashboardButton onClick={openCreate}>New workflow</DashboardButton>
+        {branch ? (
+          <DashboardButton onClick={openCreate}>New workflow</DashboardButton>
+        ) : null}
       </header>
 
-      {workflows.length === 0 ? (
+      {!branch ? (
+        <div className="grid justify-items-start gap-2 rounded-lg border border-dashed border-slate bg-paper p-7">
+          <h2 className="text-xl font-semibold text-carbon">No active versions or branches found</h2>
+          <p className="text-sm text-graphite">
+            You need to upload and deploy at least one version of your specification file to start creating test workflows.
+          </p>
+          <a
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-full border border-chalk bg-carbon px-5 text-sm font-semibold text-paper hover:bg-graphite"
+            href={`/app/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}`}
+          >
+            Go to Overview to Deploy
+          </a>
+        </div>
+      ) : workflows.length === 0 ? (
         <div className="grid justify-items-start gap-2 rounded-lg border border-dashed border-slate bg-paper p-7">
           <h2 className="text-xl font-semibold">No workflows yet</h2>
           <p className="text-sm text-graphite">Create a workflow to start arranging endpoint tests on the canvas.</p>
@@ -111,7 +128,7 @@ export function TestsListClient({ org, doc, branch, initialWorkflows }: TestsLis
       )}
 
       {isCreateOpen ? (
-        <DashboardModal onSubmit={create}>
+        <DashboardModal onClose={() => setIsCreateOpen(false)} onSubmit={create}>
             <ModalHeader onClose={() => setIsCreateOpen(false)}>Create workflow</ModalHeader>
             <FormField label="Name">
               <input
