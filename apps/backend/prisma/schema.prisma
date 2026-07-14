@@ -65,6 +65,20 @@ enum ProcessingJobStatus {
   failed
 }
 
+enum TestWorkflowPriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum TestWorkflowType {
+  smoke
+  integration
+  end_to_end
+  contract
+}
+
 model Organization {
   id                String            @id @default(cuid())
   slug              String            @unique
@@ -423,6 +437,9 @@ model TestWorkflow {
   name            String
   slug            String
   description     String?
+  tags            String[]             @default([])
+  priority        TestWorkflowPriority @default(medium)
+  type            TestWorkflowType     @default(integration)
 
   definitionJson  Json
 
@@ -495,6 +512,8 @@ model TestWorkflowRun {
   startedByTokenId       String?
 
   definitionSnapshotJson Json
+  metadataSnapshotJson   Json
+  environmentSnapshotJson Json?
 
   cancelRequestedAt      DateTime?
 
@@ -523,6 +542,7 @@ model TestWorkflowStepRun {
   runId           String
   nodeId          String
   operationId     String
+  phase           String   @default("test")
 
   status          String
 

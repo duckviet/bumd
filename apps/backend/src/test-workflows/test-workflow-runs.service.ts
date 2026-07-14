@@ -22,9 +22,24 @@ import type { CreateTestWorkflowRunDto } from "./dto/create-test-workflow-run.dt
 import { CreateTestWorkflowRunDtoSchema } from "./dto/create-test-workflow-run.dto.js";
 import type { TestWorkflowJobData } from "./runner/test-workflow-runner.service.js";
 import { TEST_WORKFLOW_QUEUE_NAME } from "./runner/test-workflow-queue.js";
+import { parseAndValidateDefinition, WorkflowMetadataSchema } from "./test-workflow-definition.schema.js";
+import type { TestWorkflowMetadata } from "./test-workflow-types.js";
+import {
+  parseEncryptedEnvironmentSnapshot,
+  sanitizeEnvironmentSnapshot,
+  workflowMetadataSnapshot,
+  type EncryptedEnvironmentSnapshot,
+} from "./test-workflow-snapshots.js";
 
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 100;
+
+type SnapshotWorkflowRunRecord = TestWorkflowRunRecord & {
+  readonly metadataSnapshotJson: unknown;
+  readonly environmentSnapshotJson: unknown | null;
+};
+
+type PhasedStepRunRecord = TestWorkflowStepRunRecord & { readonly phase: string };
 
 function databaseUrl(): string {
   const url = process.env["DATABASE_URL"];
@@ -99,6 +114,8 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
     // Load workflow
     const workflow = await this.workflowsService.requireWorkflow({
       organizationId: input.organizationId,
+      docId: input.docId,
+      branchId: input.branchId,
       workflowId: input.workflowId,
     });
 
@@ -108,31 +125,38 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
     const parsedSpec = parseSpec(rawSpec);
 
     // Validate environment
+    let environmentSnapshot: EncryptedEnvironmentSnapshot | null = null;
     if (dto.environmentId !== undefined) {
       try {
-        await this.envService.requireEnvironment({
+        environmentSnapshot = await this.envService.loadEncryptedEnvironmentSnapshot({
           organizationId: input.organizationId,
+          docId: input.docId,
+          branchId: input.branchId,
           environmentId: dto.environmentId,
         });
-      } catch {
-        throw new TestWorkflowError(TestWorkflowErrorCode.EnvNotFound, 422, "Environment not found or has been deleted");
+      } catch (error: unknown) {
+        if (error instanceof TestWorkflowError && error.code === TestWorkflowErrorCode.EnvNotFound) {
+          throw new TestWorkflowError(TestWorkflowErrorCode.EnvNotFound, 422, "Environment not found or has been deleted");
+        }
+        throw error;
       }
     }
 
     // Load env var keys for run-time validation
     const envVarKeys: Set<string> = new Set();
-    if (dto.environmentId) {
-      const envValues = await this.envService.resolveEnvVariables(dto.environmentId);
-      for (const key of Object.keys(envValues)) envVarKeys.add(key);
+    if (environmentSnapshot !== null) {
+      for (const variable of environmentSnapshot.variables) {
+        if (variable.encryptedValue !== null) envVarKeys.add(variable.key);
+      }
     }
 
     // Run-time definition validation
-    const definition = workflow.definitionJson as ReturnType<typeof JSON.parse>;
-    validateDefinitionForRun(definition as never, parsedSpec, envVarKeys);
+    const definition = parseAndValidateDefinition(workflow.definitionJson);
+    validateDefinitionForRun(definition, parsedSpec, envVarKeys);
 
     // Create run and steps in a transaction
     const runId = newRunId();
-    const nodes = (definition as { nodes: { id: string; operationId: string }[] }).nodes;
+    const nodes = definition.nodes;
 
     const client = await this.db().connect();
     try {
@@ -142,8 +166,9 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
         `INSERT INTO "TestWorkflowRun"
            (id, "workflowId", "organizationId", "docId", "branchId", "versionId",
             "environmentId", status, "startedByUserId", "startedByTokenId",
-            "definitionSnapshotJson", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+            "definitionSnapshotJson", "metadataSnapshotJson", "environmentSnapshotJson",
+            "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
         [
           runId,
           input.workflowId,
@@ -156,6 +181,8 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
           input.startedByUserId,
           input.startedByTokenId,
           JSON.stringify(definition),
+          JSON.stringify(workflowMetadataSnapshot(workflow)),
+          environmentSnapshot === null ? null : JSON.stringify(environmentSnapshot),
         ],
       );
 
@@ -163,9 +190,9 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
         const stepId = newStepRunId();
         await client.query(
           `INSERT INTO "TestWorkflowStepRun"
-             (id, "runId", "nodeId", "operationId", status, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-          [stepId, runId, node.id, node.operationId, TestWorkflowStepStatus.Queued],
+             (id, "runId", "nodeId", "operationId", phase, status, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+          [stepId, runId, node.id, node.operationId, node.phase, TestWorkflowStepStatus.Queued],
         );
       }
 
@@ -192,11 +219,13 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
 
   public async getRun(input: {
     readonly organizationId: string;
+    readonly docId: string;
+    readonly branchId: string;
     readonly workflowId: string;
     readonly runId: string;
   }): Promise<TestWorkflowRunDetailDto> {
     const run = await this.requireRun(input);
-    const stepsResult = await this.db().query<TestWorkflowStepRunRecord>(
+    const stepsResult = await this.db().query<PhasedStepRunRecord>(
       `SELECT * FROM "TestWorkflowStepRun" WHERE "runId" = $1 ORDER BY "createdAt" ASC`,
       [input.runId],
     );
@@ -207,6 +236,8 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
 
   public async listRuns(input: {
     readonly organizationId: string;
+    readonly docId: string;
+    readonly branchId: string;
     readonly workflowId: string;
     readonly cursor?: string;
     readonly limit?: number;
@@ -214,20 +245,21 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
     const limit = Math.min(input.limit ?? DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT);
     const cursorDate = input.cursor ? decodeCursor(input.cursor) : null;
 
-    const result = await this.db().query<TestWorkflowRunRecord>(
+    const result = await this.db().query<SnapshotWorkflowRunRecord>(
       `SELECT id, "workflowId", "organizationId", "docId", "branchId", "versionId",
               "environmentId", status, "startedByUserId", "startedByTokenId",
-              "definitionSnapshotJson", "cancelRequestedAt",
+              "definitionSnapshotJson", "metadataSnapshotJson", "environmentSnapshotJson", "cancelRequestedAt",
               "startedAt", "finishedAt", "durationMs", "errorCode", "errorMessage",
               "createdAt", "updatedAt"
        FROM "TestWorkflowRun"
        WHERE "workflowId" = $1 AND "organizationId" = $2
-         ${cursorDate ? `AND "createdAt" < $3` : ""}
+         AND "docId" = $3 AND "branchId" = $4
+         ${cursorDate ? `AND "createdAt" < $5` : ""}
        ORDER BY "createdAt" DESC
        LIMIT ${limit + 1}`,
       cursorDate
-        ? [input.workflowId, input.organizationId, cursorDate]
-        : [input.workflowId, input.organizationId],
+        ? [input.workflowId, input.organizationId, input.docId, input.branchId, cursorDate]
+        : [input.workflowId, input.organizationId, input.docId, input.branchId],
     );
 
     const rows = result.rows;
@@ -241,6 +273,8 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
 
   public async cancelRun(input: {
     readonly organizationId: string;
+    readonly docId: string;
+    readonly branchId: string;
     readonly workflowId: string;
     readonly runId: string;
   }): Promise<{ runId: string; status: "canceled" }> {
@@ -268,14 +302,17 @@ export class TestWorkflowRunsService implements OnModuleDestroy {
 
   private async requireRun(input: {
     readonly organizationId: string;
+    readonly docId: string;
+    readonly branchId: string;
     readonly workflowId: string;
     readonly runId: string;
-  }): Promise<TestWorkflowRunRecord> {
-    const result = await this.db().query<TestWorkflowRunRecord>(
+  }): Promise<SnapshotWorkflowRunRecord> {
+    const result = await this.db().query<SnapshotWorkflowRunRecord>(
       `SELECT * FROM "TestWorkflowRun"
        WHERE id = $1 AND "workflowId" = $2 AND "organizationId" = $3
+         AND "docId" = $4 AND "branchId" = $5
        LIMIT 1`,
-      [input.runId, input.workflowId, input.organizationId],
+      [input.runId, input.workflowId, input.organizationId, input.docId, input.branchId],
     );
     const row = result.rows[0];
     if (!row) {
@@ -360,6 +397,7 @@ export type TestWorkflowStepRunDto = {
   readonly id: string;
   readonly nodeId: string;
   readonly operationId: string;
+  readonly phase: string;
   readonly status: string;
   readonly request: unknown;
   readonly response: unknown;
@@ -373,11 +411,14 @@ export type TestWorkflowStepRunDto = {
 };
 
 export type TestWorkflowRunDetailDto = TestWorkflowRunListItemDto & {
+  readonly metadataSnapshot: TestWorkflowMetadata;
+  readonly definitionSnapshot: unknown;
+  readonly environmentSnapshot: ReturnType<typeof sanitizeEnvironmentSnapshot> | null;
   readonly error: { code: string; message: string } | null;
   readonly steps: readonly TestWorkflowStepRunDto[];
 };
 
-function mapRunListItem(row: TestWorkflowRunRecord): TestWorkflowRunListItemDto {
+function mapRunListItem(row: SnapshotWorkflowRunRecord): TestWorkflowRunListItemDto {
   return {
     id: row.id,
     workflowId: row.workflowId,
@@ -392,11 +433,16 @@ function mapRunListItem(row: TestWorkflowRunRecord): TestWorkflowRunListItemDto 
 }
 
 function mapRunDetail(
-  run: TestWorkflowRunRecord,
-  steps: readonly TestWorkflowStepRunRecord[],
+  run: SnapshotWorkflowRunRecord,
+  steps: readonly PhasedStepRunRecord[],
 ): TestWorkflowRunDetailDto {
   return {
     ...mapRunListItem(run),
+    metadataSnapshot: WorkflowMetadataSchema.parse(run.metadataSnapshotJson),
+    definitionSnapshot: run.definitionSnapshotJson,
+    environmentSnapshot: run.environmentSnapshotJson === null
+      ? null
+      : sanitizeEnvironmentSnapshot(parseEncryptedEnvironmentSnapshot(run.environmentSnapshotJson)),
     error: run.errorCode
       ? { code: run.errorCode, message: run.errorMessage ?? "" }
       : null,
@@ -404,6 +450,7 @@ function mapRunDetail(
       id: s.id,
       nodeId: s.nodeId,
       operationId: s.operationId,
+      phase: s.phase,
       status: s.status,
       request: s.requestJson,
       response: s.responseJson,

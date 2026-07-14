@@ -172,3 +172,26 @@ test("database deploy store is default when database url is configured", () => {
   assert.match(store, /process\.env\["DEPLOY_STORE"\] === "memory"/u);
   assert.doesNotMatch(store, /process\.env\["DEPLOY_STORE"\] !== "database"/u);
 });
+
+test("test workflows persist typed metadata and immutable run snapshots through an append-only migration", () => {
+  const schema = readSchema();
+  const workflow = modelBlock(schema, "TestWorkflow");
+  const run = modelBlock(schema, "TestWorkflowRun");
+  const step = modelBlock(schema, "TestWorkflowStepRun");
+  const migration = readFileSync(
+    new URL("../apps/backend/prisma/migrations/20260714000000_add_test_workflow_snapshots/migration.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(schema, /enum TestWorkflowPriority \{[\s\S]*?medium[\s\S]*?\}/u);
+  assert.match(schema, /enum TestWorkflowType \{[\s\S]*?integration[\s\S]*?\}/u);
+  assert.match(workflow, /\n\s+tags\s+String\[\]\s+@default\(\[\]\)/u);
+  assert.match(workflow, /\n\s+priority\s+TestWorkflowPriority\s+@default\(medium\)/u);
+  assert.match(workflow, /\n\s+type\s+TestWorkflowType\s+@default\(integration\)/u);
+  assert.match(run, /\n\s+metadataSnapshotJson\s+Json\b/u);
+  assert.match(run, /\n\s+environmentSnapshotJson\s+Json\?/u);
+  assert.match(step, /\n\s+phase\s+String\s+@default\("test"\)/u);
+  assert.match(migration, /ADD COLUMN\s+"metadataSnapshotJson" JSONB NOT NULL DEFAULT/u);
+  assert.match(migration, /ADD COLUMN\s+"environmentSnapshotJson" JSONB/u);
+  assert.match(migration, /ADD COLUMN\s+"phase" TEXT NOT NULL DEFAULT 'test'/u);
+});

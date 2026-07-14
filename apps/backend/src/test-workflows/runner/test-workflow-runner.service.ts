@@ -45,6 +45,10 @@ export type TestWorkflowJobData = {
   readonly branchSlug: string;
 };
 
+type SnapshotWorkflowRunRecord = TestWorkflowRunRecord & {
+  readonly environmentSnapshotJson: unknown | null;
+};
+
 @Injectable()
 export class TestWorkflowRunnerService {
   private readonly pool: Pool;
@@ -87,7 +91,7 @@ export class TestWorkflowRunnerService {
     }
   }
 
-  private async executeRun(run: TestWorkflowRunRecord, data: TestWorkflowJobData): Promise<void> {
+  private async executeRun(run: SnapshotWorkflowRunRecord, data: TestWorkflowJobData): Promise<void> {
     const definition = run.definitionSnapshotJson as TestWorkflowDefinition;
     const nodeOrder = buildTopologicalOrder(
       definition.nodes.map((n) => n.id),
@@ -99,17 +103,16 @@ export class TestWorkflowRunnerService {
     let secretKeys = new Set<string>();
     let secretValueSet = new Set<string>();
     if (run.environmentId) {
-      envValues = await this.envService.resolveEnvVariables(run.environmentId);
-      const envDto = await this.envService.listEnvironments({
+      const environmentContext = await this.envService.loadRunEnvironmentContext({
         organizationId: run.organizationId,
         docId: run.docId,
         branchId: run.branchId,
+        environmentId: run.environmentId,
+        environmentSnapshotJson: run.environmentSnapshotJson,
       });
-      const env = envDto.find((e) => e.id === run.environmentId);
-      if (env) {
-        secretKeys = new Set(env.variables.filter((v) => v.secret).map((v) => v.key));
-        secretValueSet = new Set(Object.entries(envValues).filter(([k]) => secretKeys.has(k)).map(([, v]) => v));
-      }
+      envValues = { ...environmentContext.values };
+      secretKeys = new Set(environmentContext.secretKeys);
+      secretValueSet = new Set(Object.entries(envValues).filter(([key]) => secretKeys.has(key)).map(([, value]) => value));
     }
 
     const nodeById = new Map(definition.nodes.map((n) => [n.id, n]));
@@ -325,8 +328,8 @@ export class TestWorkflowRunnerService {
 
   // ─── DB helpers ──────────────────────────────────────────────────────────────
 
-  private async loadRun(runId: string): Promise<TestWorkflowRunRecord> {
-    const result = await this.pool.query<TestWorkflowRunRecord>(
+  private async loadRun(runId: string): Promise<SnapshotWorkflowRunRecord> {
+    const result = await this.pool.query<SnapshotWorkflowRunRecord>(
       `SELECT * FROM "TestWorkflowRun" WHERE id = $1 LIMIT 1`,
       [runId],
     );

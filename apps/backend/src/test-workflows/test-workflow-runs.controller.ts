@@ -49,9 +49,11 @@ export class TestWorkflowRunsController {
   ): Promise<unknown> {
     return this.handle(async () => {
       const auth = this.requireAuth(request);
-      const { organizationId } = await this.resolveScope(orgSlug, docSlug, branchSlug, auth.organizationId);
+      const { organizationId, docId, branchId } = await this.resolveScope(orgSlug, docSlug, branchSlug, auth.organizationId);
       return this.service.listRuns({
         organizationId,
+        docId,
+        branchId,
         workflowId,
         ...(cursor !== undefined ? { cursor } : {}),
         ...(limit !== undefined ? { limit: parseInt(limit, 10) } : {}),
@@ -70,8 +72,8 @@ export class TestWorkflowRunsController {
   ): Promise<unknown> {
     return this.handle(async () => {
       const auth = this.requireAuth(request);
-      const { organizationId } = await this.resolveScope(orgSlug, docSlug, branchSlug, auth.organizationId);
-      return this.service.getRun({ organizationId, workflowId, runId });
+      const { organizationId, docId, branchId } = await this.resolveScope(orgSlug, docSlug, branchSlug, auth.organizationId);
+      return this.service.getRun({ organizationId, docId, branchId, workflowId, runId });
     });
   }
 
@@ -87,8 +89,8 @@ export class TestWorkflowRunsController {
   ): Promise<unknown> {
     return this.handle(async () => {
       const auth = this.requireAuth(request);
-      const { organizationId } = await this.resolveScope(orgSlug, docSlug, branchSlug, auth.organizationId);
-      return this.service.cancelRun({ organizationId, workflowId, runId });
+      const { organizationId, docId, branchId } = await this.resolveScope(orgSlug, docSlug, branchSlug, auth.organizationId);
+      return this.service.cancelRun({ organizationId, docId, branchId, workflowId, runId });
     });
   }
 

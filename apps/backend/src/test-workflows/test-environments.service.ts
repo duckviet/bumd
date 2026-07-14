@@ -5,6 +5,10 @@ import { TestWorkflowError } from "./test-workflow-errors.js";
 import { TestWorkflowErrorCode, newEnvironmentId, newEnvironmentVariableId, type TestEnvironmentRecord, type TestEnvironmentVariableRecord } from "./test-workflow-types.js";
 import { CreateTestEnvironmentDtoSchema } from "./dto/create-test-environment.dto.js";
 import { UpdateTestEnvironmentDtoSchema } from "./dto/update-test-environment.dto.js";
+import {
+  parseEncryptedEnvironmentSnapshot,
+  type EncryptedEnvironmentSnapshot,
+} from "./test-workflow-snapshots.js";
 
 function databaseUrl(): string {
   const url = process.env["DATABASE_URL"];
@@ -277,6 +281,64 @@ export class TestEnvironmentsService implements OnModuleDestroy {
       }
     }
     return resolved;
+  }
+
+  public async loadEncryptedEnvironmentSnapshot(input: {
+    readonly organizationId: string;
+    readonly docId: string;
+    readonly branchId: string;
+    readonly environmentId: string;
+  }): Promise<EncryptedEnvironmentSnapshot> {
+    const environmentResult = await this.db().query<TestEnvironmentRecord>(
+      `SELECT id, "organizationId", "docId", "branchId", name, "isDefault", "createdAt", "updatedAt", "deletedAt"
+       FROM "TestEnvironment"
+       WHERE id = $1 AND "organizationId" = $2 AND "docId" = $3 AND "branchId" = $4
+         AND "deletedAt" IS NULL
+       LIMIT 1`,
+      [input.environmentId, input.organizationId, input.docId, input.branchId],
+    );
+    const environment = environmentResult.rows[0];
+    if (environment === undefined) {
+      throw new TestWorkflowError(TestWorkflowErrorCode.EnvNotFound, 404, "Environment not found or has been deleted");
+    }
+    const variablesResult = await this.db().query<TestEnvironmentVariableRecord>(
+      `SELECT id, "environmentId", key, "encryptedValue", secret, "createdAt", "updatedAt"
+       FROM "TestEnvironmentVariable"
+       WHERE "environmentId" = $1
+       ORDER BY "createdAt" ASC`,
+      [environment.id],
+    );
+    return {
+      id: environment.id,
+      name: environment.name,
+      variables: variablesResult.rows.map((variable) => ({
+        id: variable.id,
+        key: variable.key,
+        encryptedValue: variable.encryptedValue,
+        secret: variable.secret,
+      })),
+    };
+  }
+
+  public async loadRunEnvironmentContext(input: {
+    readonly organizationId: string;
+    readonly docId: string;
+    readonly branchId: string;
+    readonly environmentId: string;
+    readonly environmentSnapshotJson: unknown | null;
+  }): Promise<{ readonly values: Readonly<Record<string, string>>; readonly secretKeys: ReadonlySet<string> }> {
+    const snapshot = input.environmentSnapshotJson === null
+      ? await this.loadEncryptedEnvironmentSnapshot(input)
+      : parseEncryptedEnvironmentSnapshot(input.environmentSnapshotJson);
+    const values: Record<string, string> = {};
+    const secretKeys = new Set<string>();
+    for (const variable of snapshot.variables) {
+      if (variable.secret) secretKeys.add(variable.key);
+      if (variable.encryptedValue === null) continue;
+      const plaintext = decryptSecret(variable.encryptedValue);
+      if (plaintext !== null) values[variable.key] = plaintext;
+    }
+    return { values, secretKeys };
   }
 
   private async getEnvironmentById(organizationId: string, environmentId: string): Promise<TestEnvironmentDto> {
