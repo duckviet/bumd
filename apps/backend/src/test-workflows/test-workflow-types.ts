@@ -63,19 +63,49 @@ export type TestWorkflowErrorCode = (typeof TestWorkflowErrorCode)[keyof typeof 
 
 // ─── Definition Domain Types ──────────────────────────────────────────────────
 
+export const TestWorkflowPriority = {
+  Low: "low", Medium: "medium", High: "high", Critical: "critical",
+} as const;
+
+export type TestWorkflowPriority = (typeof TestWorkflowPriority)[keyof typeof TestWorkflowPriority];
+
+export const TestWorkflowType = {
+  Smoke: "smoke", Integration: "integration", EndToEnd: "end_to_end", Contract: "contract",
+} as const;
+
+export type TestWorkflowType = (typeof TestWorkflowType)[keyof typeof TestWorkflowType];
+
+export type TestWorkflowTag = string;
+
+export type TestWorkflowMetadata = Readonly<{ tags: readonly TestWorkflowTag[]; priority: TestWorkflowPriority; type: TestWorkflowType }>;
+
+export type JsonValue = string | number | boolean | null | readonly JsonValue[] | {
+  readonly [key: string]: JsonValue;
+};
+
+export type TestWorkflowContext = {
+  readonly testData: Readonly<Record<string, JsonValue>>;
+};
+
+export const TestWorkflowNodePhase = {
+  Setup: "setup", Test: "test", Teardown: "teardown",
+} as const;
+
+export type TestWorkflowNodePhase = (typeof TestWorkflowNodePhase)[keyof typeof TestWorkflowNodePhase];
+
 export type TestWorkflowRequestTemplate = {
-  readonly serverUrl?: string;
-  readonly pathParams?: Record<string, unknown>;
-  readonly query?: Record<string, unknown>;
-  readonly headers?: Record<string, unknown>;
+  readonly serverUrl?: string | undefined;
+  readonly pathParams?: Record<string, unknown> | undefined;
+  readonly query?: Record<string, unknown> | undefined;
+  readonly headers?: Record<string, unknown> | undefined;
   readonly body?: unknown;
 };
 
 export type TestWorkflowExport = {
   readonly name: string;
   readonly source: "status" | "header" | "body";
-  readonly path?: string;
-  readonly headerName?: string;
+  readonly path?: string | undefined;
+  readonly headerName?: string | undefined;
 };
 
 export type TestWorkflowAssertion =
@@ -97,7 +127,7 @@ export type TestWorkflowAssertion =
       readonly type: "header";
       readonly name: string;
       readonly operator: "exists" | "equals" | "contains";
-      readonly expected?: string;
+      readonly expected?: string | undefined;
     }
   | {
       readonly id: string;
@@ -113,6 +143,7 @@ export type TestWorkflowNode = {
   readonly method: string;
   readonly path: string;
   readonly label: string;
+  readonly phase: TestWorkflowNodePhase;
   readonly position: { readonly x: number; readonly y: number };
   readonly requestTemplate: TestWorkflowRequestTemplate;
   readonly exports: readonly TestWorkflowExport[];
@@ -126,18 +157,33 @@ export type TestWorkflowEdge = {
 };
 
 export type TestWorkflowDefinition = {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly context: TestWorkflowContext;
   readonly nodes: readonly TestWorkflowNode[];
   readonly edges: readonly TestWorkflowEdge[];
   readonly viewport?: {
     readonly x: number;
     readonly y: number;
     readonly zoom: number;
-  };
+  } | undefined;
 };
 
+export type TestWorkflowDefinitionV1 = {
+  readonly schemaVersion: 1;
+  readonly nodes: readonly Omit<TestWorkflowNode, "phase">[];
+  readonly edges: readonly TestWorkflowEdge[];
+  readonly viewport?: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  } | undefined;
+};
+
+export type TestWorkflowDefinitionInput = TestWorkflowDefinitionV1 | TestWorkflowDefinition;
+
 export const EmptyWorkflowDefinition: TestWorkflowDefinition = {
-  schemaVersion: 1,
+  schemaVersion: 2,
+  context: { testData: {} },
   nodes: [],
   edges: [],
   viewport: { x: 0, y: 0, zoom: 1 },

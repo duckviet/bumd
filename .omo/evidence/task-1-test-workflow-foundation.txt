@@ -1,0 +1,72 @@
+Todo 1: Lock the schemaVersion 2 domain contract and v1 normalization
+Date: 2026-07-14
+
+Dirty-worktree precondition
+- `rtk git status --short` before edits: exit 0, no output (clean).
+
+TDD evidence
+- Baseline characterization first:
+  `rtk test node --experimental-strip-types --test tests/test-workflow-definition.test.mjs`
+  Exit 0 against unchanged production code. It proved the existing v1 parser accepted a valid
+  definition and retained global export-name uniqueness and DAG rejection.
+- Failing-first behavior run before production edits:
+  `rtk test node --experimental-strip-types --test tests/test-workflow-definition.test.mjs`
+  Exit 1. Expected failure reasons: v1 output remained schemaVersion 1 instead of normalized v2;
+  v2 fixtures were rejected because the parser only accepted literal schemaVersion 1; phase-edge
+  and strict-v2 assertions consequently could not observe their expected validation errors.
+- Verifier correction, failing first:
+  `rtk test node --experimental-strip-types --test tests/test-workflow-definition.test.mjs`
+  Exit 1 before the metadata-boundary production change because `WorkflowTagsSchema` was not
+  exported. This proved Todo 1 had no runtime tag contract rather than merely a malformed fixture.
+- Numeric-cap correction, failing first:
+  `rtk test node --experimental-strip-types --test tests/test-workflow-definition.test.mjs`
+  Exit 1 before production correction because the undocumented 20-tag/50-character caps rejected
+  21 identical valid tags and a long syntactically valid tag.
+
+Manual QA through the real parser
+- Driver: `tests/test-workflow-definition.test.mjs` imports and invokes
+  `parseAndValidateDefinition` from the source schema directly.
+- Happy assertions observed: frozen v1 input parsed twice to schemaVersion 2 with
+  `context.testData = {}` and every node phase `test`, without mutation; v2 preserved JSON-safe
+  scalar, null, array, and object data plus setup/test/teardown nodes.
+- Metadata assertions observed: tags trim and lowercase, duplicate normalized tags collapse while
+  preserving first occurrence order, 21 identical valid tags normalize to one, long syntactically
+  valid tags remain accepted, and tags stay outside the versioned definition contract.
+- Invalid parse rejections observed: invalid identifier keys, 101 entries, serialized data above
+  64 KiB, undefined, Infinity, bigint, Date objects, duplicate node/edge IDs, unknown v2 root/node fields,
+  backward test-to-setup and teardown-to-test/setup edges, duplicate export names, and cycles.
+- Malformed metadata tags with spaces or illegal characters fail with stable validation details.
+
+Final deterministic verification
+- Run 1:
+  `rtk test node --experimental-strip-types --test tests/test-workflow-definition.test.mjs`
+  Exit 0; fail 0; duration_ms 159.356815.
+- Run 2 (flaky-test probe):
+  `rtk test node --experimental-strip-types --test tests/test-workflow-definition.test.mjs`
+  Exit 0; fail 0; duration_ms 151.835645.
+- Build:
+  `rtk pnpm --filter @bumd/backend build`
+  Exit 0; TypeScript project build completed with no diagnostics.
+
+Adversarial QA
+- malformed_input: all listed invalid boundaries rejected by the parser test driver.
+- stale_state: the same frozen v1 object parsed twice with identical v2 outputs; original remained v1
+  and gained no node phase.
+- dirty_worktree: pre-edit status was clean; only the two scoped production files, targeted test,
+  and this evidence artifact were introduced/modified.
+- flaky_tests: the exact targeted test command passed twice consecutively.
+- misleading_success_output: exit codes and concrete assertions above are recorded, not inferred from
+  success wording.
+- prompt_injection: N/A; parser receives structured workflow data, not untrusted LLM instructions.
+- cancel_resume: N/A; parsing is synchronous and non-resumable.
+- hung_commands: N/A; targeted parser test and TypeScript build completed promptly.
+- repeated_interruption: N/A; parsing has no interruptible multi-step state.
+
+Cleanup receipt
+- No temporary QA files, services, ports, child processes, or generated fixtures were created.
+- Intended retained artifacts: the two production files, targeted test, and this evidence file only.
+
+Known risk
+- JavaScript object records cannot represent duplicate property names after parsing; uniqueness of
+  `context.testData` keys is therefore inherent at this object boundary. Explicit duplicate-ID
+  validation remains covered for node and edge key spaces.
