@@ -15,7 +15,12 @@ import {
 } from "../test-workflow-types.js";
 import { TestEnvironmentsService } from "../test-environments.service.js";
 import { buildTopologicalOrder, getDescendants } from "./test-workflow-graph.js";
-import { interpolate, type CollectedRef, type InterpolationContext } from "./test-workflow-template.js";
+import {
+  collectedRefsToInputs,
+  interpolate,
+  type CollectedRef,
+  type InterpolationContext,
+} from "./test-workflow-template.js";
 import { evaluateAssertions } from "./test-workflow-assertions.js";
 import { extractExports } from "./test-workflow-exports.js";
 import { redactSensitiveHeaders, redactSecretValues, truncateBody } from "./test-workflow-redaction.js";
@@ -150,6 +155,7 @@ export class TestWorkflowRunnerService {
         const ctx: InterpolationContext = {
           vars: accumulatedVars,
           env: envValues,
+          data: definition.context.testData,
           secretKeys,
         };
         const refs: CollectedRef[] = [];
@@ -231,12 +237,7 @@ export class TestWorkflowRunnerService {
         );
 
         // Build inputs record
-        const inputsRecord = refs.map((ref) => {
-          if (ref.kind === "env") {
-            return { type: "env", key: ref.key, value: ref.isSecret ? "[REDACTED]" : envValues[ref.key] };
-          }
-          return { type: "var", name: ref.name, value: ref.value };
-        });
+        const inputsRecord = collectedRefsToInputs(refs, envValues);
 
         if (failedAssertions.length > 0) {
           const firstFailed = failedAssertions[0]!;

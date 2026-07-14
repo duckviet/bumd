@@ -2,18 +2,21 @@
  * Template interpolation engine.
  *
  * Rules (spec §7.4):
- * - Pure template: value === "{{vars.X}}" or "{{env.X}}" exactly → preserve resolved type.
+ * - Pure template: value === "{{vars.X}}", "{{env.X}}", or "{{data.X}}" exactly → preserve resolved type.
  * - Embedded template: template expression inside surrounding text → coerce to string;
  *   object/array values are forbidden in embedded context → throws VAR_REF_INVALID.
  * - Object/array values: recursively interpolate.
  */
 
-const PURE_TEMPLATE_RE = /^\{\{\s*(vars|env)\.(\w+)\s*\}\}$/u;
-const ANY_TEMPLATE_RE = /\{\{\s*(vars|env)\.(\w+)\s*\}\}/gu;
+const PURE_TEMPLATE_RE = /^\{\{\s*(vars|env|data)\.(\w+)\s*\}\}$/u;
+const ANY_TEMPLATE_RE = /\{\{\s*(vars|env|data)\.(\w+)\s*\}\}/gu;
+
+type TemplateNamespace = "vars" | "env" | "data";
 
 export type InterpolationContext = {
   readonly vars: Record<string, unknown>;
   readonly env: Record<string, string>;
+  readonly data: Readonly<Record<string, JsonValue>>;
   /** Keys of secret env vars so they can be tracked for redaction */
   readonly secretKeys: ReadonlySet<string>;
 };
@@ -21,7 +24,32 @@ export type InterpolationContext = {
 /** Refs collected during interpolation (for inputsJson recording) */
 export type CollectedRef =
   | { readonly kind: "env"; readonly key: string; readonly isSecret: boolean }
+  | { readonly kind: "data"; readonly key: string; readonly value: JsonValue }
   | { readonly kind: "var"; readonly name: string; readonly value: unknown };
+
+export type CollectedInput =
+  | { readonly type: "env"; readonly key: string; readonly value: string | undefined }
+  | { readonly type: "data"; readonly key: string; readonly value: JsonValue }
+  | { readonly type: "var"; readonly name: string; readonly value: unknown };
+
+export function collectedRefsToInputs(
+  refs: readonly CollectedRef[],
+  envValues: Readonly<Record<string, string>>,
+): readonly CollectedInput[] {
+  return refs.map((ref): CollectedInput => {
+    if (ref.kind === "env") {
+      return {
+        type: "env",
+        key: ref.key,
+        value: ref.isSecret ? "[REDACTED]" : envValues[ref.key],
+      };
+    }
+    if (ref.kind === "data") {
+      return { type: "data", key: ref.key, value: ref.value };
+    }
+    return { type: "var", name: ref.name, value: ref.value };
+  });
+}
 
 /**
  * Interpolates template expressions in a value tree.
@@ -57,9 +85,11 @@ function interpolateString(
   // Check pure template first
   const pureMatch = PURE_TEMPLATE_RE.exec(value);
   if (pureMatch !== null) {
-    const namespace = pureMatch[1] as "vars" | "env";
-    const key = pureMatch[2]!;
-    return resolvePure(namespace, key, ctx, refs);
+    const namespace = pureMatch[1];
+    const key = pureMatch[2];
+    if (isTemplateNamespace(namespace) && key !== undefined) {
+      return resolveRef(namespace, key, ctx, refs);
+    }
   }
 
   // Embedded: replace all occurrences inside the string
@@ -68,8 +98,9 @@ function interpolateString(
 
   let result = value;
   for (const match of allMatches) {
-    const namespace = match[1] as "vars" | "env";
-    const key = match[2]!;
+    const namespace = match[1];
+    const key = match[2];
+    if (!isTemplateNamespace(namespace) || key === undefined) continue;
     const resolved = resolveRef(namespace, key, ctx, refs);
 
     if (resolved !== null && typeof resolved === "object") {
@@ -86,18 +117,8 @@ function interpolateString(
   return result;
 }
 
-function resolvePure(
-  namespace: "vars" | "env",
-  key: string,
-  ctx: InterpolationContext,
-  refs: CollectedRef[],
-): unknown {
-  const resolved = resolveRef(namespace, key, ctx, refs);
-  return resolved;
-}
-
 function resolveRef(
-  namespace: "vars" | "env",
+  namespace: TemplateNamespace,
   key: string,
   ctx: InterpolationContext,
   refs: CollectedRef[],
@@ -115,7 +136,19 @@ function resolveRef(
     return value;
   }
 
-  // vars
+  if (namespace === "data") {
+    const value = ctx.data[key];
+    if (value === undefined) {
+      throw new TestWorkflowError(
+        TestWorkflowErrorCode.TestDataMissing,
+        422,
+        `Test data "{{data.${key}}}" is not defined in the workflow context`,
+      );
+    }
+    refs.push({ kind: "data", key, value });
+    return value;
+  }
+
   if (!(key in ctx.vars)) {
     throw new TestWorkflowError(
       TestWorkflowErrorCode.VarRefInvalid,
@@ -131,37 +164,54 @@ function resolveRef(
 /**
  * Statically collect all template refs from a value tree without resolving.
  */
-export function collectTemplateRefs(value: unknown): { envRefs: string[]; varRefs: string[] } {
-  const envRefs: string[] = [];
-  const varRefs: string[] = [];
-  collectRefsFromValue(value, envRefs, varRefs);
-  return { envRefs, varRefs };
+export function collectTemplateRefs(value: unknown): {
+  readonly dataRefs: string[];
+  readonly envRefs: string[];
+  readonly varRefs: string[];
+} {
+  const refs = { dataRefs: [], envRefs: [], varRefs: [] } satisfies TemplateRefs;
+  collectRefsFromValue(value, refs);
+  return refs;
 }
 
-function collectRefsFromValue(value: unknown, envRefs: string[], varRefs: string[]): void {
+type TemplateRefs = {
+  readonly dataRefs: string[];
+  readonly envRefs: string[];
+  readonly varRefs: string[];
+};
+
+function collectRefsFromValue(value: unknown, refs: TemplateRefs): void {
   if (typeof value === "string") {
     for (const match of value.matchAll(ANY_TEMPLATE_RE)) {
-      const namespace = match[1] as "vars" | "env";
-      const key = match[2]!;
+      const namespace = match[1];
+      const key = match[2];
+      if (!isTemplateNamespace(namespace) || key === undefined) continue;
       if (namespace === "env") {
-        if (!envRefs.includes(key)) envRefs.push(key);
-      } else {
-        if (!varRefs.includes(key)) varRefs.push(key);
+        if (!refs.envRefs.includes(key)) refs.envRefs.push(key);
+      } else if (namespace === "data") {
+        if (!refs.dataRefs.includes(key)) refs.dataRefs.push(key);
+      } else if (!refs.varRefs.includes(key)) {
+        refs.varRefs.push(key);
       }
     }
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) collectRefsFromValue(item, envRefs, varRefs);
+    for (const item of value) collectRefsFromValue(item, refs);
     return;
   }
   if (isRecord(value)) {
-    for (const v of Object.values(value)) collectRefsFromValue(v, envRefs, varRefs);
+    for (const v of Object.values(value)) collectRefsFromValue(v, refs);
   }
+}
+
+function isTemplateNamespace(value: string | undefined): value is TemplateNamespace {
+  return value === "vars" || value === "env" || value === "data";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 import { TestWorkflowError } from "../test-workflow-errors.js";
+import type { JsonValue } from "../test-workflow-types.js";
 import { TestWorkflowErrorCode } from "../test-workflow-types.js";

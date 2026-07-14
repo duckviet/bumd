@@ -46,6 +46,7 @@ export const TestWorkflowErrorCode = {
   EnvNotFound: "ENV_NOT_FOUND",
   EnvRequired: "ENV_REQUIRED",
   EnvVarMissing: "ENV_VAR_MISSING",
+  TestDataMissing: "TEST_DATA_MISSING",
   VarRefInvalid: "VAR_REF_INVALID",
   VarRefNotAncestor: "VAR_REF_NOT_ANCESTOR",
   RequestBlocked: "REQUEST_BLOCKED",

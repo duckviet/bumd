@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+
+test("saved test data failures have a stable domain code", async () => {
+  const source = await readFile(
+    new URL("../apps/backend/src/test-workflows/test-workflow-types.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /TestDataMissing:\s*"TEST_DATA_MISSING"/u);
+});
 
 test("workflow step errors preserve typed domain codes", async () => {
   const { TestWorkflowError } = await import(

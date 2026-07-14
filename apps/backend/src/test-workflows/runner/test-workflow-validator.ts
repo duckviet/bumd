@@ -29,7 +29,8 @@ export function validateDefinitionStructure(raw: unknown): TestWorkflowDefinitio
  * 1. All save-time validation.
  * 2. All operationIds exist in the OpenAPI spec.
  * 3. All {{env.KEY}} refs exist in the environment.
- * 4. All {{vars.name}} refs point to ancestor node exports.
+ * 4. All {{data.KEY}} refs exist in the saved workflow context.
+ * 5. All {{vars.name}} refs point to ancestor node exports.
  */
 export function validateDefinitionForRun(
   def: TestWorkflowDefinition,
@@ -71,7 +72,16 @@ export function validateDefinitionForRun(
       }
     }
 
-    // 4. Validate var refs — must be ancestor exports
+    for (const key of refs.dataRefs) {
+      if (!(key in def.context.testData)) {
+        throw new TestWorkflowError(
+          TestWorkflowErrorCode.TestDataMissing,
+          422,
+          `Node "${node.id}" references test data "{{data.${key}}}" which is not defined in the workflow context.`,
+        );
+      }
+    }
+
     const ancestors = getAncestors(node.id, def.edges);
     for (const varName of refs.varRefs) {
       const ownerNodeId = exportToNode.get(varName);
