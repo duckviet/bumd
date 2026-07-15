@@ -23,9 +23,10 @@ test("test workflow module starts and closes a BullMQ worker for queued runs", (
 
 test("test workflow runner uses the database clock for persisted timestamps", () => {
   const runnerSource = readBackendSource("test-workflows/runner/test-workflow-runner.service.ts");
+  const storeSource = readBackendSource("test-workflows/runner/test-workflow-run-store.ts");
 
   assert.doesNotMatch(runnerSource, /markRunStatus\([^\n]+new Date\(\)\)/u);
   assert.doesNotMatch(runnerSource, /markStepStatus\([^\n]+new Date\(\)\)/u);
-  assert.match(runnerSource, /"startedAt" = COALESCE\("startedAt", NOW\(\)\)/u);
-  assert.match(runnerSource, /"finishedAt" = NOW\(\)/u);
+  assert.match(storeSource, /"startedAt" = COALESCE\("startedAt", NOW\(\)\)/u);
+  assert.match(storeSource, /"finishedAt" = NOW\(\)/u);
 });
