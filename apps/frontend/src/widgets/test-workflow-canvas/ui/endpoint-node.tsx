@@ -1,13 +1,15 @@
 "use client";
 
 import { Handle, Position } from "@xyflow/react";
-import type { TestWorkflowStepStatus } from "@/entities/test-workflow";
+import type { TestWorkflowNodePhase, TestWorkflowStepStatus } from "@/entities/test-workflow";
+import { getPhaseBadgeClass } from "@/features/test-workflow-editor/model/workflow-phases";
 
 type EndpointNodeData = {
   readonly label: string;
   readonly method: string;
   readonly path: string;
   readonly operationId: string;
+  readonly phase: TestWorkflowNodePhase;
   readonly status?: TestWorkflowStepStatus;
   readonly isStale?: boolean;
   readonly isSelected?: boolean;
@@ -39,6 +41,9 @@ export function EndpointNode({ data }: { readonly data: EndpointNodeData }) {
           {data.method}
         </span>
         <span className="font-semibold text-carbon truncate flex-1">{data.label}</span>
+        <span className={`rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide ${getPhaseBadgeClass(data.phase)}`}>
+          {data.phase}
+        </span>
         {data.isStale && (
           <span className="text-[8px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1 rounded">
             STALE

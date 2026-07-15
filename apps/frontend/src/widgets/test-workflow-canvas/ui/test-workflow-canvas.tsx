@@ -1,23 +1,26 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import {
   ReactFlow,
   MiniMap,
   Controls,
   Background,
-  addEdge,
-  useNodesState,
-  useEdgesState,
   type Connection,
   type Edge,
   type Node,
+  type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import type { WorkflowEditorStore } from "@/features/test-workflow-editor/model/use-workflow-editor-store";
 import type { PaletteOperation } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
 import { EndpointNode } from "@/widgets/test-workflow-canvas/ui/endpoint-node";
+import {
+  getPhaseBadgeClass,
+  getPhaseConnectionError,
+  workflowPhases,
+} from "@/features/test-workflow-editor/model/workflow-phases";
 
 function generateId(): string {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -37,6 +40,7 @@ type TestWorkflowCanvasProps = {
 export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProps) {
   const { state, dispatch } = store;
   const { definition, selectedNodeId, selectedEdgeId, runStatus } = state;
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // React Flow nodes mapping
   const nodes = useMemo(() => {
@@ -49,6 +53,7 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
         method: n.method,
         path: n.path,
         operationId: n.operationId,
+        phase: n.phase,
         status: runStatus?.steps.find((s) => s.nodeId === n.id)?.status,
         isStale: !operations.some((op) => op.operationId === n.operationId),
         isSelected: selectedNodeId === n.id,
@@ -85,7 +90,21 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
       if (!rawData) return;
 
       try {
-        const op = JSON.parse(rawData) as PaletteOperation;
+        const droppedOperation: unknown = JSON.parse(rawData);
+        if (
+          typeof droppedOperation !== "object"
+          || droppedOperation === null
+          || !("operationId" in droppedOperation)
+          || typeof droppedOperation.operationId !== "string"
+        ) {
+          setConnectionError("That endpoint could not be added. Drag it from the endpoint palette again.");
+          return;
+        }
+        const op = operations.find((operation) => operation.operationId === droppedOperation.operationId);
+        if (!op) {
+          setConnectionError("That endpoint is no longer available. Refresh the workflow and try again.");
+          return;
+        }
 
         // Position translation
         const reactFlowBounds = event.currentTarget.getBoundingClientRect();
@@ -103,6 +122,7 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
             method: op.method,
             path: op.path,
             label: op.summary || op.operationId,
+            phase: "test",
             position,
             requestTemplate: {},
             exports: [],
@@ -111,16 +131,16 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
             ],
           },
         });
-      } catch (err) {
-        console.error("Failed to add dropped node:", err);
+      } catch {
+        setConnectionError("That endpoint could not be added. Drag it from the endpoint palette again.");
       }
     },
-    [dispatch],
+    [dispatch, operations],
   );
 
   // Sync node position dragging
-  const onNodeDragStop = useCallback(
-    (_event: any, node: Node) => {
+  const onNodeDragStop: NodeMouseHandler = useCallback(
+    (_event, node) => {
       const updatedNodes = definition.nodes.map((n) =>
         n.id === node.id ? { ...n, position: node.position } : n,
       );
@@ -135,10 +155,17 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
       if (!connection.source || !connection.target) return;
 
       if (hasCycle(definition.edges, connection.source, connection.target)) {
-        alert("Cycle detected! Workflows must be directed acyclic graphs.");
+        setConnectionError("That connection would create a cycle. Workflows must remain directed and acyclic.");
         return;
       }
 
+      const phaseError = getPhaseConnectionError(definition.nodes, connection.source, connection.target);
+      if (phaseError) {
+        setConnectionError(phaseError);
+        return;
+      }
+
+      setConnectionError(null);
       dispatch({
         type: "ADD_EDGE",
         edge: {
@@ -148,7 +175,7 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
         },
       });
     },
-    [definition.edges, dispatch],
+    [definition.edges, definition.nodes, dispatch],
   );
 
   // Handle selection clicks
@@ -186,6 +213,19 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
       onDrop={onDrop}
       className="w-full h-full relative"
     >
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5 rounded border border-chalk bg-paper/95 px-2 py-1.5" aria-label="Phase legend">
+        <span className="text-[10px] font-semibold text-slate">Phase legend</span>
+        {workflowPhases.map((phase) => (
+          <span key={phase.value} className={`rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${getPhaseBadgeClass(phase.value)}`}>
+            {phase.label}
+          </span>
+        ))}
+      </div>
+      {connectionError ? (
+        <div role="alert" className="absolute bottom-3 left-1/2 z-10 w-[min(32rem,calc(100%-1.5rem))] -translate-x-1/2 rounded border border-sienna-bronze/40 bg-paper px-3 py-2 text-xs font-medium text-carbon">
+          {connectionError}
+        </div>
+      ) : null}
       <ReactFlow
         nodes={nodes}
         edges={edges}
