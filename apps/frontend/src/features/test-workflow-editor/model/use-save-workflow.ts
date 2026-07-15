@@ -3,6 +3,8 @@
 import { useCallback } from "react";
 import type { WorkflowEditorStore } from "@/features/test-workflow-editor/model/use-workflow-editor-store";
 import { updateWorkflow } from "@/shared/api/test-workflows-client";
+import { buildWorkflowUpdateBody } from "@/features/test-workflow-editor/model/workflow-settings";
+import { saveFailureAction } from "@/features/test-workflow-editor/model/workflow-save-conflict";
 
 export function useSaveWorkflow(
   orgSlug: string,
@@ -22,30 +24,27 @@ export function useSaveWorkflow(
         docSlug,
         branchSlug,
         workflowId: state.workflowId,
-        body: {
-          expectedRevision: state.revision,
-          definitionJson: state.definition,
-        },
+        body: buildWorkflowUpdateBody({
+          revision: state.revision,
+          definition: state.definition,
+          settings: {
+            name: state.name,
+            description: state.description,
+            tags: state.metadata.tags,
+            priority: state.metadata.priority,
+            type: state.metadata.type,
+            testData: state.definition.context.testData,
+          },
+        }),
       });
 
-      dispatch({ type: "SAVE_SUCCESS", revision: updated.revision });
+      dispatch({ type: "SAVE_SUCCESS", workflow: updated });
       return true;
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      try {
-        const parsed = JSON.parse(errorMsg);
-        if (parsed.error && parsed.error.code === "WORKFLOW_CONFLICT") {
-          dispatch({ type: "SAVE_CONFLICT", currentRevision: parsed.error.currentRevision || state.revision });
-          return false;
-        }
-      } catch {
-        // Fallback to general failure
-      }
-
-      dispatch({ type: "SAVE_FAILURE", error: errorMsg });
+      dispatch(saveFailureAction(err));
       return false;
     }
-  }, [orgSlug, docSlug, branchSlug, state.workflowId, state.revision, state.definition, dispatch]);
+  }, [orgSlug, docSlug, branchSlug, state, dispatch]);
 
   return save;
 }

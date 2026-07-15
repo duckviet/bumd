@@ -3,7 +3,11 @@ import type {
   TestEnvironmentDto,
   TestWorkflowRunDto,
   TestWorkflowRunDetailDto,
+  UpdateTestWorkflowBody,
 } from "@/shared/api/test-workflow-types";
+import { testWorkflowApiErrorFromResponse } from "./test-workflow-api-error.ts";
+
+export { TestWorkflowApiError } from "./test-workflow-api-error.ts";
 
 function getProxyUrl(org: string, doc: string, branch: string, subPath: string): string {
   return `/api/test-workflows/orgs/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}/branches/${encodeURIComponent(branch)}/${subPath}`;
@@ -34,7 +38,10 @@ export async function createWorkflow(input: {
     readonly name: string;
     readonly slug?: string;
     readonly description?: string;
-    readonly definitionJson?: unknown;
+    readonly tags?: readonly string[];
+    readonly priority?: TestWorkflowDto["priority"];
+    readonly type?: TestWorkflowDto["type"];
+    readonly definitionJson?: TestWorkflowDto["definitionJson"];
   };
 }): Promise<TestWorkflowDto> {
   const res = await fetch(getProxyUrl(input.orgSlug, input.docSlug, input.branchSlug, "test-workflows"), {
@@ -62,20 +69,14 @@ export async function updateWorkflow(input: {
   readonly docSlug: string;
   readonly branchSlug: string;
   readonly workflowId: string;
-  readonly body: {
-    readonly expectedRevision: number;
-    readonly name?: string;
-    readonly slug?: string;
-    readonly description?: string | null;
-    readonly definitionJson?: unknown;
-  };
+  readonly body: UpdateTestWorkflowBody;
 }): Promise<TestWorkflowDto> {
   const res = await fetch(getProxyUrl(input.orgSlug, input.docSlug, input.branchSlug, `test-workflows/${input.workflowId}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input.body),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await testWorkflowApiErrorFromResponse(res);
   return res.json();
 }
 

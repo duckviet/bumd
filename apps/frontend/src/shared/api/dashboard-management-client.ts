@@ -19,7 +19,25 @@ const docSchema = z.object({ id: z.string(), organizationSlug: z.string(), slug:
 const apiTokenSchema = z.object({ id: z.string(), name: z.string(), tokenPrefix: z.string(), role: z.string(), scopes: z.array(z.string()), lastUsedAt: z.string().nullable(), expiresAt: z.string().nullable(), revokedAt: z.string().nullable(), createdAt: z.string() });
 const versionDetailSchema = z.object({ id: z.string(), sequenceNumber: z.number(), status: z.union([z.literal("queued"), z.literal("processing"), z.literal("ready"), z.literal("failed")]), sha256: z.string(), createdByTokenId: z.string().nullable(), createdByUserId: z.string().nullable(), createdAt: z.string(), readyAt: z.string().nullable(), branchName: z.string(), docName: z.string(), diff: z.object({ id: z.string(), classification: z.string(), hasBreaking: z.boolean() }).nullable() });
 const diffDetailSchema = z.object({ versionId: z.string(), sequenceNumber: z.number(), docName: z.string(), id: z.string(), classification: z.string(), hasBreaking: z.boolean(), changes: z.unknown(), diffMarkdown: z.string().nullable() });
-const testsContextSchema = z.object({ organizationId: z.string(), docId: z.string(), branchId: z.string(), branchSlug: z.string(), workflows: z.array(z.object({ id: z.string(), name: z.string(), slug: z.string(), description: z.string().nullable(), definitionJson: z.unknown(), revision: z.number(), createdAt: z.string(), updatedAt: z.string() })) });
+const testsContextSchema = z.object({
+  organizationId: z.string(),
+  docId: z.string(),
+  branchId: z.string(),
+  branchSlug: z.string(),
+  workflows: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string().nullable(),
+    tags: z.array(z.string()),
+    priority: z.enum(["low", "medium", "high", "critical"]),
+    type: z.enum(["smoke", "integration", "end_to_end", "contract"]),
+    definitionJson: z.unknown(),
+    revision: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })),
+});
 
 export type DashboardMemberDto = z.infer<typeof memberSchema>;
 export type DashboardInviteDto = z.infer<typeof inviteSchema>;

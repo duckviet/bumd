@@ -1,0 +1,42 @@
+Todo 5 — frontend workflow metadata and test-data settings
+Date: 2026-07-15
+
+TDD receipt
+- Baseline: `rtk pnpm --filter @bumd/frontend typecheck` passed before implementation.
+- Failing first: the focused suite failed with ERR_MODULE_NOT_FOUND for the new workflow settings and editor-state seams.
+- Accessibility follow-up failed first against the previous DashboardModal because dialog semantics and responsive row classes were absent.
+- Picker legibility follow-up failed first against the previous 10px control.
+
+Final automated verification
+- `rtk proxy pnpm --filter @bumd/frontend typecheck` — PASS, exit 0. This unfiltered proxied run is authoritative because RTK warns that its pnpm filter is unsupported.
+- `rtk test node --experimental-strip-types --test tests/frontend-test-workflow-editor.test.mjs` — PASS twice, 9 tests, 0 failures.
+- All touched TypeScript/TSX files are at or below 250 pure LOC; largest files are request-template-editor.tsx (236), tests-page-client.tsx (229), and workflow-editor-state.ts (201).
+- Strict escape-hatch scan found no newly introduced `any`, `as any`, `as unknown`, `@ts-ignore`, `@ts-expect-error`, or non-null assertions in Todo 5 code.
+
+Manual browser QA (isolated current-source stack)
+- Shared services on ports 3000/3100 were left untouched. Isolated services used frontend 3001, backend 3102, and Chrome CDP 9223.
+- Settings validation visibly rejected an invalid identifier and malformed JSON with accessible field errors.
+- Applied settings persisted across reload: name `Task Five Contract`, description, normalized tags `["release","api"]`, priority `high`, type `contract`, and testData `{fixture:{active:true}}`.
+- Switching to a second workflow showed its independent defaults, then switching back restored the first workflow metadata/testData without dirty-state leakage.
+- The inspector exposed only the exact Environment variables (`{{env.BASE_URL}}`) and Test data (`{{data.fixture}}`) namespaces; no invented `vars` namespace.
+- Intercepted PATCH body:
+  {"expectedRevision":1,"name":"Task Five Contract","description":"Release workflow settings","tags":["release","api"],"priority":"high","type":"contract","definitionJson":{"edges":[],"nodes":[],"context":{"testData":{"fixture":{"active":true}}},"viewport":{"x":0,"y":0,"zoom":1},"schemaVersion":2}}
+- Valid captures: `.omo/evidence/task-5-settings-1280.png` (1280x800), `.omo/evidence/task-5-settings-375.png` (375x812), `.omo/evidence/task-5-picker-1280.png` (1280x800).
+
+Adversarial and reviewer follow-up
+- Dashboard projection initially failed strict Zod parsing because the backend omitted tags/priority/type; the SELECT projection was corrected and locked by a regression test.
+- Two read-only visual reviewers returned REVISE on the original captures. Concrete product findings were fixed: semantic labelled dialog, aria-modal, Escape handling, focus trap/restoration, no heavy modal shadow, PolySans weight 400, mobile-stacked test-data rows, and a 12px/40px picker.
+- The parent task explicitly ended additional visual-QA iterations after those fixes; therefore the retained screenshots document the earlier browser workflow, while compiler/source tests prove the final accessibility and responsive corrections.
+
+Cleanup receipt
+- Stopped isolated frontend 3001, backend 3102, and Chrome 9223; shared services remained running.
+- Removed isolated Task 5 database fixtures (QA user, organization, workflows, environment, and dependent runs/variables).
+- Removed `/tmp/bumd-task5-*`, `apps/backend/.tmp-task5-dist`, the temporary CDP/reauth scripts, invalid build-error capture, `.debug-journal.md`, and its local exclude entry.
+
+Verifier follow-up — FSD and HTTP 409
+- RED: the focused suite failed when the new route-local workspace and typed conflict helper imports were intentionally introduced before implementation.
+- FSD GREEN: editor workspace composition moved from the feature slice to the app route. A focused assertion scans `features/test-workflow-editor/ui` and rejects imports from `@/widgets/`.
+- Conflict GREEN: an actual mocked HTTP 409 body `{error:{code:"WORKFLOW_CONFLICT"}}` is parsed into `TestWorkflowApiError`; `saveFailureAction` dispatches `SAVE_CONFLICT` with a nullable revision, and the reducer sets `hasSaveConflict` without a generic save error.
+- Missing-revision behavior: the conflict dialog still appears and instructs the user to reload; it only displays a numeric current revision when the backend supplied one.
+- Final requested gates: `rtk pnpm --filter @bumd/frontend typecheck` PASS; `rtk test node --experimental-strip-types --test tests/frontend-test-workflow-editor.test.mjs` PASS, 11 tests, 0 failures.
+- No browser or visual QA was run for this verifier-only follow-up.

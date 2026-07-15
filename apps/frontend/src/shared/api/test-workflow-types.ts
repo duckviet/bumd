@@ -6,6 +6,20 @@ export type TestWorkflowRequestTemplate = {
   readonly body?: unknown | undefined;
 };
 
+export type JsonValue = string | number | boolean | null | readonly JsonValue[] | {
+  readonly [key: string]: JsonValue;
+};
+
+export type TestWorkflowPriority = "low" | "medium" | "high" | "critical";
+export type TestWorkflowType = "smoke" | "integration" | "end_to_end" | "contract";
+export type TestWorkflowNodePhase = "setup" | "test" | "teardown";
+
+export type TestWorkflowMetadata = {
+  readonly tags: readonly string[];
+  readonly priority: TestWorkflowPriority;
+  readonly type: TestWorkflowType;
+};
+
 export type TestWorkflowExport = {
   readonly name: string;
   readonly source: "status" | "header" | "body";
@@ -48,6 +62,7 @@ export type TestWorkflowNode = {
   readonly method: string;
   readonly path: string;
   readonly label: string;
+  readonly phase: TestWorkflowNodePhase;
   readonly position: { readonly x: number; readonly y: number };
   readonly requestTemplate: TestWorkflowRequestTemplate;
   readonly exports: readonly TestWorkflowExport[];
@@ -61,7 +76,10 @@ export type TestWorkflowEdge = {
 };
 
 export type TestWorkflowDefinition = {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly context: {
+    readonly testData: Readonly<Record<string, JsonValue>>;
+  };
   readonly nodes: readonly TestWorkflowNode[];
   readonly edges: readonly TestWorkflowEdge[];
   readonly viewport?: {
@@ -76,10 +94,23 @@ export type TestWorkflowDto = {
   readonly name: string;
   readonly slug: string;
   readonly description: string | null;
+  readonly tags: readonly string[];
+  readonly priority: TestWorkflowPriority;
+  readonly type: TestWorkflowType;
   readonly definitionJson: TestWorkflowDefinition;
   readonly revision: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+};
+
+export type UpdateTestWorkflowBody = {
+  readonly expectedRevision: number;
+  readonly name?: string;
+  readonly description?: string | null;
+  readonly tags?: readonly string[];
+  readonly priority?: TestWorkflowPriority;
+  readonly type?: TestWorkflowType;
+  readonly definitionJson?: TestWorkflowDefinition;
 };
 
 export type TestEnvironmentVariableDto = {

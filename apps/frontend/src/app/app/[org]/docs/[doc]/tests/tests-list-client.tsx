@@ -5,9 +5,9 @@ import { useState } from "react";
 
 import type { TestWorkflowDto } from "@/entities/test-workflow";
 import { createWorkflow } from "@/shared/api/test-workflows-client";
+import { DashboardModal } from "@/shared/ui/dashboard-modal";
 import {
   DashboardButton,
-  DashboardModal,
   fieldClassName,
   FormField,
   ModalActions,
@@ -128,8 +128,8 @@ export function TestsListClient({ org, doc, branch, initialWorkflows }: TestsLis
       )}
 
       {isCreateOpen ? (
-        <DashboardModal onClose={() => setIsCreateOpen(false)} onSubmit={create}>
-            <ModalHeader onClose={() => setIsCreateOpen(false)}>Create workflow</ModalHeader>
+        <DashboardModal onClose={() => setIsCreateOpen(false)} onSubmit={create} titleId="tests-create-workflow-title">
+            <ModalHeader id="tests-create-workflow-title" onClose={() => setIsCreateOpen(false)}>Create workflow</ModalHeader>
             <FormField label="Name">
               <input
                 autoFocus

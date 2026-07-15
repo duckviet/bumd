@@ -35,36 +35,10 @@ export function DashboardButton({
   );
 }
 
-export function DashboardModal({
-  children,
-  onClose,
-  onSubmit,
-}: {
-  readonly children: ReactNode;
-  readonly onClose?: () => void;
-  readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-}): React.ReactElement {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-carbon/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="presentation"
-    >
-      <form
-        className="w-full max-w-md rounded-lg border border-chalk bg-paper p-5 shadow-xl sm:p-6"
-        onClick={(event) => event.stopPropagation()}
-        onSubmit={onSubmit}
-      >
-        {children}
-      </form>
-    </div>
-  );
-}
-
-export function ModalHeader({ children, onClose }: { readonly children: ReactNode; readonly onClose: () => void }) {
+export function ModalHeader({ children, id, onClose }: { readonly children: ReactNode; readonly id?: string; readonly onClose: () => void }) {
   return (
     <header className="flex items-center justify-between border-b border-chalk p-4">
-      <h2 className="font-polysans text-xl font-semibold tracking-tight text-carbon">{children}</h2>
+      <h2 className="font-polysans text-xl font-normal tracking-tight text-carbon" id={id}>{children}</h2>
       <button
         aria-label="Close dialog"
         className="grid size-8 place-items-center rounded-full bg-transparent text-xl text-slate transition-colors hover:bg-fog hover:text-carbon"
@@ -218,5 +192,3 @@ export function DashboardSection({
     </section>
   );
 }
-
-

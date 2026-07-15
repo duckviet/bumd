@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type {
   TestWorkflowDto,
   TestEnvironmentDto,
-  TestWorkflowNode,
 } from "@/entities/test-workflow";
 import type { PaletteOperation } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
 import {
@@ -16,22 +15,11 @@ import {
   cancelRun,
 } from "@/shared/api/test-workflows-client";
 import { useWorkflowEditorStore } from "@/features/test-workflow-editor/model/use-workflow-editor-store";
-import { EnvironmentsModal } from "@/features/test-workflow-editor/ui/environments-modal";
+import { WorkflowEditorDialogs } from "@/features/test-workflow-editor/ui/workflow-editor-dialogs";
+import { WorkflowEditorToolbar } from "@/features/test-workflow-editor/ui/workflow-editor-toolbar";
 import { useSaveWorkflow } from "@/features/test-workflow-editor/model/use-save-workflow";
 import { useRunWorkflow } from "@/features/test-workflow-editor/model/use-run-workflow";
-import { EndpointPalette } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
-import { TestWorkflowCanvas } from "@/widgets/test-workflow-canvas/ui/test-workflow-canvas";
-import { NodeInspector } from "@/features/test-workflow-editor/ui/node-inspector";
-import { RunButton } from "@/features/test-workflow-run/ui/run-button";
-import { RunConsole } from "@/features/test-workflow-run/ui/run-console";
-import {
-  DashboardButton,
-  DashboardModal,
-  fieldClassName,
-  FormField,
-  ModalActions,
-  ModalHeader,
-} from "@/shared/ui/dashboard-primitives";
+import { WorkflowEditorWorkspace } from "./workflow-editor-workspace";
 
 type TestsPageClientProps = {
   readonly org: string;
@@ -63,6 +51,7 @@ const [createName, setCreateName] = useState("");
 const [createError, setCreateError] = useState<string | null>(null);
 const [creating, setCreating] = useState(false);
 const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
+const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const testsPath = `/app/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}/tests`;
   const workflowPath = useCallback((workflowId: string) => `${testsPath}/${encodeURIComponent(workflowId)}`, [testsPath]);
 
@@ -153,8 +142,9 @@ const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
 
       const remaining = workflows.filter((w) => w.id !== state.workflowId);
       setWorkflows(remaining);
-      if (remaining.length > 0) {
-        router.push(workflowPath(remaining[0]!.id));
+      const nextWorkflow = remaining[0];
+      if (nextWorkflow !== undefined) {
+        router.push(workflowPath(nextWorkflow.id));
       } else {
         router.push(testsPath);
       }
@@ -187,42 +177,29 @@ const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
     router.push(workflowPath(wfId));
   };
 
-  const handleUpdateNode = useCallback(
-    (nodeId: string, updates: Partial<TestWorkflowNode>) => {
-      const updatedNodes = state.definition.nodes.map((n) =>
-        n.id === nodeId ? { ...n, ...updates } : n,
-      );
-      dispatch({ type: "SET_NODES", nodes: updatedNodes });
-    },
-    [state.definition.nodes, dispatch],
-  );
-
-  const handleDeleteNode = useCallback(
-    (nodeId: string) => {
-      dispatch({ type: "REMOVE_NODE", nodeId });
-    },
-    [dispatch],
-  );
-
   // Sync state back to workflows list on successful save
   useEffect(() => {
     if (state.lastSavedAt && state.workflowId) {
       setWorkflows((prev) =>
         prev.map((w) =>
           w.id === state.workflowId
-            ? { ...w, revision: state.revision, definitionJson: state.definition }
+            ? {
+                ...w,
+                name: state.name,
+                description: state.description,
+                tags: state.metadata.tags,
+                priority: state.metadata.priority,
+                type: state.metadata.type,
+                revision: state.revision,
+                definitionJson: state.definition,
+              }
             : w,
         ),
       );
     }
-  }, [state.lastSavedAt, state.revision, state.definition, state.workflowId]);
+  }, [state.lastSavedAt, state, state.workflowId]);
 
-  // Node selection inspector resolution
-  const selectedNode = state.definition.nodes.find((n) => n.id === state.selectedNodeId);
   const selectedEnvironment = environments.find((environment) => environment.id === selectedEnvId) ?? null;
-  const isSelectedNodeStale = selectedNode
-    ? !operations.some((op) => op.operationId === selectedNode.operationId)
-    : false;
 
   // Stale check across all nodes to disable Run button
   const hasStaleNodes = state.definition.nodes.some(
@@ -231,218 +208,51 @@ const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-paper text-carbon select-none">
-      {/* Top Toolbar */}
-      <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-chalk bg-paper px-4 py-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <a href={`/app/${org}/docs/${doc}`} className="text-slate hover:text-carbon font-semibold text-xs flex items-center gap-1">
-            &larr; Back to Portal Overview
-          </a>
-          <div className="h-4 w-px bg-chalk" />
+      <WorkflowEditorToolbar
+        doc={doc}
+        environments={environments}
+        hasStaleNodes={hasStaleNodes}
+        onCancel={handleCancel}
+        onDelete={handleDeleteWorkflow}
+        onOpenCreate={handleOpenCreateWorkflow}
+        onOpenEnvironments={() => setIsEnvModalOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onRun={handleRun}
+        onSave={saveWorkflowFn}
+        onSelectEnvironment={setSelectedEnvId}
+        onSelectWorkflow={handleSelectWorkflow}
+        org={org}
+        selectedEnvironmentId={selectedEnvId}
+        state={state}
+        workflows={workflows}
+      />
 
-          {/* Workflow Selector */}
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-carbon text-xs">Workflow:</span>
-            <select
-              value={state.workflowId || ""}
-              onChange={(e) => handleSelectWorkflow(e.target.value)}
-              className="rounded border border-chalk bg-white px-2 py-1 text-xs focus:border-signal-orange focus:outline-none max-w-[200px]"
-            >
-              {workflows.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleOpenCreateWorkflow}
-              className="text-signal-orange text-xs font-bold hover:underline cursor-pointer"
-            >
-              + New
-            </button>
-            {state.workflowId && (
-              <button
-                type="button"
-                onClick={handleDeleteWorkflow}
-                className="text-red-500 text-xs font-bold hover:underline cursor-pointer"
-              >
-                Delete
-              </button>
-            )}
-          </div>
-        </div>
+      <WorkflowEditorWorkspace environment={selectedEnvironment} operations={operations} store={store} />
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3">
-          {/* Environment Selector */}
-          <div className="flex items-center gap-1.5 font-medium">
-            <span className="text-slate text-xs font-semibold">Env:</span>
-            <select
-              key={selectedEnvId || "none"}
-              value={selectedEnvId || ""}
-              onChange={(e) => {
-                const val = e.target.value || null;
-                console.log("onChange select value:", val);
-                setSelectedEnvId(val);
-              }}
-              className="rounded border border-chalk bg-white px-2 py-1 text-xs focus:border-signal-orange focus:outline-none"
-            >
-              <option value="">No Environment</option>
-              {environments.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name} {e.isDefault ? "(default)" : ""}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setIsEnvModalOpen(true)}
-              className="ml-1 p-1 hover:bg-chalk rounded text-slate hover:text-carbon cursor-pointer"
-              title="Configure Environments"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="h-4 w-px bg-chalk" />
-
-          {/* State indicators */}
-          {state.dirty && <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Unsaved Changes</span>}
-          {state.lastSavedAt && !state.dirty && (
-            <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Saved at {state.lastSavedAt}</span>
-          )}
-
-          {/* Save Button */}
-          {state.workflowId && (
-            <button
-              type="button"
-              disabled={state.saving || !state.dirty}
-              onClick={saveWorkflowFn}
-              className={`font-semibold text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-                state.saving || !state.dirty
-                  ? "bg-white border-chalk text-slate cursor-default"
-                  : "bg-white border-carbon text-carbon hover:bg-fog"
-              }`}
-            >
-              {state.saving ? "Saving..." : "Save"}
-            </button>
-          )}
-
-          {/* Run button */}
-          {state.workflowId && (
-            <RunButton
-              running={state.running}
-              hasStaleNodes={hasStaleNodes}
-              onRun={handleRun}
-              onCancel={handleCancel}
-            />
-          )}
-        </div>
-      </header>
-
-      {/* Main workspace panels */}
-      <div className={`relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)] ${
-        selectedNode 
-          ? "xl:grid-cols-[260px_minmax(0,1fr)_340px]" 
-          : "xl:grid-cols-[260px_minmax(0,1fr)]"
-      }`}>
-        {/* Left: Endpoint Palette */}
-        <div className="hidden h-full min-h-0 lg:block">
-          <EndpointPalette operations={operations} />
-        </div>
-
-        {/* Center: Canvas */}
-        <div className="relative h-full min-h-[480px] bg-fog/40">
-          <TestWorkflowCanvas store={store} operations={operations} />
-        </div>
-
-        {/* Right: Inspector */}
-        {selectedNode && (
-          <div className="absolute inset-y-0 right-0 z-20 w-[min(340px,90vw)] shadow-xl xl:static xl:w-auto xl:shadow-none">
-            <NodeInspector
-              node={selectedNode}
-              environment={selectedEnvironment}
-              isStale={isSelectedNodeStale}
-              onUpdateNode={handleUpdateNode}
-              onDeleteNode={handleDeleteNode}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Run Console Drawer */}
-      {state.runStatus && (
-        <div className="shrink-0">
-          <RunConsole
-            run={state.runStatus}
-            nodes={state.definition.nodes}
-            onClose={() => dispatch({ type: "RUN_FINISH" })}
-          />
-        </div>
-      )}
-
-      {isCreateOpen ? (
-        <DashboardModal onClose={() => setIsCreateOpen(false)} onSubmit={handleCreateWorkflow}>
-            <ModalHeader onClose={() => setIsCreateOpen(false)}>Create workflow</ModalHeader>
-            <FormField label="Name">
-              <input
-                autoFocus
-                className={fieldClassName}
-                value={createName}
-                onChange={(event) => {
-                  setCreateName(event.target.value);
-                  setCreateError(null);
-                }}
-                placeholder="Smoke test"
-              />
-            </FormField>
-            {createError ? <p className="text-sm text-red-700">{createError}</p> : null}
-            <ModalActions>
-              <DashboardButton disabled={creating} onClick={() => setIsCreateOpen(false)} tone="secondary">Cancel</DashboardButton>
-              <DashboardButton disabled={creating} type="submit">{creating ? "Creating..." : "Create"}</DashboardButton>
-            </ModalActions>
-        </DashboardModal>
-      ) : null}
-
-      {isEnvModalOpen && (
-        <EnvironmentsModal
-          org={org}
-          doc={doc}
-          branch={branch}
-          environments={environments}
-          onClose={() => setIsEnvModalOpen(false)}
-          onEnvironmentsChanged={(updatedEnvs) => {
-            setEnvironments(updatedEnvs);
-            // Select default or first environment
-            const def = updatedEnvs.find((e) => e.isDefault) || updatedEnvs[0];
-            setSelectedEnvId(def ? def.id : null);
-          }}
-        />
-      )}
-
-      {/* 409 Conflict reload prompt */}
-      {state.conflictRevision !== null && (
-        <div className="fixed inset-0 bg-carbon/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
-          <div className="flex max-w-sm flex-col gap-3 rounded-lg border border-chalk bg-paper p-5 shadow-xl">
-            <h3 className="font-bold text-carbon text-sm">Save Conflict (409)</h3>
-            <p className="text-xs text-graphite">
-              This workflow has been modified in another window. Current version: #{state.conflictRevision}.
-            </p>
-            <div className="flex justify-end gap-2 mt-2">
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="inline-flex h-9 items-center rounded-full bg-carbon px-4 text-xs font-semibold text-paper hover:bg-graphite"
-              >
-                Reload Page
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <WorkflowEditorDialogs
+        branch={branch}
+        createError={createError}
+        createName={createName}
+        createOpen={isCreateOpen}
+        creating={creating}
+        doc={doc}
+        environments={environments}
+        environmentsOpen={isEnvModalOpen}
+        onCloseCreate={() => setIsCreateOpen(false)}
+        onCloseEnvironments={() => setIsEnvModalOpen(false)}
+        onCloseSettings={() => setIsSettingsOpen(false)}
+        onCreateNameChange={(name) => { setCreateName(name); setCreateError(null); }}
+        onCreateSubmit={handleCreateWorkflow}
+        onEnvironmentsChanged={(updated) => {
+          setEnvironments(updated);
+          const selected = updated.find((environment) => environment.isDefault) ?? updated[0];
+          setSelectedEnvId(selected?.id ?? null);
+        }}
+        onOpenEnvironments={() => { setIsSettingsOpen(false); setIsEnvModalOpen(true); }}
+        org={org}
+        settingsOpen={isSettingsOpen}
+        store={store}
+      />
     </div>
   );
 }

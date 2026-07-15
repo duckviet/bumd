@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { DashboardModal } from "@/shared/ui/dashboard-modal";
 import {
   DashboardButton,
-  DashboardModal,
   FormField,
   ModalActions,
   ModalError,
@@ -127,8 +127,8 @@ export function CreateDocModal({
       </DashboardButton>
 
       {isOpen ? (
-        <DashboardModal onClose={handleClose} onSubmit={handleSubmit}>
-          <ModalHeader onClose={handleClose}>New doc</ModalHeader>
+        <DashboardModal onClose={handleClose} onSubmit={handleSubmit} titleId="create-doc-title">
+          <ModalHeader id="create-doc-title" onClose={handleClose}>New doc</ModalHeader>
           {error !== null ? <ModalError>{error}</ModalError> : null}
 
           <FormField label="Name">

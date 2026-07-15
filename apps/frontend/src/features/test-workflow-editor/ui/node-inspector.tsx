@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { TestEnvironmentDto, TestWorkflowNode } from "@/entities/test-workflow";
+import type { JsonValue, TestEnvironmentDto, TestWorkflowNode } from "@/entities/test-workflow";
 import { RequestTemplateEditor } from "@/features/test-workflow-editor/ui/request-template-editor";
 import { ExportsEditor } from "@/features/test-workflow-editor/ui/exports-editor";
 import { AssertionsEditor } from "@/features/test-workflow-editor/ui/assertions-editor";
@@ -9,12 +9,13 @@ import { AssertionsEditor } from "@/features/test-workflow-editor/ui/assertions-
 type NodeInspectorProps = {
   readonly node: TestWorkflowNode;
   readonly environment: TestEnvironmentDto | null;
+  readonly testData: Readonly<Record<string, JsonValue>>;
   readonly isStale: boolean;
   readonly onUpdateNode: (nodeId: string, updates: Partial<TestWorkflowNode>) => void;
   readonly onDeleteNode: (nodeId: string) => void;
 };
 
-export function NodeInspector({ node, environment, isStale, onUpdateNode, onDeleteNode }: NodeInspectorProps) {
+export function NodeInspector({ node, environment, testData, isStale, onUpdateNode, onDeleteNode }: NodeInspectorProps) {
   const [activeTab, setActiveTab] = useState<"request" | "exports" | "assertions">("request");
 
   const handleTemplateChange = (template: TestWorkflowNode["requestTemplate"]) => {
@@ -79,7 +80,7 @@ export function NodeInspector({ node, environment, isStale, onUpdateNode, onDele
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === "request" && (
-          <RequestTemplateEditor node={node} environment={environment} onChange={handleTemplateChange} />
+          <RequestTemplateEditor node={node} environment={environment} testData={testData} onChange={handleTemplateChange} />
         )}
         {activeTab === "exports" && (
           <ExportsEditor node={node} onChange={handleExportsChange} />

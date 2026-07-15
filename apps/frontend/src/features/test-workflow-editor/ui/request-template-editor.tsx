@@ -3,13 +3,16 @@
 import { useState, useEffect } from "react";
 import type {
   TestEnvironmentDto,
+  JsonValue,
   TestWorkflowNode,
   TestWorkflowRequestTemplate,
 } from "@/entities/test-workflow";
+import { WorkflowVariablePicker } from "@/features/test-workflow-editor/ui/workflow-variable-picker";
 
 type RequestTemplateEditorProps = {
   readonly node: TestWorkflowNode;
   readonly environment: TestEnvironmentDto | null;
+  readonly testData: Readonly<Record<string, JsonValue>>;
   readonly onChange: (template: TestWorkflowRequestTemplate) => void;
 };
 
@@ -18,7 +21,7 @@ type KeyValuePair = {
   readonly value: string;
 };
 
-export function RequestTemplateEditor({ node, environment, onChange }: RequestTemplateEditorProps) {
+export function RequestTemplateEditor({ node, environment, testData, onChange }: RequestTemplateEditorProps) {
   const { requestTemplate } = node;
 
   const [serverUrl, setServerUrl] = useState(requestTemplate.serverUrl ?? "");
@@ -86,39 +89,11 @@ export function RequestTemplateEditor({ node, environment, onChange }: RequestTe
     });
   };
 
-  const environmentVariableTemplate = (key: string): string => `{{env.${key}}}`;
-
-  const renderEnvironmentVariableSelect = (
+  const renderVariablePicker = (
     value: string,
     onSelect: (value: string) => void,
     fieldLabel: string,
-  ) => {
-    if (!environment || environment.variables.length === 0) {
-      return null;
-    }
-
-    const templates = environment.variables.map((variable) => environmentVariableTemplate(variable.key));
-
-    return (
-      <select
-        aria-label={`Use environment variable for ${fieldLabel}`}
-        value={templates.includes(value) ? value : ""}
-        onChange={(event) => {
-          if (event.target.value) {
-            onSelect(event.target.value);
-          }
-        }}
-        className="w-full min-w-0 max-w-[125px] flex-1 rounded border border-chalk bg-fog px-1.5 py-1 font-mono text-[10px] text-carbon focus:border-signal-orange focus:outline-none"
-      >
-        <option value="">Env variable...</option>
-        {environment.variables.map((variable) => (
-          <option key={variable.id} value={environmentVariableTemplate(variable.key)}>
-            {variable.key}
-          </option>
-        ))}
-      </select>
-    );
-  };
+  ) => <WorkflowVariablePicker environment={environment} fieldLabel={fieldLabel} onSelect={onSelect} testData={testData} value={value} />;
 
   const handlePairChange = (
     type: "headers" | "query" | "pathParams" | "body",
@@ -201,7 +176,7 @@ export function RequestTemplateEditor({ node, environment, onChange }: RequestTe
             placeholder="https://api.example.com/v1"
             className="min-w-0 flex-1 rounded border border-chalk bg-white px-2 py-1.5 focus:border-signal-orange focus:outline-none"
           />
-          {renderEnvironmentVariableSelect(serverUrl, (value) => {
+          {renderVariablePicker(serverUrl, (value) => {
             setServerUrl(value);
             triggerChange({ serverUrl: value });
           }, "server URL")}
@@ -260,7 +235,7 @@ export function RequestTemplateEditor({ node, environment, onChange }: RequestTe
                     placeholder="Value"
                     className="w-full min-w-0 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
                   />
-                  {renderEnvironmentVariableSelect(
+                  {renderVariablePicker(
                     p.value,
                     (value) => handlePairChange(type, index, "value", value),
                     `${title} value`,

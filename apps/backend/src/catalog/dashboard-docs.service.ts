@@ -114,7 +114,8 @@ export class DashboardDocsService implements OnModuleDestroy {
     const branchId = Reflect.get(row, "branchId");
     if (typeof branchId !== "string") return { organizationId: Reflect.get(row, "organizationId"), docId: Reflect.get(row, "docId"), branchId: "", branchSlug: "", workflows: [] };
     const workflows = await this.pool.query(
-      `SELECT id, name, slug, description, "definitionJson", revision, "createdAt", "updatedAt" FROM "TestWorkflow"
+      `SELECT id, name, slug, description, tags, priority::text AS priority, type::text AS type,
+              "definitionJson", revision, "createdAt", "updatedAt" FROM "TestWorkflow"
        WHERE "organizationId" = $1 AND "docId" = $2 AND "branchId" = $3 AND "deletedAt" IS NULL ORDER BY "createdAt" DESC LIMIT 100`,
       [Reflect.get(row, "organizationId"), Reflect.get(row, "docId"), branchId],
     );
