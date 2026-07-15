@@ -77,13 +77,13 @@ export function ConsoleResponseTab({ step }: { readonly step: TestWorkflowStepRu
 }
 
 export function ConsoleInputsTab({ step }: { readonly step: TestWorkflowStepRunDto }): React.ReactElement {
-  const inputs = step.inputs as { type: "env" | "var"; name?: string; key?: string; value: unknown }[] | null;
+  const inputs = step.inputs;
 
   if (!inputs || inputs.length === 0) return <span className="text-slate italic">No input references used in this step.</span>;
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-semibold text-carbon mb-2">Variables & Env Vars Substituted:</span>
+      <span className="font-semibold text-carbon mb-2">Inputs substituted:</span>
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-chalk text-left font-semibold text-slate text-[10px]">
@@ -93,9 +93,9 @@ export function ConsoleInputsTab({ step }: { readonly step: TestWorkflowStepRunD
         </thead>
         <tbody>
           {inputs.map((inp, idx) => (
-            <tr key={idx} className="border-b border-chalk last:border-b-0">
+            <tr key={`${inputReference(inp)}-${idx}`} className="border-b border-chalk last:border-b-0">
               <td className="py-1.5 font-mono text-[10px]">
-                {inp.type === "env" ? `{{env.${inp.key}}}` : `{{vars.${inp.name}}}`}
+                {inputReference(inp)}
               </td>
               <td className="py-1.5 font-mono text-[10px] text-graphite break-all">
                 {typeof inp.value === "object" ? JSON.stringify(inp.value) : String(inp.value)}
@@ -106,6 +106,12 @@ export function ConsoleInputsTab({ step }: { readonly step: TestWorkflowStepRunD
       </table>
     </div>
   );
+}
+
+function inputReference(input: TestWorkflowStepRunDto["inputs"][number]): string {
+  if (input.type === "env") return `{{env.${input.key}}}`;
+  if (input.type === "data") return `{{data.${input.key}}}`;
+  return `{{vars.${input.name}}}`;
 }
 
 export function ConsoleExportsTab({ step }: { readonly step: TestWorkflowStepRunDto }): React.ReactElement {

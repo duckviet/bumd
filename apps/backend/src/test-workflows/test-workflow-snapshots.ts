@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { TestWorkflowMetadata } from "./test-workflow-types.js";
+import type { TestWorkflowMetadata, TestWorkflowNodePhase } from "./test-workflow-types.js";
 
 const EncryptedEnvironmentVariableSnapshotSchema = z.object({
   id: z.string(),
@@ -27,12 +27,21 @@ export type EnvironmentSnapshotDescriptor = {
   }[];
 };
 
+export type SanitizedStepInput =
+  | { readonly type: "env"; readonly key: string; readonly value: unknown }
+  | { readonly type: "data"; readonly key: string; readonly value: unknown }
+  | { readonly type: "var"; readonly name: string; readonly value: unknown };
+
 export function workflowMetadataSnapshot(input: TestWorkflowMetadata): TestWorkflowMetadata {
   return { tags: [...input.tags], priority: input.priority, type: input.type };
 }
 
 export function parseEncryptedEnvironmentSnapshot(input: unknown): EncryptedEnvironmentSnapshot {
   return EncryptedEnvironmentSnapshotSchema.parse(input);
+}
+
+export function parseStepPhase(input: unknown): TestWorkflowNodePhase {
+  return z.enum(["setup", "test", "teardown"]).parse(input);
 }
 
 export function sanitizeEnvironmentSnapshot(
@@ -48,4 +57,30 @@ export function sanitizeEnvironmentSnapshot(
       hasValue: variable.encryptedValue !== null,
     })),
   };
+}
+
+export function sanitizeStepInputs(
+  input: unknown,
+  secretEnvironmentKeys: ReadonlySet<string> | null,
+): readonly SanitizedStepInput[] {
+  if (!Array.isArray(input)) return [];
+
+  return input.flatMap((candidate): readonly SanitizedStepInput[] => {
+    if (!isRecord(candidate) || !("value" in candidate)) return [];
+    if (candidate["type"] === "env" && typeof candidate["key"] === "string") {
+      const secret = secretEnvironmentKeys === null || secretEnvironmentKeys.has(candidate["key"]);
+      return [{ type: "env", key: candidate["key"], value: secret ? "[REDACTED]" : candidate["value"] }];
+    }
+    if (candidate["type"] === "data" && typeof candidate["key"] === "string") {
+      return [{ type: "data", key: candidate["key"], value: candidate["value"] }];
+    }
+    if (candidate["type"] === "var" && typeof candidate["name"] === "string") {
+      return [{ type: "var", name: candidate["name"], value: candidate["value"] }];
+    }
+    return [];
+  });
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

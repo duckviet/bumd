@@ -57,13 +57,48 @@ try {
 
   runId = `twr_scope_${suffix}`;
   const marker = `scope_marker_${suffix}`;
+  const rawSecret = `test_raw_secret_${suffix}`;
+  const ciphertext = `enc:test_ciphertext_${suffix}`;
+  const environmentSnapshot = {
+    id: `tenv_snapshot_${suffix}`,
+    name: "Historical environment",
+    variables: [
+      { id: `tenvv_token_${suffix}`, key: "TOKEN", encryptedValue: ciphertext, secret: true },
+      { id: `tenvv_url_${suffix}`, key: "BASE_URL", encryptedValue: "enc:test_public_value", secret: false },
+    ],
+  };
   await pool.query(
     `INSERT INTO "TestWorkflowRun"
       (id, "workflowId", "organizationId", "docId", "branchId", "versionId", status,
-       "definitionSnapshotJson", "metadataSnapshotJson", "createdAt", "updatedAt")
+       "definitionSnapshotJson", "metadataSnapshotJson", "environmentSnapshotJson",
+       "errorCode", "errorMessage", "createdAt", "updatedAt")
      VALUES ($1, $2, 'org_acme', 'doc_payments', 'br_payments_main', 'ver_payments_1', 'queued',
-       $3, '{"tags":["isolation"],"priority":"medium","type":"integration"}', NOW(), NOW())`,
-    [runId, workflowId, JSON.stringify({ schemaVersion: 2, context: { testData: { marker } }, nodes: [], edges: [] })],
+       $3, '{"tags":["isolation"],"priority":"medium","type":"integration"}', $4,
+       'ASSERTION_FAILED', 'Primary assertion failed', NOW(), NOW())`,
+    [
+      runId,
+      workflowId,
+      JSON.stringify({ schemaVersion: 2, context: { testData: { marker } }, nodes: [], edges: [] }),
+      JSON.stringify(environmentSnapshot),
+    ],
+  );
+  await pool.query(
+    `INSERT INTO "TestWorkflowStepRun"
+      (id, "runId", "nodeId", "operationId", phase, status, "inputsJson", "errorCode", "errorMessage", "createdAt", "updatedAt")
+     VALUES
+      ($1, $4, 'setup-node', 'setupOperation', 'setup', 'succeeded', '[]', NULL, NULL, NOW(), NOW()),
+      ($2, $4, 'test-node', 'testOperation', 'test', 'failed', $5, 'ASSERTION_FAILED', 'failed', NOW(), NOW()),
+      ($3, $4, 'cleanup-node', 'cleanupOperation', 'teardown', 'failed', '[]', 'REQUEST_FAILED', 'cleanup failed', NOW(), NOW())`,
+    [
+      `tws_setup_${suffix}`,
+      `tws_test_${suffix}`,
+      `tws_cleanup_${suffix}`,
+      runId,
+      JSON.stringify([
+        { type: "env", key: "TOKEN", value: rawSecret },
+        { type: "data", key: "accountId", value: 42 },
+      ]),
+    ],
   );
 
   const correctDetail = await harness.inject({
@@ -73,6 +108,23 @@ try {
   });
   assert.equal(correctDetail.statusCode, 200, correctDetail.payload);
   assert.match(correctDetail.payload, new RegExp(marker, "u"));
+  const detail = JSON.parse(correctDetail.payload);
+  assert.deepEqual(detail.metadataSnapshot, { tags: ["isolation"], priority: "medium", type: "integration" });
+  assert.deepEqual(detail.environmentSnapshot, {
+    id: environmentSnapshot.id,
+    name: environmentSnapshot.name,
+    variables: [
+      { id: environmentSnapshot.variables[0].id, key: "TOKEN", secret: true, hasValue: true },
+      { id: environmentSnapshot.variables[1].id, key: "BASE_URL", secret: false, hasValue: true },
+    ],
+  });
+  assert.deepEqual(detail.steps.map((step) => step.phase), ["setup", "test", "teardown"]);
+  assert.deepEqual(detail.steps[1].inputs, [
+    { type: "env", key: "TOKEN", value: "[REDACTED]" },
+    { type: "data", key: "accountId", value: 42 },
+  ]);
+  assert.deepEqual(detail.error, { code: "ASSERTION_FAILED", message: "Primary assertion failed" });
+  assert.doesNotMatch(correctDetail.payload, new RegExp(`${rawSecret}|${ciphertext}|encryptedValue`, "u"));
 
   const foreignDetail = await harness.inject({
     method: "GET",
@@ -111,6 +163,9 @@ try {
     foreignListCount: JSON.parse(foreignList.payload).items.length,
     foreignCancel: foreignCancel.statusCode,
     markerLeaked: false,
+    snapshotSanitized: true,
+    phases: detail.steps.map((step) => step.phase),
+    primaryError: detail.error.code,
   })}\n`);
 } finally {
   if (runId) await pool.query('DELETE FROM "TestWorkflowRun" WHERE id = $1', [runId]);

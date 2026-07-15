@@ -132,6 +132,17 @@ export type TestEnvironmentDto = {
 export type TestWorkflowRunStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
 export type TestWorkflowStepStatus = "queued" | "running" | "succeeded" | "failed" | "skipped" | "canceled";
 
+export type TestEnvironmentSnapshotDescriptor = {
+  readonly id: string;
+  readonly name: string;
+  readonly variables: readonly TestEnvironmentVariableDto[];
+};
+
+export type TestWorkflowStepInput =
+  | { readonly type: "env"; readonly key: string; readonly value: unknown }
+  | { readonly type: "data"; readonly key: string; readonly value: JsonValue }
+  | { readonly type: "var"; readonly name: string; readonly value: unknown };
+
 export type TestWorkflowRunDto = {
   readonly id: string;
   readonly workflowId: string;
@@ -148,10 +159,11 @@ export type TestWorkflowStepRunDto = {
   readonly id: string;
   readonly nodeId: string;
   readonly operationId: string;
+  readonly phase: TestWorkflowNodePhase;
   readonly status: TestWorkflowStepStatus;
   readonly request: unknown;
   readonly response: unknown;
-  readonly inputs: unknown;
+  readonly inputs: readonly TestWorkflowStepInput[];
   readonly exports: unknown;
   readonly assertions: unknown;
   readonly startedAt: string | null;
@@ -161,6 +173,9 @@ export type TestWorkflowStepRunDto = {
 };
 
 export type TestWorkflowRunDetailDto = TestWorkflowRunDto & {
+  readonly metadataSnapshot: TestWorkflowMetadata;
+  readonly definitionSnapshot: TestWorkflowDefinition;
+  readonly environmentSnapshot: TestEnvironmentSnapshotDescriptor | null;
   readonly error: { readonly code: string; readonly message: string } | null;
   readonly steps: readonly TestWorkflowStepRunDto[];
 };

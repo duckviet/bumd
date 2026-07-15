@@ -11,6 +11,14 @@ const runService = readFileSync(
   new URL("../apps/backend/src/test-workflows/test-workflow-runs.service.ts", import.meta.url),
   "utf8",
 );
+const runRepository = readFileSync(
+  new URL("../apps/backend/src/test-workflows/test-workflow-run-repository.ts", import.meta.url),
+  "utf8",
+);
+const runDto = readFileSync(
+  new URL("../apps/backend/src/test-workflows/test-workflow-run-dto.ts", import.meta.url),
+  "utf8",
+);
 const runController = readFileSync(
   new URL("../apps/backend/src/test-workflows/test-workflow-runs.controller.ts", import.meta.url),
   "utf8",
@@ -41,18 +49,18 @@ test("workflow SQL remains tenant scoped and revision conflicts remain explicit"
   assert.match(workflowService, /revision = \$6/u);
   assert.match(workflowService, /result\.rows\.length === 0[\s\S]*?WorkflowConflict/u);
   assert.match(workflowService, /WorkflowTagsSchema\.parse/u);
-  assert.match(runService, /"metadataSnapshotJson", "environmentSnapshotJson"/u);
+  assert.match(runRepository, /"metadataSnapshotJson", "environmentSnapshotJson"/u);
   assert.match(runService, /parseAndValidateDefinition\(workflow\.definitionJson\)/u);
   assert.match(runService, /loadEncryptedEnvironmentSnapshot/u);
-  assert.match(runService, /"organizationId" = \$3/u);
-  assert.match(runService, /"docId" = \$4 AND "branchId" = \$5/u);
+  assert.match(runRepository, /"organizationId" = \$3/u);
+  assert.match(runRepository, /"docId" = \$4 AND "branchId" = \$5/u);
   assert.match(runController, /listRuns\(\{\s*organizationId,\s*docId,\s*branchId,/u);
   assert.match(runController, /getRun\(\{ organizationId, docId, branchId, workflowId, runId \}\)/u);
   assert.match(runController, /cancelRun\(\{ organizationId, docId, branchId, workflowId, runId \}\)/u);
 });
 
 test("run snapshot responses expose descriptors without encrypted values", async () => {
-  const { sanitizeEnvironmentSnapshot } = await import(
+  const { parseStepPhase, sanitizeEnvironmentSnapshot, sanitizeStepInputs } = await import(
     "../apps/backend/src/test-workflows/test-workflow-snapshots.ts"
   );
   const response = sanitizeEnvironmentSnapshot({
@@ -72,6 +80,32 @@ test("run snapshot responses expose descriptors without encrypted values", async
     ],
   });
   assert.doesNotMatch(JSON.stringify(response), /ciphertext|encryptedValue|enc:/u);
+
+  const inputs = sanitizeStepInputs([
+    { type: "env", key: "TOKEN", value: "test_raw_secret" },
+    { type: "env", key: "BASE_URL", value: "https://snapshot.example" },
+    { type: "data", key: "accountId", value: 42 },
+    { type: "var", name: "resourceId", value: "resource-123" },
+    { type: "data", key: 9, value: "malformed" },
+    { type: "ciphertext", encryptedValue: "enc:test_ciphertext" },
+  ], new Set(["TOKEN"]));
+  assert.deepEqual(inputs, [
+    { type: "env", key: "TOKEN", value: "[REDACTED]" },
+    { type: "env", key: "BASE_URL", value: "https://snapshot.example" },
+    { type: "data", key: "accountId", value: 42 },
+    { type: "var", name: "resourceId", value: "resource-123" },
+  ]);
+  assert.doesNotMatch(JSON.stringify(inputs), /test_raw_secret|test_ciphertext|encryptedValue|enc:/u);
+  assert.equal(parseStepPhase("teardown"), "teardown");
+  assert.throws(() => parseStepPhase("cleanup"));
+});
+
+test("run detail maps immutable metadata, environment, and every execution phase", () => {
+  assert.match(runDto, /metadataSnapshot: WorkflowMetadataSchema\.parse\(run\.metadataSnapshotJson\)/u);
+  assert.match(runDto, /parseEncryptedEnvironmentSnapshot\(run\.environmentSnapshotJson\)/u);
+  assert.match(runDto, /sanitizeEnvironmentSnapshot\(environmentSnapshot\)/u);
+  assert.match(runDto, /phase: parseStepPhase\(step\.phase\)/u);
+  assert.match(runDto, /sanitizeStepInputs\(step\.inputsJson/u);
 });
 
 test("Fastify enforces run route scope and atomic expectedRevision updates", () => {
@@ -86,6 +120,10 @@ test("Fastify enforces run route scope and atomic expectedRevision updates", () 
     { cwd: process.cwd(), encoding: "utf8", env: process.env, timeout: 30_000 },
   );
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.doesNotMatch(
+    `${result.stdout}\n${result.stderr}`,
+    /test_raw_secret|test_ciphertext|encryptedValue|enc:/u,
+  );
   const output = JSON.parse(result.stdout.trim().split("\n").at(-1));
   assert.deepEqual(output.concurrentStatuses, [200, 409]);
   assert.equal(output.revision, 2);
@@ -94,4 +132,7 @@ test("Fastify enforces run route scope and atomic expectedRevision updates", () 
   assert.equal(output.foreignListCount, 0);
   assert.equal(output.foreignCancel, 404);
   assert.equal(output.markerLeaked, false);
+  assert.equal(output.snapshotSanitized, true);
+  assert.deepEqual(output.phases, ["setup", "test", "teardown"]);
+  assert.equal(output.primaryError, "ASSERTION_FAILED");
 });

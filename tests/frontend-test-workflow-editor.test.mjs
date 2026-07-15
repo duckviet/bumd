@@ -257,3 +257,52 @@ test("workflow settings use an accessible dialog and stack test data rows on mob
   assert.match(primitivesSource, /font-polysans text-xl font-normal/u);
   assert.match(settingsSource, /grid-cols-1[^"]*sm:grid-cols-/u);
 });
+
+test("run console reports immutable context and phase-aware outcomes", () => {
+  const consoleSource = readFrontendSource("features/test-workflow-run/ui/run-console.tsx");
+  const tabsSource = readFrontendSource("features/test-workflow-run/ui/console-tabs.tsx");
+  const modelSource = readFrontendSource("features/test-workflow-run/model/run-console-model.ts");
+  const typesSource = readFrontendSource("shared/api/test-workflow-types.ts");
+
+  assert.match(typesSource, /metadataSnapshot: TestWorkflowMetadata/u);
+  assert.match(typesSource, /environmentSnapshot: TestEnvironmentSnapshotDescriptor \| null/u);
+  assert.match(typesSource, /phase: TestWorkflowNodePhase/u);
+  assert.match(consoleSource, /metadataSnapshot\.priority/u);
+  assert.match(consoleSource, /environmentSnapshot\?\.name/u);
+  assert.match(consoleSource, /environmentSnapshot\?\.variables\.map/u);
+  assert.match(consoleSource, /variable\.hasValue/u);
+  assert.match(modelSource, /\["setup", "test", "teardown"\]/u);
+  assert.match(consoleSource, /Primary run error/u);
+  assert.match(consoleSource, /Teardown failures/u);
+  assert.match(tabsSource, /input\.type === "data"/u);
+  assert.match(tabsSource, /\{\{data\./u);
+  assert.doesNotMatch(consoleSource + tabsSource, /encryptedValue|test_raw_secret|test_ciphertext|enc:/u);
+});
+
+test("run console model keeps primary and teardown errors distinct", async () => {
+  const { groupRunStepsByPhase, summarizeRunErrors } = await import(
+    "../apps/frontend/src/features/test-workflow-run/model/run-console-model.ts"
+  );
+  const run = {
+    error: { code: "ASSERTION_FAILED", message: "Primary assertion failed" },
+    steps: [
+      { id: "setup", nodeId: "setup", phase: "setup", error: null },
+      { id: "test", nodeId: "test", phase: "test", error: { code: "ASSERTION_FAILED", message: "failed" } },
+      { id: "cleanup", nodeId: "cleanup", phase: "teardown", error: { code: "REQUEST_FAILED", message: "cleanup failed" } },
+    ],
+  };
+
+  assert.deepEqual(groupRunStepsByPhase(run.steps).map((group) => [group.phase, group.steps.length]), [
+    ["setup", 1],
+    ["test", 1],
+    ["teardown", 1],
+  ]);
+  assert.deepEqual(summarizeRunErrors(run), {
+    primaryError: run.error,
+    teardownFailures: [{ nodeId: "cleanup", error: run.steps[2].error }],
+  });
+  assert.deepEqual(summarizeRunErrors({ ...run, error: { code: "TEARDOWN_FAILED", message: "cleanup failed" } }), {
+    primaryError: null,
+    teardownFailures: [{ nodeId: "cleanup", error: run.steps[2].error }],
+  });
+});
