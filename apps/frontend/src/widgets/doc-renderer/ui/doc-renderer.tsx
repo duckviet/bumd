@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import type { ApiDocument, ApiOperation } from "../../../entities/openapi";
-import { Badge, PortalContainer, PortalShell, Surface } from "../../../shared/ui/portal-primitives";
-import { SearchBox } from "../../search-box";
-import { TryItOutPanel } from "../../try-it-out-panel";
-import { OperationNav, groupOperations } from "./operation-nav";
-import { OperationDetail } from "./operation-detail";
-import { SchemaRail } from "./schema-rail";
-import { Collapsible } from "./collapsible";
-import { TryItOutModal } from "../../../features/try-it-out";
+import type { ApiDocument, ApiOperation } from "@/entities/openapi";
+import { Badge, PortalContainer, PortalShell, Surface } from "@/shared/ui/portal-primitives";
+import { SearchBox } from "@/widgets/search-box";
+import { TryItOutPanel } from "@/widgets/try-it-out-panel";
+import { OperationNav, groupOperations } from "@/widgets/doc-renderer/ui/operation-nav";
+import { OperationDetail } from "@/widgets/doc-renderer/ui/operation-detail";
+import { SchemaRail } from "@/widgets/doc-renderer/ui/schema-rail";
+import { Collapsible } from "@/widgets/doc-renderer/ui/collapsible";
+import { TryItOutModal } from "@/features/try-it-out";
 
 type DocRendererProps = {
   readonly orgSlug: string;
@@ -75,24 +75,24 @@ export function DocRenderer({ branchSlug, docSlug, document, orgSlug, versionId 
   return (
     <PortalShell>
       <PortalContainer>
-        <header className="rounded-lg border border-[#d9dedb] bg-white p-5 sm:p-6">
+        <header className="rounded-lg border border-chalk bg-white p-5 sm:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="mb-3 flex flex-wrap gap-2">
                 <Badge tone="signal">{document.version}</Badge>
                 {document.servers[0] ? <Badge>{document.servers[0]}</Badge> : null}
               </div>
-              <h1 className="text-3xl font-semibold text-[#202020] sm:text-4xl">{document.title}</h1>
-              <p className="mt-3 text-base leading-7 text-[#4d4d4d]">Interactive OpenAPI reference for the latest published version.</p>
+              <h1 className="text-3xl font-semibold text-carbon sm:text-4xl">{document.title}</h1>
+              <p className="mt-3 text-base leading-7 text-graphite">Interactive OpenAPI reference for the latest published version.</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <a
-                  className="inline-flex min-h-10 items-center rounded-lg border border-[#d9dedb] bg-white px-4 text-sm font-semibold text-[#202020] transition hover:border-[#ff682c] hover:bg-[#fff3ed] hover:text-[#9c3d13]"
+                  className="inline-flex min-h-10 items-center rounded-lg border border-chalk bg-white px-4 text-sm font-semibold text-carbon transition hover:border-signal-orange hover:bg-orange-50 hover:text-orange-800"
                   href={`/${orgSlug}/${docSlug}/changes`}
                 >
                   Changelog
                 </a>
                 <a
-                  className="inline-flex min-h-10 items-center rounded-lg border border-[#d9dedb] bg-white px-4 text-sm font-semibold text-[#202020] transition hover:border-[#ff682c] hover:bg-[#fff3ed] hover:text-[#9c3d13]"
+                  className="inline-flex min-h-10 items-center rounded-lg border border-chalk bg-white px-4 text-sm font-semibold text-carbon transition hover:border-signal-orange hover:bg-orange-50 hover:text-orange-800"
                   href={`/app/${orgSlug}`}
                 >
                   Dashboard
@@ -114,7 +114,7 @@ export function DocRenderer({ branchSlug, docSlug, document, orgSlug, versionId 
         <div className="relative mt-5 grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)_360px]">
           <aside className="order-2 pr-1 lg:order-1 lg:sticky lg:top-10 lg:max-h-[calc(100vh-80px)] lg:self-start lg:overflow-y-auto">
             <Surface className="p-4">
-              <h2 className="mb-4 text-sm font-semibold uppercase text-[#828282]">
+              <h2 className="mb-4 text-sm font-semibold uppercase text-slate">
                 Navigation
               </h2>
               <OperationNav
@@ -133,15 +133,15 @@ export function DocRenderer({ branchSlug, docSlug, document, orgSlug, versionId 
                 <Collapsible
                   key={group.tag}
                   title={
-                    <h2 className="text-xl font-bold uppercase tracking-wide text-[#4d4d4d] group-hover:text-[#202020] transition-colors">
+                    <h2 className="text-xl font-bold uppercase tracking-wide text-graphite group-hover:text-carbon transition-colors">
                       {group.tag}
                     </h2>
                   }
                   isCollapsed={isCollapsed}
                   onToggle={() => toggleGroup(group.tag)}
                   className="space-y-4"
-                  headerClassName="flex w-full items-center justify-between border-b border-[#d9dedb] pb-2 text-left cursor-pointer group"
-                  chevronClassName="h-5 w-5 text-[#828282] group-hover:text-[#202020]"
+                  headerClassName="flex w-full items-center justify-between border-b border-chalk pb-2 text-left cursor-pointer group"
+                  chevronClassName="h-5 w-5 text-slate group-hover:text-carbon"
                 >
                   <div className="space-y-5">
                     {group.operations.map((operation) => (

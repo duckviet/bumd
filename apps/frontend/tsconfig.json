@@ -6,6 +6,10 @@
     "lib": ["DOM", "DOM.Iterable", "ES2024"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "noEmit": true,
     "allowJs": false,
     "incremental": true,

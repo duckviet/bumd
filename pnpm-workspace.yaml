@@ -1,4 +1,9 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - apps/*
+  - packages/*
 
+patchedDependencies:
+  '@xyflow/react@12.11.2': patches/@xyflow__react@12.11.2.patch
+  '@xyflow/system@0.0.79': patches/@xyflow__system@0.0.79.patch
+  '@auth/core@0.41.2': patches/@auth__core@0.41.2.patch
+  '@hexagon/base64@1.1.28': patches/@hexagon__base64@1.1.28.patch

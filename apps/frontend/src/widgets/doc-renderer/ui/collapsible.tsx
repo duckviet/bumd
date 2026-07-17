@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronIcon } from "./operation-nav";
+import { ChevronIcon } from "@/widgets/doc-renderer/ui/operation-nav";
 
 type CollapsibleProps = {
   readonly title: ReactNode;

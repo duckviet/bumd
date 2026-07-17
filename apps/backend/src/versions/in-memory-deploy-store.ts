@@ -65,7 +65,8 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
     readonly sha256: string;
     readonly sourceFormat: SourceFormat;
     readonly rawSpec: string;
-    readonly createdByTokenId: string;
+    readonly createdByTokenId: string | null;
+    readonly createdByUserId?: string | null;
   }): Promise<{ readonly version: VersionRecord; readonly job: DeployJobRecord }> {
     const versionId = `ver_${this.nextSequenceNumber}`;
     const version: MutableVersion = {
@@ -79,6 +80,7 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
       rawSpecObjectKey: `specs/${input.sha256}`,
       status: VersionStatus.Queued,
       createdByTokenId: input.createdByTokenId,
+      createdByUserId: input.createdByUserId ?? null,
       createdAt: new Date().toISOString(),
     };
     const job: DeployJobRecord = {
@@ -103,6 +105,24 @@ export class InMemoryDeployStore implements DeployStore, WebhookStore, ApiTokenS
 
   public async getVersion(versionId: string): Promise<VersionRecord> {
     return this.versionMetadata(versionId);
+  }
+
+  public async getVersionForRoute(input: {
+    readonly versionId: string;
+    readonly orgSlug: string;
+    readonly docSlug: string;
+    readonly branchSlug: string;
+  }): Promise<VersionRecord | null> {
+    const version = this.versions.get(input.versionId);
+    if (
+      version === undefined ||
+      version.organizationId !== input.orgSlug ||
+      version.docId !== input.docSlug ||
+      version.branchId !== input.branchSlug
+    ) {
+      return null;
+    }
+    return version;
   }
 
   public async previousReadyVersion(version: VersionRecord): Promise<VersionRecord | null> {

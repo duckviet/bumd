@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getDb } from "../../../../../../../../shared/db";
-import { dashboardShell, requireDashboardRead } from "../../../../dashboard-helpers";
+import { dashboardDiffDetail } from "@/shared/api/dashboard-management-client";
+import { dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { z } from "zod";
 
 type PageProps = {
   readonly params: Promise<{
@@ -10,62 +11,45 @@ type PageProps = {
   }>;
 };
 
-type DbChange = {
-  readonly type: string;
-  readonly path: string;
-  readonly message: string;
-  readonly level: "breaking" | "non-breaking" | string;
-};
+const dbChangeSchema = z.object({
+  breaking: z.boolean().optional(),
+  level: z.string(),
+  message: z.string(),
+  path: z.string(),
+  type: z.string(),
+});
+
+type DbChange = z.infer<typeof dbChangeSchema>;
+
+function parseChanges(value: unknown): readonly DbChange[] {
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    const result = z.array(dbChangeSchema).safeParse(parsed);
+    return result.success ? result.data : [];
+  } catch (error) {
+    if (error instanceof SyntaxError) return [];
+    throw error;
+  }
+}
+
+function isBreakingChange(change: DbChange): boolean {
+  return change.level === "breaking" || change.breaking === true;
+}
 
 export default async function DiffDetailPage({ params }: PageProps): Promise<React.ReactElement> {
   const { org, doc: docSlug, versionId } = await params;
   const { session, membership } = await requireDashboardRead(org);
 
-  const db = getDb();
-
-  // Fetch Version details
-  const versionRes = await db.query(
-    `SELECT v.*, d.name AS "docName"
-     FROM "Version" v
-     INNER JOIN "Doc" d ON d.id = v."docId"
-     INNER JOIN "Organization" o ON o.id = d."organizationId"
-     WHERE o.slug = $1 AND d.slug = $2 AND v.id = $3`,
-    [org, docSlug, versionId]
-  );
-
-  if (versionRes.rows.length === 0) {
+  const diff = await dashboardDiffDetail(org, docSlug, versionId);
+  if (diff === null) {
     notFound();
   }
-
-  const version = versionRes.rows[0];
-
-  // Fetch Diff details
-  const diffRes = await db.query(
-    `SELECT *
-     FROM "Diff"
-     WHERE "headVersionId" = $1`,
-    [versionId]
-  );
-
-  if (diffRes.rows.length === 0) {
-    notFound();
-  }
-
-  const diff = diffRes.rows[0];
+  const version = { docName: diff.docName, sequenceNumber: diff.sequenceNumber };
 
   // Safely extract changes
-  let parsedChanges: readonly DbChange[] = [];
-  try {
-    const rawChanges = typeof diff.changes === "string" ? JSON.parse(diff.changes) : diff.changes;
-    if (Array.isArray(rawChanges)) {
-      parsedChanges = rawChanges as readonly DbChange[];
-    }
-  } catch {
-    // Fallback
-  }
-
-  const breakingChanges = parsedChanges.filter(c => c.level === "breaking" || (c as any).breaking === true);
-  const nonBreakingChanges = parsedChanges.filter(c => c.level !== "breaking" && (c as any).breaking !== true);
+  const parsedChanges = parseChanges(diff.changes);
+  const breakingChanges = parsedChanges.filter(isBreakingChange);
+  const nonBreakingChanges = parsedChanges.filter((change) => !isBreakingChange(change));
 
   return dashboardShell({
     organizationSlug: org,
@@ -73,40 +57,40 @@ export default async function DiffDetailPage({ params }: PageProps): Promise<Rea
     role: membership.role,
     memberships: session.memberships,
     children: (
-      <div className="dashboard-workspace">
-        <section className="dashboard-hero dashboard-hero-compact">
+      <div className="mx-auto grid w-full max-w-7xl gap-5 p-4 sm:p-6">
+        <section className="flex flex-col justify-between gap-5 rounded-lg border border-chalk bg-paper p-6 sm:flex-row">
           <div>
-            <p className="dashboard-kicker">{version.docName} / Version v{version.sequenceNumber} / Diff</p>
+            <p className="mb-1.5 text-xs font-bold uppercase text-sienna-bronze">{version.docName} / Version v{version.sequenceNumber} / Diff</p>
             <h1>Diff Analysis Report</h1>
-            <p className="dashboard-lede">
+            <p className="text-graphite">
               Showing detailed OpenAPI changes detected against the previous baseline version.
             </p>
           </div>
-          <div className="dashboard-hero-actions">
-            <a href={`/app/${org}/docs/${docSlug}/versions/${versionId}`} className="dashboard-secondary-action">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <a href={`/app/${org}/docs/${docSlug}/versions/${versionId}`} className="inline-flex min-h-10 items-center justify-center rounded-full border border-chalk bg-paper px-5 text-sm font-semibold text-carbon hover:border-carbon hover:bg-fog">
               Back to Version Details
             </a>
           </div>
         </section>
 
-        <section className="dashboard-panel" style={{ marginBottom: "24px" }}>
+        <section className="rounded-lg border border-chalk bg-paper p-5  ">
           <h2>Summary</h2>
-          <div className="dashboard-facts" style={{ display: "flex", gap: "24px", marginTop: "12px" }}>
-            <div style={{ flex: 1, padding: "16px", background: "#f5f5f5", borderRadius: "8px", border: "1px solid #e8e8e8" }}>
-              <span style={{ fontSize: "12px", color: "#666", fontWeight: "700", textTransform: "uppercase" }}>Classification</span>
-              <strong style={{ display: "block", fontSize: "20px", marginTop: "4px", color: diff.hasBreaking ? "#dc2626" : "#137333" }}>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-chalk bg-fog p-4">
+              <span className="text-xs font-bold uppercase text-slate">Classification</span>
+              <strong className={`mt-1 block text-xl ${diff.hasBreaking ? "text-red-700" : "text-green-700"}`}>
                 {diff.classification.replace("_", " ").toUpperCase()}
               </strong>
             </div>
-            <div style={{ flex: 1, padding: "16px", background: "#fdf2f2", borderRadius: "8px", border: "1px solid #fde8e8" }}>
-              <span style={{ fontSize: "12px", color: "#e02424", fontWeight: "700", textTransform: "uppercase" }}>Breaking Changes</span>
-              <strong style={{ display: "block", fontSize: "24px", marginTop: "4px", color: "#e02424" }}>
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <span className="text-xs font-bold uppercase text-red-700">Breaking Changes</span>
+              <strong className="mt-1 block text-2xl text-red-700">
                 {breakingChanges.length}
               </strong>
             </div>
-            <div style={{ flex: 1, padding: "16px", background: "#f3fbf3", borderRadius: "8px", border: "1px solid #def7ec" }}>
-              <span style={{ fontSize: "12px", color: "#03543f", fontWeight: "700", textTransform: "uppercase" }}>Non-breaking Changes</span>
-              <strong style={{ display: "block", fontSize: "24px", marginTop: "4px", color: "#03543f" }}>
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <span className="text-xs font-bold uppercase text-green-800">Non-breaking Changes</span>
+              <strong className="mt-1 block text-2xl text-green-800">
                 {nonBreakingChanges.length}
               </strong>
             </div>
@@ -114,74 +98,53 @@ export default async function DiffDetailPage({ params }: PageProps): Promise<Rea
         </section>
 
         {breakingChanges.length > 0 && (
-          <section className="dashboard-panel" style={{ marginBottom: "24px", borderColor: "#fecaca" }}>
-            <div className="dashboard-section-header">
-              <h2 style={{ color: "#dc2626" }}>Breaking Changes ({breakingChanges.length})</h2>
+          <section className="rounded-lg border border-red-200 bg-paper p-5  ">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
+              <h2 className="text-red-700">Breaking Changes ({breakingChanges.length})</h2>
               <p>These changes require immediate attention as they break contract compatibility.</p>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
+            <div className="mt-3 flex flex-col gap-3">
               {breakingChanges.map((change, index) => (
-                <div key={index} style={{ padding: "12px 16px", background: "#fff5f5", borderLeft: "4px solid #dc2626", borderRadius: "0 8px 8px 0", borderTop: "1px solid #fecaca", borderRight: "1px solid #fecaca", borderBottom: "1px solid #fecaca" }}>
-                  <div style={{ display: "flex", gap: "8px", fontSize: "12px", fontWeight: "700", color: "#b91c1c", marginBottom: "4px", textTransform: "uppercase" }}>
+                <div className="rounded-r-lg border border-l-4 border-red-200 border-l-red-700 bg-red-50 px-4 py-3" key={`${change.path}-${index}`}>
+                  <div className="mb-1 flex gap-2 text-xs font-bold uppercase text-red-700">
                     <span>{change.type || "Modified"}</span>
                     <span>•</span>
-                    <span style={{ fontFamily: "monospace" }}>{change.path}</span>
+                    <span className="font-mono">{change.path}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: "14px", color: "#4b5563" }}>{change.message}</p>
+                  <p className="text-sm text-graphite">{change.message}</p>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        <section className="dashboard-panel">
-          <div className="dashboard-section-header">
+        <section className="rounded-lg border border-chalk bg-paper p-5  ">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-chalk pb-4">
             <h2>All Changes ({parsedChanges.length})</h2>
             <p>Complete list of modifications between spec versions.</p>
           </div>
           {parsedChanges.length === 0 ? (
-            <div style={{ marginTop: "16px" }}>
-              <pre
-                style={{
-                  background: "#f9f9f9",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  border: "1px solid #e8e8e8",
-                  whiteSpace: "pre-wrap",
-                  fontFamily: "monospace",
-                  fontSize: "14px",
-                  color: "#202020",
-                }}
-              >
+            <div className="mt-4">
+              <pre className="whitespace-pre-wrap rounded-lg border border-chalk bg-fog p-4 font-mono text-sm text-carbon">
                 {diff.diffMarkdown || "No detailed change list found."}
               </pre>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+            <div className="mt-3 flex flex-col gap-2.5">
               {parsedChanges.map((change, index) => {
-                const isBreaking = change.level === "breaking" || (change as any).breaking === true;
+                const isBreaking = isBreakingChange(change);
                 return (
-                  <div key={index} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px", border: "1px solid #e8e8e8", borderRadius: "8px", background: "#ffffff" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <span
-                          className="dashboard-badge"
-                          style={{
-                            fontSize: "10px",
-                            padding: "0 6px",
-                            minHeight: "18px",
-                            background: isBreaking ? "#fce8e6" : "#e6f4ea",
-                            color: isBreaking ? "#c5221f" : "#137333",
-                            borderColor: isBreaking ? "#fad2cf" : "#ceead6",
-                          }}
-                        >
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-chalk bg-paper p-3" key={`${change.path}-${index}`}>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex min-h-5 items-center rounded-full border px-2 text-xs font-bold ${isBreaking ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"}`}>
                           {isBreaking ? "breaking" : "compatible"}
                         </span>
-                        <code style={{ fontSize: "13px", color: "#4d4d4d", fontWeight: "700" }}>{change.path}</code>
+                        <code className="break-all text-sm font-bold text-graphite">{change.path}</code>
                       </div>
-                      <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#202020" }}>{change.message}</p>
+                      <p className="mt-1 text-sm text-carbon">{change.message}</p>
                     </div>
-                    <span style={{ fontSize: "12px", color: "#828282", textTransform: "uppercase", fontWeight: "700" }}>
+                    <span className="text-xs font-bold uppercase text-slate">
                       {change.type || "Update"}
                     </span>
                   </div>

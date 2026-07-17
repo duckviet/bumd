@@ -56,7 +56,8 @@ export class VersionsService {
       sha256,
       sourceFormat: request.sourceFormat,
       rawSpec,
-      createdByTokenId: auth.tokenId,
+      createdByTokenId: auth.tokenId.startsWith("dsh_") ? null : auth.tokenId,
+      createdByUserId: auth.userId || null,
     });
     await this.queue.enqueueDeploy({ versionId: created.version.id });
     return { kind: "created", version: created.version, job: created.job };

@@ -3,7 +3,7 @@ import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { DEPLOY_STORE, type DeployStore } from "../versions/deploy-ports.js";
 import { TRY_IT_OUT_HTTP_CLIENT, type TryItOutHttpClient, type TryItOutResponse } from "./try-it-out-types.js";
-import { TryItOutError } from "./try-it-out-errors.js";
+import { TryItOutError, TryItOutErrorCode } from "./try-it-out-errors.js";
 
 const TryItOutRequestSchema = z.object({
   serverUrl: z.string().url(),
@@ -40,9 +40,14 @@ export class TryItOutService {
     readonly body: unknown;
   }): Promise<TryItOutResponse> {
     const request = parseRequest(input.body);
-    const version = await this.store.getVersion(input.versionId);
-    if (version.organizationId !== input.orgSlug || version.docId !== input.docSlug || version.branchId !== input.branchSlug) {
-      throw new TryItOutError("try_it_out_version_not_found", "Version is not available for this doc.", 404);
+    const version = await this.store.getVersionForRoute({
+      versionId: input.versionId,
+      orgSlug: input.orgSlug,
+      docSlug: input.docSlug,
+      branchSlug: input.branchSlug,
+    });
+    if (version === null) {
+      throw new TryItOutError(TryItOutErrorCode.VersionNotFound, "Version is not available for this doc.", 404);
     }
 
     const rawSpec = await this.store.getRawSpec(version.id);
@@ -62,14 +67,20 @@ export class TryItOutService {
 function parseRequest(body: unknown): z.infer<typeof TryItOutRequestSchema> {
   const result = TryItOutRequestSchema.safeParse(body);
   if (!result.success) {
-    throw new TryItOutError("invalid_try_it_out_request", "Try it out request is invalid.", 400);
+    throw new TryItOutError(TryItOutErrorCode.InvalidRequest, "Try it out request is invalid.", 400);
   }
   return result.data;
 }
 
 function buildTargetUrl(serverUrl: string, path: string, query: Record<string, string> | undefined): URL {
-  const base = new URL(serverUrl);
-  const target = new URL(path, `${base.origin}${base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`}`);
+  const target = new URL(serverUrl);
+  const basePath = target.pathname.endsWith("/")
+    ? target.pathname.slice(0, -1)
+    : target.pathname;
+  const operationPath = path.startsWith("/") ? path : `/${path}`;
+  target.pathname = `${basePath}${operationPath}`;
+  target.search = "";
+  target.hash = "";
   for (const [name, value] of Object.entries(query ?? {})) {
     target.searchParams.set(name, value);
   }
@@ -78,13 +89,13 @@ function buildTargetUrl(serverUrl: string, path: string, query: Record<string, s
 
 function assertAllowedTarget(target: URL, declaredOrigins: ReadonlySet<string>, allowedHosts: ReadonlySet<string>): void {
   if (target.protocol !== "http:" && target.protocol !== "https:") {
-    throw new TryItOutError("try_it_out_target_forbidden", "Target protocol is not allowed.", 403);
+    throw new TryItOutError(TryItOutErrorCode.TargetForbidden, "Target protocol is not allowed.", 403);
   }
   if (!declaredOrigins.has(target.origin)) {
-    throw new TryItOutError("try_it_out_target_forbidden", "Target server is not declared by this spec.", 403);
+    throw new TryItOutError(TryItOutErrorCode.TargetForbidden, "Target server is not declared by this spec.", 403);
   }
   if (isInternalHostname(target.hostname) && !allowedHosts.has(target.hostname)) {
-    throw new TryItOutError("try_it_out_target_forbidden", "Target host is not allowed.", 403);
+    throw new TryItOutError(TryItOutErrorCode.TargetForbidden, "Target host is not allowed.", 403);
   }
 }
 

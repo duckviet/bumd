@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import type { ApiSchemaSummary } from "../../../entities/openapi";
-import { Badge, Surface } from "../../../shared/ui/portal-primitives";
+import type { ApiSchemaSummary } from "@/entities/openapi";
+import { Badge, Surface } from "@/shared/ui/portal-primitives";
 
 type SchemaRailProps = {
   readonly schemas: readonly ApiSchemaSummary[];
@@ -46,15 +46,15 @@ export function SchemaRail({
 
   return (
     <Surface className="p-5 sm:p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between border-b border-[#edf0ee] pb-3 flex-wrap gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-[#828282]">Schemas</h2>
+      <div className="flex items-center justify-between border-b border-chalk pb-3 flex-wrap gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate">Schemas</h2>
         <div className="flex gap-2">
           <button
             onClick={() => onTabChange("referenced")}
             className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all border cursor-pointer ${
               currentTab === "referenced"
-                ? "border-[#ff682c] bg-[#fff3ed] text-[#9c3d13]"
-                : "border-[#d9dedb] bg-white text-[#4d4d4d] hover:bg-[#f5f5f5]"
+                ? "border-signal-orange bg-orange-50 text-orange-800"
+                : "border-chalk bg-white text-graphite hover:bg-fog"
             }`}
             type="button"
           >
@@ -64,8 +64,8 @@ export function SchemaRail({
             onClick={() => onTabChange("all")}
             className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all border cursor-pointer ${
               currentTab === "all"
-                ? "border-[#ff682c] bg-[#fff3ed] text-[#9c3d13]"
-                : "border-[#d9dedb] bg-white text-[#4d4d4d] hover:bg-[#f5f5f5]"
+                ? "border-signal-orange bg-orange-50 text-orange-800"
+                : "border-chalk bg-white text-graphite hover:bg-fog"
             }`}
             type="button"
           >
@@ -75,11 +75,11 @@ export function SchemaRail({
       </div>
 
       {schemas.length === 0 ? (
-        <div className="text-center py-8 border border-dashed border-[#d9dedb] rounded-lg bg-[#fafafa]">
-          <p className="text-sm text-[#828282]">No referenced schemas for this operation.</p>
+        <div className="text-center py-8 border border-dashed border-chalk rounded-lg bg-fog">
+          <p className="text-sm text-slate">No referenced schemas for this operation.</p>
           <button
             onClick={() => onTabChange("all")}
-            className="text-xs text-[#ff682c] font-semibold hover:underline mt-2 cursor-pointer"
+            className="text-xs text-signal-orange font-semibold hover:underline mt-2 cursor-pointer"
             type="button"
           >
             View all schemas
@@ -88,14 +88,14 @@ export function SchemaRail({
       ) : (
         <div className="space-y-4">
           {schemas.map((schema) => (
-            <div className="rounded-lg border border-[#edf0ee] bg-[#fafafa] p-4 flex flex-col gap-3" key={schema.name}>
+            <div className="rounded-lg border border-chalk bg-fog p-4 flex flex-col gap-3" key={schema.name}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <h3 className="truncate text-base font-semibold text-[#202020]">{schema.name}</h3>
+                <h3 className="truncate text-base font-semibold text-carbon">{schema.name}</h3>
                 <div className="flex items-center gap-2 min-w-0">
                   <Badge>{schema.type}</Badge>
                   <button
                     onClick={() => handleCopySchema(schema)}
-                    className="text-xs font-semibold px-2 py-1 rounded border border-[#d9dedb] bg-white text-[#4d4d4d] hover:bg-[#f5f5f5] cursor-pointer transition-all flex items-center gap-1.5"
+                    className="text-xs font-semibold px-2 py-1 rounded border border-chalk bg-white text-graphite hover:bg-fog cursor-pointer transition-all flex items-center gap-1.5"
                     type="button"
                   >
                     {copiedSchemaName === schema.name ? (
@@ -113,20 +113,20 @@ export function SchemaRail({
                 </div>
               </div>
               {schema.properties.length > 0 ? (
-                <div className="border-t border-[#edf0ee] pt-3 flex flex-col gap-2.5">
+                <div className="border-t border-chalk pt-3 flex flex-col gap-2.5">
                   {schema.properties.map((prop) => (
-                    <div key={prop.name} className="flex flex-col gap-1 pb-1.5 border-b border-[#f5f7f6] last:border-b-0 last:pb-0">
+                    <div key={prop.name} className="flex flex-col gap-1 pb-1.5 border-b border-fog last:border-b-0 last:pb-0">
                       <div className="flex items-center flex-wrap gap-2 text-xs">
-                        <span className="font-mono font-semibold text-[#202020] bg-white border border-[#d9dedb] px-1.5 py-0.5 rounded">
+                        <span className="font-mono font-semibold text-carbon bg-white border border-chalk px-1.5 py-0.5 rounded">
                           {prop.name}
                         </span>
-                        <span className="text-[#828282] font-mono">{prop.type}</span>
+                        <span className="text-slate font-mono">{prop.type}</span>
                         {prop.required ? (
-                          <span className="text-[#ff682c] font-bold text-[10px] uppercase tracking-wider">Required</span>
+                          <span className="text-signal-orange font-bold text-[10px] uppercase tracking-wider">Required</span>
                         ) : null}
                       </div>
                       {prop.description ? (
-                        <p className="text-xs text-[#65706b] leading-relaxed pl-1">{prop.description}</p>
+                        <p className="text-xs text-slate leading-relaxed pl-1">{prop.description}</p>
                       ) : null}
                     </div>
                   ))}

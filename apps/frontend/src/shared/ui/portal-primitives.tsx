@@ -5,8 +5,8 @@ type Tone = "neutral" | "signal" | "success" | "danger" | "info" | "warning";
 const badgeToneClasses: Record<Tone, string> = {
   danger: "border-red-200 bg-red-50 text-red-700",
   info: "border-blue-200 bg-blue-50 text-blue-700",
-  neutral: "border-[#d9dedb] bg-white text-[#4d4d4d]",
-  signal: "border-[#ffd5c2] bg-[#fff3ed] text-[#9c3d13]",
+  neutral: "border-chalk bg-white text-graphite",
+  signal: "border-orange-200 bg-orange-50 text-orange-800",
   success: "border-emerald-200 bg-emerald-50 text-emerald-700",
   warning: "border-amber-200 bg-amber-50 text-amber-700",
 };
@@ -20,7 +20,7 @@ const methodTone: Record<string, Tone> = {
 };
 
 export function PortalShell({ children }: { readonly children: ReactNode }) {
-  return <main className="min-h-screen bg-[#f5f5f5] text-[#202020]">{children}</main>;
+  return <main className="min-h-screen bg-fog text-carbon">{children}</main>;
 }
 
 export function PortalContainer({
@@ -40,7 +40,7 @@ export function Surface({
   readonly children: ReactNode;
   readonly className?: string;
 }) {
-  return <section className={`rounded-lg border border-[#d9dedb] bg-white ${className}`}>{children}</section>;
+  return <section className={`rounded-lg border border-chalk bg-white ${className}`}>{children}</section>;
 }
 
 export function Badge({

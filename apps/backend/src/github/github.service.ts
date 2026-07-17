@@ -76,6 +76,10 @@ export class GithubService {
     );
   }
 
+  public async upsertInstallationForOrg(orgSlug: string, githubInstallationId: string, accountName: string): Promise<GithubInstallationRecord> {
+    return this.upsertInstallation({ organizationId: await this.organizationIdForSlug(orgSlug), githubInstallationId, accountName });
+  }
+
   // ---------------------------------------------------------------------------
   // Repositories
   // ---------------------------------------------------------------------------
@@ -113,6 +117,15 @@ export class GithubService {
       `DELETE FROM "GithubRepository" WHERE "organizationId" = $1 AND id = $2`,
       [organizationId, repoId],
     );
+  }
+
+  public async assignRepository(orgSlug: string, repoId: string, docId: string | null): Promise<void> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
+    const result = await this.pool.query(
+      `UPDATE "GithubRepository" SET "docId" = $3, "updatedAt" = NOW() WHERE "organizationId" = $1 AND id = $2`,
+      [organizationId, repoId, docId],
+    );
+    if (result.rowCount === 0) throw new Error("repository_not_found");
   }
 
   public async findRepositoryByGithubRepoId(githubRepoId: string): Promise<GithubRepositoryRecord | null> {
@@ -155,6 +168,16 @@ export class GithubService {
       [organizationId, githubRepoId, input.branchName, input.specPath, input.docId],
     );
     return res.rows[0]!;
+  }
+
+  public async listMappingsForDoc(orgSlug: string, docId: string): Promise<GithubRepoBranchMappingRecord[]> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
+    const result = await this.pool.query<GithubRepoBranchMappingRecord>(
+      `SELECT id, "organizationId", "githubRepoId", "branchName", "specPath", "docId", "createdAt", "updatedAt"
+       FROM "GithubRepoBranchMapping" WHERE "organizationId" = $1 AND "docId" = $2 ORDER BY "createdAt" DESC`,
+      [organizationId, docId],
+    );
+    return result.rows;
   }
 
   public async deleteMapping(orgSlug: string, mappingId: string): Promise<void> {
@@ -203,6 +226,18 @@ export class GithubService {
     const branchName = payload.ref.replace("refs/heads/", "");
     const mappings = await this.findMappingsForBranch(githubRepoId, branchName);
     return { repoFound: true, mappings };
+  }
+
+  public async simulatedPush(orgSlug: string, mappingId: string): Promise<PushWebhookPayload | null> {
+    const organizationId = await this.organizationIdForSlug(orgSlug);
+    const result = await this.pool.query<{ readonly branchName: string; readonly githubRepoId: string; readonly fullName: string; readonly githubInstallationId: string }>(
+      `SELECT m."branchName", m."githubRepoId", r."fullName", r."githubInstallationId"
+       FROM "GithubRepoBranchMapping" m JOIN "GithubRepository" r ON r."githubRepoId" = m."githubRepoId" AND r."organizationId" = m."organizationId"
+       WHERE m."organizationId" = $1 AND m.id = $2 LIMIT 1`, [organizationId, mappingId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return null;
+    return { ref: `refs/heads/${row.branchName}`, after: "simulated", repository: { id: Number(row.githubRepoId), full_name: row.fullName }, installation: { id: Number(row.githubInstallationId) } };
   }
 
   // ---------------------------------------------------------------------------

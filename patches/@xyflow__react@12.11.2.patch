@@ -1,0 +1,100 @@
+diff --git a/dist/esm/hooks/useConnection.d.ts b/dist/esm/hooks/useConnection.d.ts
+index 13d3f7c71c55811d71fb9b40c0c67c4e2ec3f917..19bcc5f6eb2b746f83e0287714425022f51c867a 100644
+--- a/dist/esm/hooks/useConnection.d.ts
++++ b/dist/esm/hooks/useConnection.d.ts
+@@ -1,5 +1,4 @@
+ import { ConnectionState } from '@xyflow/system';
+-import type { InternalNode, Node } from '../types';
+ /**
+  * The `useConnection` hook returns the current connection when there is an active
+  * connection interaction. If no connection interaction is active, it returns null
+@@ -29,5 +28,5 @@ import type { InternalNode, Node } from '../types';
+  *
+  * @returns ConnectionState
+  */
+-export declare function useConnection<NodeType extends Node = Node, SelectorReturn = ConnectionState<InternalNode<NodeType>>>(connectionSelector?: (connection: ConnectionState<InternalNode<NodeType>>) => SelectorReturn): SelectorReturn;
++export declare function useConnection<SelectorReturn = ConnectionState>(connectionSelector?: (connection: ConnectionState) => SelectorReturn): SelectorReturn;
+ //# sourceMappingURL=useConnection.d.ts.map
+diff --git a/dist/esm/types/store.d.ts b/dist/esm/types/store.d.ts
+index f0760922502dc0d25ec0f547922a66f72586bdb2..178d9cbb0b163e27bfa4503e361f666256a6bc77 100644
+--- a/dist/esm/types/store.d.ts
++++ b/dist/esm/types/store.d.ts
+@@ -7,8 +7,8 @@ export type ReactFlowStore<NodeType extends Node = Node, EdgeType extends Edge =
+     transform: Transform;
+     nodes: NodeType[];
+     nodesInitialized: boolean;
+-    nodeLookup: NodeLookup<InternalNode<NodeType>>;
+-    parentLookup: ParentLookup<InternalNode<NodeType>>;
++    nodeLookup: NodeLookup;
++    parentLookup: ParentLookup;
+     edges: EdgeType[];
+     edgeLookup: EdgeLookup<EdgeType>;
+     connectionLookup: ConnectionLookup;
+@@ -30,7 +30,7 @@ export type ReactFlowStore<NodeType extends Node = Node, EdgeType extends Edge =
+     nodesSelectionActive: boolean;
+     userSelectionActive: boolean;
+     userSelectionRect: SelectionRect | null;
+-    connection: ConnectionState<InternalNode<NodeType>>;
++    connection: ConnectionState;
+     connectionMode: ConnectionMode;
+     connectionClickStartHandle: (Pick<Handle, 'nodeId' | 'id'> & Required<Pick<Handle, 'type'>>) | null;
+     snapToGrid: boolean;
+@@ -104,7 +104,7 @@ export type ReactFlowActions<NodeType extends Node, EdgeType extends Edge> = {
+     setTranslateExtent: (translateExtent: CoordinateExtent) => void;
+     setNodeExtent: (nodeExtent: CoordinateExtent) => void;
+     cancelConnection: () => void;
+-    updateConnection: UpdateConnection<InternalNode<NodeType>>;
++    updateConnection: UpdateConnection;
+     reset: () => void;
+     triggerNodeChanges: (changes: NodeChange<NodeType>[]) => void;
+     triggerEdgeChanges: (changes: EdgeChange<EdgeType>[]) => void;
+diff --git a/dist/umd/hooks/useConnection.d.ts b/dist/umd/hooks/useConnection.d.ts
+index 13d3f7c71c55811d71fb9b40c0c67c4e2ec3f917..19bcc5f6eb2b746f83e0287714425022f51c867a 100644
+--- a/dist/umd/hooks/useConnection.d.ts
++++ b/dist/umd/hooks/useConnection.d.ts
+@@ -1,5 +1,4 @@
+ import { ConnectionState } from '@xyflow/system';
+-import type { InternalNode, Node } from '../types';
+ /**
+  * The `useConnection` hook returns the current connection when there is an active
+  * connection interaction. If no connection interaction is active, it returns null
+@@ -29,5 +28,5 @@ import type { InternalNode, Node } from '../types';
+  *
+  * @returns ConnectionState
+  */
+-export declare function useConnection<NodeType extends Node = Node, SelectorReturn = ConnectionState<InternalNode<NodeType>>>(connectionSelector?: (connection: ConnectionState<InternalNode<NodeType>>) => SelectorReturn): SelectorReturn;
++export declare function useConnection<SelectorReturn = ConnectionState>(connectionSelector?: (connection: ConnectionState) => SelectorReturn): SelectorReturn;
+ //# sourceMappingURL=useConnection.d.ts.map
+diff --git a/dist/umd/types/store.d.ts b/dist/umd/types/store.d.ts
+index f0760922502dc0d25ec0f547922a66f72586bdb2..178d9cbb0b163e27bfa4503e361f666256a6bc77 100644
+--- a/dist/umd/types/store.d.ts
++++ b/dist/umd/types/store.d.ts
+@@ -7,8 +7,8 @@ export type ReactFlowStore<NodeType extends Node = Node, EdgeType extends Edge =
+     transform: Transform;
+     nodes: NodeType[];
+     nodesInitialized: boolean;
+-    nodeLookup: NodeLookup<InternalNode<NodeType>>;
+-    parentLookup: ParentLookup<InternalNode<NodeType>>;
++    nodeLookup: NodeLookup;
++    parentLookup: ParentLookup;
+     edges: EdgeType[];
+     edgeLookup: EdgeLookup<EdgeType>;
+     connectionLookup: ConnectionLookup;
+@@ -30,7 +30,7 @@ export type ReactFlowStore<NodeType extends Node = Node, EdgeType extends Edge =
+     nodesSelectionActive: boolean;
+     userSelectionActive: boolean;
+     userSelectionRect: SelectionRect | null;
+-    connection: ConnectionState<InternalNode<NodeType>>;
++    connection: ConnectionState;
+     connectionMode: ConnectionMode;
+     connectionClickStartHandle: (Pick<Handle, 'nodeId' | 'id'> & Required<Pick<Handle, 'type'>>) | null;
+     snapToGrid: boolean;
+@@ -104,7 +104,7 @@ export type ReactFlowActions<NodeType extends Node, EdgeType extends Edge> = {
+     setTranslateExtent: (translateExtent: CoordinateExtent) => void;
+     setNodeExtent: (nodeExtent: CoordinateExtent) => void;
+     cancelConnection: () => void;
+-    updateConnection: UpdateConnection<InternalNode<NodeType>>;
++    updateConnection: UpdateConnection;
+     reset: () => void;
+     triggerNodeChanges: (changes: NodeChange<NodeType>[]) => void;
+     triggerEdgeChanges: (changes: EdgeChange<EdgeType>[]) => void;

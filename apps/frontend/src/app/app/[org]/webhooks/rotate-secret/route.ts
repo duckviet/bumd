@@ -1,5 +1,5 @@
-import { rotateDashboardWebhookSecret } from "../../../../../entities/dashboard";
-import { requireDashboardManage } from "../../docs/dashboard-helpers";
+import { rotateDashboardWebhookSecret } from "@/entities/dashboard";
+import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
 
 type RouteContext = {
   readonly params: Promise<{

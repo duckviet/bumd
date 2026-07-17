@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { fetchDiffDetail, fetchPortalDoc } from "../../../../../shared/api/portal-client";
-import { hasPortalAccess } from "../../../../../shared/auth/session";
-import { DiffMarkdown } from "../../../../../widgets/changelog";
+import { fetchDiffDetail, fetchPortalDoc } from "@/shared/api/portal-client";
+import { hasPortalAccess } from "@/shared/auth/session";
+import { DiffMarkdown } from "@/widgets/changelog";
 
 type PageProps = {
   readonly params: Promise<{

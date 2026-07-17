@@ -1,6 +1,6 @@
-import { listDashboardWebhooks } from "../../../../entities/dashboard";
-import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
-import { WebhooksClient } from "./webhooks-client";
+import { listDashboardWebhooks } from "@/entities/dashboard";
+import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { WebhooksClient } from "@/app/app/[org]/webhooks/webhooks-client";
 
 type PageProps = {
   readonly params: Promise<{

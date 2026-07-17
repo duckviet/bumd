@@ -1,6 +1,6 @@
-import { listDashboardMembers, listDashboardInvites } from "../../../../entities/dashboard";
-import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
-import { MembersClient } from "./members-client";
+import { listDashboardMembers, listDashboardInvites } from "@/entities/dashboard";
+import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { MembersClient } from "@/app/app/[org]/members/members-client";
 
 type PageProps = {
   readonly params: Promise<{

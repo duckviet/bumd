@@ -11,6 +11,7 @@ This document defines the core domain model, internal REST API contract, async d
 - Billing and hard plan limits are not defined yet. Domain services expose quota-check boundaries so limits can be added later without rewriting deploy flow.
 - The backend supports OpenAPI and AsyncAPI inputs. The first diff implementation is strongest for OpenAPI through `oasdiff`; AsyncAPI diff rules may start with structural validation and conservative change summaries.
 - `main` is the default branch name for docs unless a deploy specifies another branch.
+- The implemented public portal route is `/:org/:doc`; changelog routes are `/:org/:doc/changes` and `/:org/:doc/changes/:diffId`. The previously proposed `/docs/...` family is obsolete unless a future migration explicitly reintroduces it.
 
 ## Core Domain Models
 
@@ -255,9 +256,50 @@ Rules:
 - Raw tokens are shown exactly once.
 - Tokens authenticate deploy and automation endpoints, not browser sessions.
 
+### User And DashboardSession
+
+`User` is the backend-owned browser identity. It stores email, name, a password hash, and optional `githubId`/`githubLogin` identity fields. `DashboardSession` stores a hashed rotating refresh credential, expiry, and revocation state for one user.
+
+Rules:
+
+- Backend access credentials expire after 15 minutes.
+- Refresh sessions expire after 30 days and are checked and rotated against backend state.
+- Auth.js retains the backend credentials only inside its encrypted HttpOnly JWT. Browser-visible session JSON contains public user data, not access or refresh secrets.
+- Organization membership is resolved by the backend for each dashboard organization boundary.
+
+### GitHub Integration Models
+
+`GithubInstallation`, `GithubRepository`, and `GithubRepoBranchMapping` persist organization-owned GitHub App installation, repository, document, branch, and spec-path relationships. Dashboard GitHub mutations are backend-authorized. Push and pull-request webhook intent currently enters an in-memory, process-local queue; no production queue consumer invokes `GithubWorker`.
+
+The Actions OIDC authorization allow-list is currently configuration-backed through `GITHUB_OIDC_AUTHORIZATIONS`. A persisted `GitHubOrgMapping` and a durable OIDC audit model are not implemented.
+
+### TestWorkflow
+
+Represents a private, branch-scoped API test graph.
+
+Fields include:
+
+- `organizationId`, `docId`, `branchId`;
+- name, slug, description;
+- normalized tags, priority (`low | medium | high | critical`), and type (`smoke | integration | end_to_end | contract`);
+- versioned `definitionJson`;
+- optimistic `revision` and soft-delete timestamp.
+
+`(docId, branchId, slug)` is unique. All reads and mutations must also match organization, doc, and branch.
+
+### TestEnvironment And TestEnvironmentVariable
+
+An environment is private to an organization/doc/branch and contains named variables. Variable values are encrypted at rest. API responses return only id, key, `secret`, and `hasValue` descriptors. A default environment is unique by service behavior within a doc/branch.
+
+### TestWorkflowRun And TestWorkflowStepRun
+
+A run pins the newest ready version for its branch and stores immutable `definitionSnapshotJson`, `metadataSnapshotJson`, and, when selected, encrypted `environmentSnapshotJson`. A step stores its node, operation, phase, status, redacted request/response/input/assertion/export records, timestamps, duration, and typed error.
+
+Run statuses are `queued | running | succeeded | failed | canceled`. Step statuses are `queued | running | succeeded | failed | skipped | canceled`.
+
 ## Internal REST API Contract
 
-All JSON endpoints return errors in this shape:
+The target JSON error envelope is:
 
 ```json
 {
@@ -270,9 +312,11 @@ All JSON endpoints return errors in this shape:
 }
 ```
 
+Some current controllers still omit a stable request ID or use slice-specific codes. Repository-wide error-envelope and request-ID consistency remains open work.
+
 ### Authentication
 
-Browser/dashboard endpoints use Auth.js session JWTs.
+Browser/dashboard endpoints use an Auth.js session facade backed by backend-issued dashboard credentials. The backend access credential lasts 15 minutes; the rotating hashed refresh session lasts 30 days. The backend, not the frontend, resolves users and memberships.
 
 Automation endpoints use:
 
@@ -282,7 +326,22 @@ Authorization: Bearer bumd_live_xxx
 
 The backend resolves API tokens by prefix, verifies the raw token with argon2, checks revocation/expiration, and updates `lastUsedAt` asynchronously.
 
+Dashboard authentication routes are backend-owned:
+
+- `POST /v1/dashboard/auth/register`
+- `POST /v1/dashboard/auth/login`
+- `POST /v1/dashboard/auth/github`
+- `POST /v1/dashboard/auth/refresh`
+- `POST /v1/dashboard/auth/logout`
+- `GET /v1/dashboard/me`
+- `GET /v1/dashboard/orgs/{orgSlug}/membership`
+- `POST /v1/dashboard/invites/accept`
+
+The frontend has no PostgreSQL client or `DATABASE_URL` contract.
+
 ### Organizations
+
+The following organization routes are the intended public contract, but `GET /v1/orgs` and `POST /v1/orgs` are not currently implemented as complete production routes.
 
 `GET /v1/orgs`
 
@@ -293,6 +352,10 @@ Returns organizations visible to the authenticated user.
 Creates an organization for an authenticated user and assigns the creator as owner.
 
 ### Docs
+
+The complete implemented dashboard CRUD contract is currently under `/v1/dashboard/orgs/{orgSlug}/docs...`, including list/create/detail/update/delete, version detail/diff, and test-context reads. These routes use backend dashboard credentials and role checks.
+
+The non-dashboard `/v1/orgs/{orgSlug}/docs...` surface below remains partial. Do not infer that every proposed list/create/branch endpoint exists merely because dashboard CRUD exists.
 
 `GET /v1/orgs/{orgSlug}/docs`
 
@@ -333,6 +396,8 @@ Updates mutable doc metadata: name, visibility, theme config, and custom-domain 
 
 ### Branches
 
+The explicit branch list/create routes below remain open. Deploy ingestion can create a missing deploy-target branch transactionally, and dashboard reads expose existing branch context, but that is not a replacement for the public branch-management contract.
+
 `GET /v1/orgs/{orgSlug}/docs/{docSlug}/branches`
 
 Lists branches.
@@ -358,8 +423,8 @@ Accepts a spec upload and returns immediately.
 
 Request content types:
 
-- `multipart/form-data` with `spec` file
-- `application/json` with `specBase64`, `filename`, and optional `sourceFormat`
+- Implemented: `application/json` with `specBase64`, `filename`, and optional `sourceFormat`.
+- Planned but not implemented: `multipart/form-data` with a `spec` file.
 
 Request:
 
@@ -413,6 +478,8 @@ Status codes:
 
 ### Versions
 
+The nested public version list contract below is not complete. Current catalog reads cover latest-ready, version detail, and version diff; dashboard routes cover the implemented version-history UI.
+
 `GET /v1/orgs/{orgSlug}/docs/{docSlug}/branches/{branchSlug}/versions`
 
 Lists versions for a branch.
@@ -430,6 +497,8 @@ Returns the diff against the previous ready version on the same branch.
 `POST /v1/orgs/{orgSlug}/docs/{docSlug}/diffs/preview`
 
 Accepts two uploaded specs or version references and returns an async diff preview job. This is used by GitHub Actions for PR comments when the head spec is not yet deployed.
+
+Current implementation gap: this endpoint returns a fixed `none` placeholder and does not yet perform the documented comparison.
 
 ### Webhooks
 
@@ -460,6 +529,8 @@ Updates URL, description, enabled state, or event type subscriptions.
 Rotates a webhook secret and returns the new secret once.
 
 ### API Tokens
+
+The production dashboard list/create/revoke flow is implemented under `/v1/dashboard/orgs/{orgSlug}/api-tokens...`. On the non-dashboard route family, token creation exists at `POST /v1/orgs/{orgSlug}/api-tokens`; the proposed list/delete contract below is not complete.
 
 `GET /v1/orgs/{orgSlug}/api-tokens`
 
@@ -496,6 +567,105 @@ Response:
 
 Revokes a token.
 
+### GitHub Authentication And App APIs
+
+`POST /v1/auth/github/exchange` accepts a GitHub access token plus organization slug and, for an existing organization member, returns a one-time Bumd API token scoped to `docs:deploy`. It does not create organizations or memberships. The planned one-hour token expiry is not currently applied, and primary verified-email enforcement remains incomplete when GitHub's `/user` response already contains an email.
+
+`POST /v1/auth/github/oidc-token` accepts a GitHub Actions JWT, organization slug, repository, and optional ref. The verifier checks GitHub issuer, configured audience (`GITHUB_OIDC_AUDIENCE`, default `bumd`), RS256 signature using GitHub JWKS, `exp`/`nbf`/recent `iat`, repository owner, repository, subject, and an allowed ref. Tenant authorization is read from `GITHUB_OIDC_AUTHORIZATIONS`.
+
+The OIDC exchange currently lacks JWKS caching/key-rotation coverage, a persisted organization mapping, a durable audit record, rate limiting, and the planned explicit 15-minute API-token expiry.
+
+GitHub App routes include organization-scoped installations, repositories, and branch/spec mappings under `/v1/orgs/{orgSlug}/github/...`; these legacy routes currently lack an authentication guard, including repository and mapping mutations. Guarded dashboard equivalents live under `/v1/dashboard/orgs/{orgSlug}/github/...`. GitHub webhooks enter through `POST /v1/github/webhooks`. Development push simulation is backend-only and blocked in production.
+
+The GitHub App path is not production-complete:
+
+- `GH-APP-004`: remove or authenticate the legacy `/v1/orgs/{orgSlug}/github/...` mutation routes.
+- `GH-APP-005`: fail closed when `GITHUB_WEBHOOK_SECRET` is absent; the current verifier returns true with no configured secret.
+- `GH-APP-006`: add replay protection backed by GitHub delivery-ID deduplication; no delivery-ID store currently rejects duplicate webhook delivery.
+- `GH-APP-007`: replace stubbed GitHub fetch/deploy behavior and stop passing persisted `organizationId`/`docId` values into deploy-store parameters named `orgSlug`/`docSlug`.
+
+The process-local `InMemoryGithubQueue` also has no production consumer wired to the injectable worker and remains open production work.
+
+### Test Workflows
+
+Base scope:
+
+```text
+/v1/orgs/{orgSlug}/docs/{docSlug}/branches/{branchSlug}
+```
+
+Workflow routes:
+
+- `GET /test-workflows?cursor=&limit=`
+- `POST /test-workflows`
+- `GET /test-workflows/{workflowId}`
+- `PATCH /test-workflows/{workflowId}` with `expectedRevision`
+- `DELETE /test-workflows/{workflowId}` (soft delete)
+
+Environment routes:
+
+- `GET /test-environments`
+- `POST /test-environments`
+- `PATCH /test-environments/{environmentId}`
+- `DELETE /test-environments/{environmentId}`
+
+Run routes:
+
+- `POST /test-workflows/{workflowId}/runs` returns `202` with a queued run id;
+- `GET /test-workflows/{workflowId}/runs?cursor=&limit=`;
+- `GET /test-workflows/{workflowId}/runs/{runId}`;
+- `POST /test-workflows/{workflowId}/runs/{runId}/cancel` returns `202` for a non-terminal run and `409` for a terminal run.
+
+Creation and update bodies are schema-parsed. Workflow updates use optimistic revisions and return `WORKFLOW_CONFLICT` on stale state. Workflow and run lists implement cursor-shaped responses, although malformed pagination and boundary behavior require stronger tests.
+
+Authorization is not yet at the intended final state: the routes accept dashboard or API-token principals, but `docs:test` scope and the complete role matrix are not consistently enforced. Environment deletion also needs doc/branch scoping in addition to organization scoping. These are open security items.
+
+## Test Workflow Definition Version 2
+
+New and normalized definitions have this root shape:
+
+```ts
+type TestWorkflowDefinition = {
+  schemaVersion: 2;
+  context: { testData: Record<string, JsonValue> };
+  nodes: TestWorkflowNode[];
+  edges: TestWorkflowEdge[];
+  viewport?: { x: number; y: number; zoom: number };
+};
+```
+
+Version-1 rows remain readable and are normalized in memory without rewriting storage: context defaults to `{ testData: {} }` and nodes default to phase `test`. Unknown version-2 fields are rejected rather than silently discarded.
+
+Endpoint nodes contain operation identity, method/path/label, position, phase (`setup | test | teardown`), request template, exports, and assertions. The graph must be a DAG. Phase flow may remain within a phase or move forward; `test -> setup` and `teardown -> setup/test` edges are invalid.
+
+Templates support exactly:
+
+- `{{env.KEY}}` for encrypted environment values;
+- `{{data.KEY}}` for saved non-secret test data;
+- `{{vars.NAME}}` for exports from ancestor nodes.
+
+A pure template preserves its JSON type. Embedded templates accept scalar values only. Export names are globally unique, and `vars` references must come from ancestors.
+
+Supported assertions cover status, JSON path, header, and response time. Exports may read status, a response header, or a response-body path. Arbitrary scripts, `eval`, schema-contract assertions, multipart bodies, retries, scheduled runs, parallel execution, CI generation, and import/export are not part of the implemented workflow runtime.
+
+## Test Workflow Run Lifecycle
+
+Run creation resolves and pins the newest ready version, validates operations/environment/template references, snapshots the normalized definition and metadata, snapshots selected encrypted environment values, creates queued step rows, and enqueues one job.
+
+The worker uses a single validated topological order:
+
+1. run all setup nodes;
+2. run test nodes, skipping descendants of a failed test while independent branches may continue;
+3. attempt teardown nodes after success, setup/test failure, or cancellation.
+
+Final precedence is `canceled` over setup/test failure over teardown-only failure over success. A teardown-only failure uses `TEARDOWN_FAILED`; cleanup must not replace a primary setup/test error. New runs use the immutable environment snapshot; legacy runs with no snapshot may fall back to the live environment.
+
+Jobs use queue `test-workflow-runs`, deterministic job id `test-workflow-{runId}`, and `attempts: 1`. PostgreSQL is authoritative for run and step state. Terminal steps are not re-executed. A periodic reaper updates stale running `TestWorkflowRun` rows to failed with `WORKER_INTERRUPTED`; it does not resume side-effecting work.
+
+Secret substitutions and sensitive headers are redacted from stored request, response, input, assertion, export, and error data. Only request and response bodies pass through the current 64 KiB truncation helper. Inputs, assertions, and exports are redacted but otherwise unbounded; bounding them remains open work. API run detail exposes sanitized metadata, an environment descriptor, step phase, and redacted inputs.
+
+Operational gaps: without `REDIS_URL`, the dispatcher currently returns without executing despite logging a synchronous-background fallback; run throttling is process-local and does not set the planned `Retry-After`; durable audit storage is absent; and reaper, pagination, rate-limit, and truncation behavior need additional production-facing tests.
+
 ## Async Deploy Flow
 
 Deploy processing is a state machine:
@@ -516,11 +686,14 @@ Detailed flow:
 5. Store raw spec bytes in object storage using a content-addressed key.
 6. Create version in `queued` status.
 7. Enqueue deterministic BullMQ jobs:
-   - `version:{versionId}:parse`
-   - `version:{versionId}:diff`
-   - `version:{versionId}:render`
-   - `version:{versionId}:search`
-   - `version:{versionId}:webhooks`
+   - `version-{versionId}-parse`
+   - `version-{versionId}-diff`
+   - `version-{versionId}-render`
+   - `version-{versionId}-search`
+   - `version-{versionId}-webhooks`
+
+   Durable PostgreSQL `jobKey` values may retain the colon-delimited semantic form. BullMQ custom `jobId` values must use the colon-free form above because BullMQ rejects custom IDs containing `:`.
+
 8. Workers acquire jobs independently and must be safe to retry.
 9. A failed parse or validation marks the version `failed`, records a validation summary, and emits failure webhooks if subscribed.
 10. A ready version becomes eligible as the base for the next branch diff.
@@ -655,91 +828,92 @@ Retry policy:
 
 ### Public and Private Portal
 
-Routes:
+Implemented routes:
 
-- `/docs/[orgSlug]/[docSlug]`
-- `/docs/[orgSlug]/[docSlug]/[branchSlug]`
-- `/docs/[orgSlug]/[docSlug]/[branchSlug]/[versionId]`
-- `/docs/[orgSlug]/[docSlug]/[branchSlug]/[versionId]/[...operationSlug]`
+- `/[org]/[doc]` for the default branch's latest ready version;
+- `/[org]/[doc]/changes`;
+- `/[org]/[doc]/changes/[id]`.
 
-Custom-domain routing resolves hostnames to docs before route handling.
+The older `/docs/[orgSlug]/[docSlug]...` family is not implemented. Branch-selectable and immutable-version-selectable public portal routes remain open product work.
+
+Custom-domain values can be stored as mutable doc metadata, but hostname-to-doc request routing is not implemented yet. Automated certificate provisioning also remains out of scope.
 
 Portal layout:
 
-- left pane: navigation tree, branch/version selector;
+- left pane: operation/tag navigation;
 - center pane: rendered operation/schema/content;
-- right pane: table of contents, code samples, Try it out controls;
-- top area: search, auth state, theme switch where applicable.
+- right pane: schema rail and operation context;
+- top area: search and theme controls, with Try-it-out launched from operation detail.
+
+Branch/version selectors and expanded code-sample controls remain open portal work.
 
 ### Dashboard
 
-Routes:
+Implemented routes:
 
 - `/app`
-- `/app/[orgSlug]`
-- `/app/[orgSlug]/docs`
-- `/app/[orgSlug]/docs/[docSlug]`
-- `/app/[orgSlug]/docs/[docSlug]/branches/[branchSlug]/versions/[versionId]`
-- `/app/[orgSlug]/docs/[docSlug]/diffs/[diffId]`
-- `/app/[orgSlug]/webhooks`
-- `/app/[orgSlug]/api-tokens`
-- `/app/[orgSlug]/settings`
+- `/app/[org]`
+- `/app/[org]/docs`
+- `/app/[org]/docs/[doc]`
+- `/app/[org]/docs/[doc]/versions`
+- `/app/[org]/docs/[doc]/versions/[versionId]`
+- `/app/[org]/docs/[doc]/versions/[versionId]/diff`
+- `/app/[org]/docs/[doc]/tests`
+- `/app/[org]/docs/[doc]/tests/[workflowId]`
+- `/app/[org]/members`
+- `/app/[org]/webhooks`
+- `/app/[org]/api-tokens`
+
+There is no standalone implemented `/app/[org]/settings` route. Doc settings mutations are handled from the doc dashboard route.
 
 ## Feature-Sliced Frontend Structure
 
 ```text
 apps/frontend/src/
   app/
-    docs/
     app/
-  pages/
-    doc-portal/
-    organization-dashboard/
   widgets/
-    doc-navigation/
-    version-switcher/
+    doc-renderer/
     search-box/
+    changelog/
+    test-workflow-canvas/
     try-it-out-panel/
-    changelog-panel/
   features/
-    deploy-spec/
-    manage-webhooks/
-    manage-api-tokens/
-    compare-versions/
-    customize-theme/
+    try-it-out/
+    test-workflow-editor/
+    test-workflow-run/
   entities/
-    organization/
-    doc/
-    branch/
-    version/
-    diff/
-    webhook/
-    api-token/
+    dashboard/
+    openapi/
+    test-workflow/
   shared/
     api/
     auth/
     config/
     ui/
-    lib/
 ```
 
 Rules:
 
 - Server Components fetch doc metadata, version data, and static render payloads by default.
-- Client Components are reserved for search, Try it out, interactive code samples, menus, and forms.
+- Client Components are reserved for search, Try it out, menus, forms, and other implemented interactions.
 - Entity models must not import features or widgets.
 - Shared UI must not contain domain-specific deploy, diff, or webhook logic.
+- The frontend has no database adapter. Server components and route handlers call typed backend clients.
+- `features/try-it-out` contains the current modal workflow, while `widgets/try-it-out-panel` retains a legacy panel path. Consolidation is open as `ARCH-FSD-005`; the duplicate paths are not a second domain boundary.
 
 ## Renderer Layer
 
-The renderer wraps Stoplight Elements or Scalar behind a platform-owned adapter. The adapter is responsible for:
+The renderer is currently a custom React implementation under `widgets/doc-renderer`; Stoplight Elements and Scalar are not installed renderer dependencies. The platform-owned renderer is responsible for:
 
 - stable three-pane layout integration;
 - theme tokens;
 - deep-link generation;
 - operation IDs and slugs;
-- code sample configuration;
 - Try it out enablement and environment handling;
-- search document extraction.
 
-Renderer adapters must keep raw vendor-specific types out of application features where practical.
+Search-document extraction is backend-owned by `apps/backend/src/search/openapi-search-extractor.ts`; the frontend renderer consumes scoped search results and does not build the search index.
+
+OpenAPI domain types and parsing stay in `entities/openapi`. Try-it-out request state and execution UI stay in `features/try-it-out`; search composition stays in its widget/client boundary. The renderer widget must not own persistence, API authorization, or reusable request-building workflows.
+
+The Try-it-out backend validates version route ownership, declared server origins, blocked headers, internal hosts, timeouts, and redirects. Its route is currently unauthenticated and does not independently enforce private-doc visibility, so private-doc Try-it-out authorization remains an open security gap.

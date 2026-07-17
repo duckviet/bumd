@@ -1,6 +1,6 @@
-import { listDashboardApiTokens } from "../../../../entities/dashboard";
-import { canManage, dashboardShell, requireDashboardRead } from "../docs/dashboard-helpers";
-import { ApiTokensClient } from "./api-tokens-client";
+import { listDashboardApiTokens } from "@/entities/dashboard";
+import { canManage, dashboardShell, requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
+import { ApiTokensClient } from "@/app/app/[org]/api-tokens/api-tokens-client";
 
 type PageProps = {
   readonly params: Promise<{

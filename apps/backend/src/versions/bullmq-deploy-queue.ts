@@ -13,7 +13,7 @@ export class BullMqDeployQueue implements DeployQueue {
   public async enqueueDeploy(data: DeployJobData): Promise<DeployJobRecord> {
     const jobKey = `version:${data.versionId}:parse`;
     const options: JobsOptions = {
-      jobId: jobKey,
+      jobId: `version-${data.versionId}-parse`,
       attempts: 3,
       backoff: {
         type: "exponential",
@@ -29,4 +29,3 @@ export class BullMqDeployQueue implements DeployQueue {
     };
   }
 }
-

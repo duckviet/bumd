@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { executeTryItOut } from "../../../shared/api/portal-client";
+import { executeTryItOut } from "@/shared/api/portal-client";
 
 const routeRequestSchema = z.object({
   orgSlug: z.string(),

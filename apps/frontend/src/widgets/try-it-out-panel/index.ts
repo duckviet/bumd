@@ -1,1 +1,1 @@
-export { TryItOutPanel } from "./ui/try-it-out-panel";
+export { TryItOutPanel } from "@/widgets/try-it-out-panel/ui/try-it-out-panel";

@@ -19,9 +19,16 @@ export type DeployStore = {
     readonly sha256: string;
     readonly sourceFormat: SourceFormat;
     readonly rawSpec: string;
-    readonly createdByTokenId: string;
+    readonly createdByTokenId: string | null;
+    readonly createdByUserId?: string | null;
   }) => Promise<{ readonly version: VersionRecord; readonly job: DeployJobRecord }>;
   readonly getVersion: (versionId: string) => Promise<VersionRecord>;
+  readonly getVersionForRoute: (input: {
+    readonly versionId: string;
+    readonly orgSlug: string;
+    readonly docSlug: string;
+    readonly branchSlug: string;
+  }) => Promise<VersionRecord | null>;
   readonly getRawSpec: (versionId: string) => Promise<string>;
   readonly previousReadyVersion: (version: VersionRecord) => Promise<VersionRecord | null>;
   readonly markVersionProcessing: (versionId: string) => Promise<VersionRecord>;

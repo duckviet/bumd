@@ -1,5 +1,5 @@
-import { listDashboardWebhookDeliveries } from "../../../../../../entities/dashboard";
-import { requireDashboardRead } from "../../../docs/dashboard-helpers";
+import { listDashboardWebhookDeliveries } from "@/entities/dashboard";
+import { requireDashboardRead } from "@/app/app/[org]/docs/dashboard-helpers";
 
 type RouteContext = {
   readonly params: Promise<{

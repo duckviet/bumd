@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { parseOpenApiDocument } from "../../../entities/openapi";
-import { fetchLatestReadyVersion, fetchPortalDoc } from "../../../shared/api/portal-client";
-import { hasPortalAccess } from "../../../shared/auth/session";
-import { EmptyState } from "../../../shared/ui/empty-state";
-import { DocRenderer } from "../../../widgets/doc-renderer";
+import { parseOpenApiDocument } from "@/entities/openapi";
+import { fetchLatestReadyVersion, fetchPortalDoc } from "@/shared/api/portal-client";
+import { hasPortalAccess } from "@/shared/auth/session";
+import { EmptyState } from "@/shared/ui/empty-state";
+import { DocRenderer } from "@/widgets/doc-renderer";
 
 type PageProps = {
   readonly params: Promise<{

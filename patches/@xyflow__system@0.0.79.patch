@@ -1,0 +1,218 @@
+diff --git a/dist/esm/types/general.d.ts b/dist/esm/types/general.d.ts
+index 6c63417ff50903af8eecd0af4392334024a93677..5daab47caa783e9a4698ae2a55c6c3a3aa8824b0 100644
+--- a/dist/esm/types/general.d.ts
++++ b/dist/esm/types/general.d.ts
+@@ -118,10 +118,10 @@ export type OnConnectStartParams = {
+ };
+ export type OnConnectStart = (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => void;
+ export type OnConnect = (connection: Connection) => void;
+-export type OnConnectEnd<NodeType extends NodeBase = NodeBase> = (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState<InternalNodeBase<NodeType>>) => void;
++export type OnConnectEnd<NodeType extends NodeBase = NodeBase> = (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => void;
+ export type OnReconnect<EdgeType extends EdgeBase = EdgeBase> = (oldEdge: EdgeType, newConnection: Connection) => void;
+ export type OnReconnectStart<EdgeType extends EdgeBase = EdgeBase> = (event: MouseEvent | TouchEvent, edge: EdgeType, handleType: HandleType) => void;
+-export type OnReconnectEnd<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase = EdgeBase> = (event: MouseEvent | TouchEvent, edge: EdgeType, handleType: HandleType, connectionState: FinalConnectionState<InternalNodeBase<NodeType>>) => void;
++export type OnReconnectEnd<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase = EdgeBase> = (event: MouseEvent | TouchEvent, edge: EdgeType, handleType: HandleType, connectionState: FinalConnectionState) => void;
+ export type IsValidConnection<EdgeType extends EdgeBase = EdgeBase> = (edge: EdgeType | Connection) => boolean;
+ /**
+  * @inline
+diff --git a/dist/esm/utils/graph.d.ts b/dist/esm/utils/graph.d.ts
+index 4970bc7ce16fbff9d608bdbcbdc66da0d0c6c0f4..948028b1cdd385bbd8062451fe12db6c95046b37 100644
+--- a/dist/esm/utils/graph.d.ts
++++ b/dist/esm/utils/graph.d.ts
+@@ -75,7 +75,7 @@ export type GetNodesBoundsParams<NodeType extends NodeBase = NodeBase> = {
+      * @default [0, 0]
+      */
+     nodeOrigin?: NodeOrigin;
+-    nodeLookup?: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup?: NodeLookup;
+ };
+ /**
+  * Returns the bounding box that contains all the given nodes in an array. This can
+@@ -160,7 +160,7 @@ export declare function fitViewport<Params extends FitViewParamsBase<NodeBase>,
+ export declare function calculateNodePosition<NodeType extends NodeBase>({ nodeId, nextPosition, nodeLookup, nodeOrigin, nodeExtent, onError, }: {
+     nodeId: string;
+     nextPosition: XYPosition;
+-    nodeLookup: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup: NodeLookup;
+     nodeOrigin?: NodeOrigin;
+     nodeExtent?: CoordinateExtent;
+     onError?: OnError;
+diff --git a/dist/esm/utils/store.d.ts b/dist/esm/utils/store.d.ts
+index 148f7f9a707f0f5ee5dde853532de8b52d10a775..e398543b7f6e55c847806fad0247fdd7106906e5 100644
+--- a/dist/esm/utils/store.d.ts
++++ b/dist/esm/utils/store.d.ts
+@@ -1,7 +1,7 @@
+ import { ZIndexMode } from '..';
+ import { NodeBase, CoordinateExtent, InternalNodeUpdate, NodeOrigin, PanZoomInstance, Transform, XYPosition, ConnectionLookup, EdgeBase, EdgeLookup, InternalNodeBase, NodeLookup, NodeDimensionChange, NodePositionChange, ParentLookup } from '../types';
+ import { ParentExpandChild } from './types';
+-export declare function updateAbsolutePositions<NodeType extends NodeBase>(nodeLookup: NodeLookup<InternalNodeBase<NodeType>>, parentLookup: ParentLookup<InternalNodeBase<NodeType>>, options?: UpdateNodesOptions<NodeType>): void;
++export declare function updateAbsolutePositions<NodeType extends NodeBase>(nodeLookup: NodeLookup, parentLookup: ParentLookup, options?: UpdateNodesOptions<NodeType>): void;
+ type UpdateNodesOptions<NodeType extends NodeBase> = {
+     nodeOrigin?: NodeOrigin;
+     nodeExtent?: CoordinateExtent;
+@@ -15,7 +15,7 @@ type AdoptUserNodesReturn = {
+     nodesInitialized: boolean;
+     hasSelectedNodes: boolean;
+ };
+-export declare function adoptUserNodes<NodeType extends NodeBase>(nodes: NodeType[], nodeLookup: NodeLookup<InternalNodeBase<NodeType>>, parentLookup: ParentLookup<InternalNodeBase<NodeType>>, options?: UpdateNodesOptions<NodeType>): AdoptUserNodesReturn;
++export declare function adoptUserNodes<NodeType extends NodeBase>(nodes: NodeType[], nodeLookup: NodeLookup, parentLookup: ParentLookup, options?: UpdateNodesOptions<NodeType>): AdoptUserNodesReturn;
+ export declare function handleExpandParent(children: ParentExpandChild[], nodeLookup: NodeLookup, parentLookup: ParentLookup, nodeOrigin?: NodeOrigin): (NodeDimensionChange | NodePositionChange)[];
+ export declare function updateNodeInternals<NodeType extends InternalNodeBase>(updates: Map<string, InternalNodeUpdate>, nodeLookup: NodeLookup<NodeType>, parentLookup: ParentLookup<NodeType>, domNode: HTMLElement | null, nodeOrigin?: NodeOrigin, nodeExtent?: CoordinateExtent, zIndexMode?: ZIndexMode): {
+     changes: (NodeDimensionChange | NodePositionChange)[];
+diff --git a/dist/esm/xydrag/XYDrag.d.ts b/dist/esm/xydrag/XYDrag.d.ts
+index 5f7214378e97e191fb31b1084136e8c42731baa6..403a3e5cc1dca4b1ba583f1eb9f66c46a8060976 100644
+--- a/dist/esm/xydrag/XYDrag.d.ts
++++ b/dist/esm/xydrag/XYDrag.d.ts
+@@ -29,7 +29,7 @@ type StoreItems<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase
+     onSelectionDragStart?: OnSelectionDrag<NodeType>;
+     onSelectionDrag?: OnSelectionDrag<NodeType>;
+     onSelectionDragStop?: OnSelectionDrag<NodeType>;
+-    updateNodePositions: UpdateNodePositions<InternalNodeBase<NodeType>>;
++    updateNodePositions: UpdateNodePositions;
+     autoPanSpeed?: number;
+ };
+ export type XYDragParams<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase = EdgeBase> = {
+diff --git a/dist/esm/xyhandle/types.d.ts b/dist/esm/xyhandle/types.d.ts
+index 01c735d191fd7a26e727f8f39592079ef58c5a27..b6884f53f047281898dada7d4369a5741cc1d22b 100644
+--- a/dist/esm/xyhandle/types.d.ts
++++ b/dist/esm/xyhandle/types.d.ts
+@@ -7,18 +7,18 @@ export type OnPointerDownParams<NodeType extends NodeBase = NodeBase, EdgeType e
+     handleId: string | null;
+     nodeId: string;
+     isTarget: boolean;
+-    nodeLookup: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup: NodeLookup;
+     lib: string;
+     flowId: string | null;
+     edgeUpdaterType?: HandleType;
+-    updateConnection: UpdateConnection<InternalNodeBase<NodeType>>;
++    updateConnection: UpdateConnection;
+     panBy: PanBy;
+     cancelConnection: () => void;
+     onConnectStart?: OnConnectStart;
+     onConnect?: OnConnect;
+     onConnectEnd?: OnConnectEnd<NodeType>;
+     isValidConnection?: IsValidConnection<EdgeType>;
+-    onReconnectEnd?: (evt: MouseEvent | TouchEvent, connectionState: FinalConnectionState<InternalNodeBase<NodeType>>) => void;
++    onReconnectEnd?: (evt: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => void;
+     getTransform: () => Transform;
+     getFromHandle: () => Handle | null;
+     autoPanSpeed?: number;
+@@ -35,7 +35,7 @@ export type IsValidParams<NodeType extends NodeBase = NodeBase, EdgeType extends
+     doc: Document | ShadowRoot;
+     lib: string;
+     flowId: string | null;
+-    nodeLookup: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup: NodeLookup;
+ };
+ export type XYHandleInstance = {
+     onPointerDown: (event: MouseEvent | TouchEvent, params: OnPointerDownParams) => void;
+diff --git a/dist/umd/types/general.d.ts b/dist/umd/types/general.d.ts
+index 6c63417ff50903af8eecd0af4392334024a93677..5daab47caa783e9a4698ae2a55c6c3a3aa8824b0 100644
+--- a/dist/umd/types/general.d.ts
++++ b/dist/umd/types/general.d.ts
+@@ -118,10 +118,10 @@ export type OnConnectStartParams = {
+ };
+ export type OnConnectStart = (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => void;
+ export type OnConnect = (connection: Connection) => void;
+-export type OnConnectEnd<NodeType extends NodeBase = NodeBase> = (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState<InternalNodeBase<NodeType>>) => void;
++export type OnConnectEnd<NodeType extends NodeBase = NodeBase> = (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => void;
+ export type OnReconnect<EdgeType extends EdgeBase = EdgeBase> = (oldEdge: EdgeType, newConnection: Connection) => void;
+ export type OnReconnectStart<EdgeType extends EdgeBase = EdgeBase> = (event: MouseEvent | TouchEvent, edge: EdgeType, handleType: HandleType) => void;
+-export type OnReconnectEnd<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase = EdgeBase> = (event: MouseEvent | TouchEvent, edge: EdgeType, handleType: HandleType, connectionState: FinalConnectionState<InternalNodeBase<NodeType>>) => void;
++export type OnReconnectEnd<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase = EdgeBase> = (event: MouseEvent | TouchEvent, edge: EdgeType, handleType: HandleType, connectionState: FinalConnectionState) => void;
+ export type IsValidConnection<EdgeType extends EdgeBase = EdgeBase> = (edge: EdgeType | Connection) => boolean;
+ /**
+  * @inline
+diff --git a/dist/umd/utils/graph.d.ts b/dist/umd/utils/graph.d.ts
+index 4970bc7ce16fbff9d608bdbcbdc66da0d0c6c0f4..948028b1cdd385bbd8062451fe12db6c95046b37 100644
+--- a/dist/umd/utils/graph.d.ts
++++ b/dist/umd/utils/graph.d.ts
+@@ -75,7 +75,7 @@ export type GetNodesBoundsParams<NodeType extends NodeBase = NodeBase> = {
+      * @default [0, 0]
+      */
+     nodeOrigin?: NodeOrigin;
+-    nodeLookup?: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup?: NodeLookup;
+ };
+ /**
+  * Returns the bounding box that contains all the given nodes in an array. This can
+@@ -160,7 +160,7 @@ export declare function fitViewport<Params extends FitViewParamsBase<NodeBase>,
+ export declare function calculateNodePosition<NodeType extends NodeBase>({ nodeId, nextPosition, nodeLookup, nodeOrigin, nodeExtent, onError, }: {
+     nodeId: string;
+     nextPosition: XYPosition;
+-    nodeLookup: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup: NodeLookup;
+     nodeOrigin?: NodeOrigin;
+     nodeExtent?: CoordinateExtent;
+     onError?: OnError;
+diff --git a/dist/umd/utils/store.d.ts b/dist/umd/utils/store.d.ts
+index 148f7f9a707f0f5ee5dde853532de8b52d10a775..e398543b7f6e55c847806fad0247fdd7106906e5 100644
+--- a/dist/umd/utils/store.d.ts
++++ b/dist/umd/utils/store.d.ts
+@@ -1,7 +1,7 @@
+ import { ZIndexMode } from '..';
+ import { NodeBase, CoordinateExtent, InternalNodeUpdate, NodeOrigin, PanZoomInstance, Transform, XYPosition, ConnectionLookup, EdgeBase, EdgeLookup, InternalNodeBase, NodeLookup, NodeDimensionChange, NodePositionChange, ParentLookup } from '../types';
+ import { ParentExpandChild } from './types';
+-export declare function updateAbsolutePositions<NodeType extends NodeBase>(nodeLookup: NodeLookup<InternalNodeBase<NodeType>>, parentLookup: ParentLookup<InternalNodeBase<NodeType>>, options?: UpdateNodesOptions<NodeType>): void;
++export declare function updateAbsolutePositions<NodeType extends NodeBase>(nodeLookup: NodeLookup, parentLookup: ParentLookup, options?: UpdateNodesOptions<NodeType>): void;
+ type UpdateNodesOptions<NodeType extends NodeBase> = {
+     nodeOrigin?: NodeOrigin;
+     nodeExtent?: CoordinateExtent;
+@@ -15,7 +15,7 @@ type AdoptUserNodesReturn = {
+     nodesInitialized: boolean;
+     hasSelectedNodes: boolean;
+ };
+-export declare function adoptUserNodes<NodeType extends NodeBase>(nodes: NodeType[], nodeLookup: NodeLookup<InternalNodeBase<NodeType>>, parentLookup: ParentLookup<InternalNodeBase<NodeType>>, options?: UpdateNodesOptions<NodeType>): AdoptUserNodesReturn;
++export declare function adoptUserNodes<NodeType extends NodeBase>(nodes: NodeType[], nodeLookup: NodeLookup, parentLookup: ParentLookup, options?: UpdateNodesOptions<NodeType>): AdoptUserNodesReturn;
+ export declare function handleExpandParent(children: ParentExpandChild[], nodeLookup: NodeLookup, parentLookup: ParentLookup, nodeOrigin?: NodeOrigin): (NodeDimensionChange | NodePositionChange)[];
+ export declare function updateNodeInternals<NodeType extends InternalNodeBase>(updates: Map<string, InternalNodeUpdate>, nodeLookup: NodeLookup<NodeType>, parentLookup: ParentLookup<NodeType>, domNode: HTMLElement | null, nodeOrigin?: NodeOrigin, nodeExtent?: CoordinateExtent, zIndexMode?: ZIndexMode): {
+     changes: (NodeDimensionChange | NodePositionChange)[];
+diff --git a/dist/umd/xydrag/XYDrag.d.ts b/dist/umd/xydrag/XYDrag.d.ts
+index 5f7214378e97e191fb31b1084136e8c42731baa6..403a3e5cc1dca4b1ba583f1eb9f66c46a8060976 100644
+--- a/dist/umd/xydrag/XYDrag.d.ts
++++ b/dist/umd/xydrag/XYDrag.d.ts
+@@ -29,7 +29,7 @@ type StoreItems<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase
+     onSelectionDragStart?: OnSelectionDrag<NodeType>;
+     onSelectionDrag?: OnSelectionDrag<NodeType>;
+     onSelectionDragStop?: OnSelectionDrag<NodeType>;
+-    updateNodePositions: UpdateNodePositions<InternalNodeBase<NodeType>>;
++    updateNodePositions: UpdateNodePositions;
+     autoPanSpeed?: number;
+ };
+ export type XYDragParams<NodeType extends NodeBase = NodeBase, EdgeType extends EdgeBase = EdgeBase> = {
+diff --git a/dist/umd/xyhandle/types.d.ts b/dist/umd/xyhandle/types.d.ts
+index 01c735d191fd7a26e727f8f39592079ef58c5a27..b6884f53f047281898dada7d4369a5741cc1d22b 100644
+--- a/dist/umd/xyhandle/types.d.ts
++++ b/dist/umd/xyhandle/types.d.ts
+@@ -7,18 +7,18 @@ export type OnPointerDownParams<NodeType extends NodeBase = NodeBase, EdgeType e
+     handleId: string | null;
+     nodeId: string;
+     isTarget: boolean;
+-    nodeLookup: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup: NodeLookup;
+     lib: string;
+     flowId: string | null;
+     edgeUpdaterType?: HandleType;
+-    updateConnection: UpdateConnection<InternalNodeBase<NodeType>>;
++    updateConnection: UpdateConnection;
+     panBy: PanBy;
+     cancelConnection: () => void;
+     onConnectStart?: OnConnectStart;
+     onConnect?: OnConnect;
+     onConnectEnd?: OnConnectEnd<NodeType>;
+     isValidConnection?: IsValidConnection<EdgeType>;
+-    onReconnectEnd?: (evt: MouseEvent | TouchEvent, connectionState: FinalConnectionState<InternalNodeBase<NodeType>>) => void;
++    onReconnectEnd?: (evt: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => void;
+     getTransform: () => Transform;
+     getFromHandle: () => Handle | null;
+     autoPanSpeed?: number;
+@@ -35,7 +35,7 @@ export type IsValidParams<NodeType extends NodeBase = NodeBase, EdgeType extends
+     doc: Document | ShadowRoot;
+     lib: string;
+     flowId: string | null;
+-    nodeLookup: NodeLookup<InternalNodeBase<NodeType>>;
++    nodeLookup: NodeLookup;
+ };
+ export type XYHandleInstance = {
+     onPointerDown: (event: MouseEvent | TouchEvent, params: OnPointerDownParams) => void;

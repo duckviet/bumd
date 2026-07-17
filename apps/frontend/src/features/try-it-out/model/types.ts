@@ -1,4 +1,4 @@
-import type { ApiOperation } from "../../../entities/openapi";
+import type { ApiOperation } from "@/entities/openapi";
 
 export type TryItOutModalProps = {
   readonly branchSlug: string;

@@ -8,14 +8,20 @@ import { CatalogService } from "./catalog.service.js";
 import { CatalogJobsController, CatalogMembersController, CatalogWebhooksController, PortalDocsController, CatalogInvitesController } from "./catalog.controller.js";
 import { StorageModule } from "../storage/storage.module.js";
 import { OBJECT_STORE, type ObjectStore } from "../storage/object-store-port.js";
+import { VersionsModule } from "../versions/versions.module.js";
+import { DashboardManagementController } from "./dashboard-management.controller.js";
+import { DashboardDocsService } from "./dashboard-docs.service.js";
+import { DashboardApiTokensService } from "./dashboard-api-tokens.service.js";
 
 @Module({
-  imports: [StorageModule],
-  controllers: [PortalDocsController, CatalogJobsController, CatalogMembersController, CatalogWebhooksController, CatalogInvitesController],
+  imports: [StorageModule, VersionsModule],
+  controllers: [PortalDocsController, CatalogJobsController, CatalogMembersController, CatalogWebhooksController, CatalogInvitesController, DashboardManagementController],
   providers: [
     ApiTokenCrypto,
     ApiTokenGuard,
     CatalogService,
+    DashboardDocsService,
+    DashboardApiTokensService,
     {
       provide: API_TOKEN_STORE,
       useFactory: (crypto: ApiTokenCrypto, objectStore: ObjectStore) =>

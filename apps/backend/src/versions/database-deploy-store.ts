@@ -22,6 +22,7 @@ type VersionRow = {
   readonly rawSpecObjectKey: string;
   readonly status: string;
   readonly createdByTokenId: string | null;
+  readonly createdByUserId: string | null;
   readonly createdAt: Date;
   readonly readyAt: Date | null;
 };
@@ -59,7 +60,7 @@ export class DatabaseDeployStore implements DeployStore {
       `
         SELECT v.id, v."organizationId", v."docId", v."branchId", v."sequenceNumber", 
                v.sha256, v."sourceFormat", v."rawSpecObjectKey", 
-               v.status, v."createdByTokenId", v."createdAt", v."readyAt"
+               v.status, v."createdByTokenId", v."createdByUserId", v."createdAt", v."readyAt"
         FROM "Version" v
         JOIN "Organization" o ON o.id = v."organizationId"
         JOIN "Doc" d ON d.id = v."docId"
@@ -80,7 +81,8 @@ export class DatabaseDeployStore implements DeployStore {
     readonly sha256: string;
     readonly sourceFormat: SourceFormat;
     readonly rawSpec: string;
-    readonly createdByTokenId: string;
+    readonly createdByTokenId: string | null;
+    readonly createdByUserId?: string | null;
   }): Promise<{ readonly version: VersionRecord; readonly job: DeployJobRecord }> {
     const client = await this.pool.connect();
     try {
@@ -121,6 +123,11 @@ export class DatabaseDeployStore implements DeployStore {
           'INSERT INTO "Branch" (id, "organizationId", "docId", name, slug, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
           [branchId, orgId, docId, input.branchSlug, input.branchSlug],
         );
+        // Set default branch on Doc if it is currently null
+        await client.query(
+          'UPDATE "Doc" SET "defaultBranchId" = $1 WHERE id = $2 AND "defaultBranchId" IS NULL',
+          [branchId, docId],
+        );
       }
 
       // Lock Branch to allocate sequence number safely
@@ -136,8 +143,8 @@ export class DatabaseDeployStore implements DeployStore {
       const objectKey = `specs/${input.sha256}`;
       
       await client.query(
-        'INSERT INTO "Version" (id, "organizationId", "docId", "branchId", "sequenceNumber", sha256, "sourceFormat", "rawSpecObjectKey", status, "validationSummary", "createdByTokenId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())',
-        [versionId, orgId, docId, branchId, nextSeq, input.sha256, input.sourceFormat, objectKey, "queued", '{}', input.createdByTokenId || null],
+        'INSERT INTO "Version" (id, "organizationId", "docId", "branchId", "sequenceNumber", sha256, "sourceFormat", "rawSpecObjectKey", status, "validationSummary", "createdByTokenId", "createdByUserId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())',
+        [versionId, orgId, docId, branchId, nextSeq, input.sha256, input.sourceFormat, objectKey, "queued", '{}', input.createdByTokenId || null, input.createdByUserId || null],
       );
 
       const jobId = `job_${versionId}`;
@@ -152,7 +159,7 @@ export class DatabaseDeployStore implements DeployStore {
         `
           SELECT id, "organizationId", "docId", "branchId", "sequenceNumber", 
                  sha256, "sourceFormat", "rawSpecObjectKey", 
-                 status, "createdByTokenId", "createdAt", "readyAt"
+                 status, "createdByTokenId", "createdByUserId", "createdAt", "readyAt"
           FROM "Version" WHERE id = $1
         `,
         [versionId],
@@ -186,7 +193,7 @@ export class DatabaseDeployStore implements DeployStore {
       `
         SELECT id, "organizationId", "docId", "branchId", "sequenceNumber", 
                sha256, "sourceFormat", "rawSpecObjectKey", 
-               status, "createdByTokenId", "createdAt", "readyAt"
+               status, "createdByTokenId", "createdByUserId", "createdAt", "readyAt"
         FROM "Version" WHERE id = $1
       `,
       [versionId],
@@ -196,6 +203,30 @@ export class DatabaseDeployStore implements DeployStore {
       throw new Error("version_not_found");
     }
     return mapVersionRow(row);
+  }
+
+  public async getVersionForRoute(input: {
+    readonly versionId: string;
+    readonly orgSlug: string;
+    readonly docSlug: string;
+    readonly branchSlug: string;
+  }): Promise<VersionRecord | null> {
+    const result = await this.pool.query<VersionRow>(
+      `
+        SELECT v.id, v."organizationId", v."docId", v."branchId", v."sequenceNumber",
+               v.sha256, v."sourceFormat", v."rawSpecObjectKey",
+               v.status, v."createdByTokenId", v."createdByUserId", v."createdAt", v."readyAt"
+        FROM "Version" v
+        JOIN "Organization" o ON o.id = v."organizationId"
+        JOIN "Doc" d ON d.id = v."docId" AND d."organizationId" = o.id
+        JOIN "Branch" b ON b.id = v."branchId" AND b."docId" = d.id
+        WHERE v.id = $1 AND o.slug = $2 AND d.slug = $3 AND b.slug = $4
+        LIMIT 1
+      `,
+      [input.versionId, input.orgSlug, input.docSlug, input.branchSlug],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : mapVersionRow(row);
   }
 
   public async getRawSpec(versionId: string): Promise<string> {
@@ -208,7 +239,7 @@ export class DatabaseDeployStore implements DeployStore {
       `
         SELECT id, "organizationId", "docId", "branchId", "sequenceNumber", 
                sha256, "sourceFormat", "rawSpecObjectKey", 
-               status, "createdByTokenId", "createdAt", "readyAt"
+               status, "createdByTokenId", "createdByUserId", "createdAt", "readyAt"
         FROM "Version"
         WHERE "branchId" = $1 AND "sequenceNumber" < $2 AND status = 'ready'
         ORDER BY "sequenceNumber" DESC
@@ -372,7 +403,8 @@ function mapVersionRow(row: VersionRow): VersionRecord {
     sourceFormat: row.sourceFormat as SourceFormat,
     rawSpecObjectKey: row.rawSpecObjectKey,
     status: row.status as VersionStatus,
-    createdByTokenId: row.createdByTokenId ?? "",
+    createdByTokenId: row.createdByTokenId,
+    createdByUserId: row.createdByUserId,
     createdAt: row.createdAt.toISOString(),
   };
 

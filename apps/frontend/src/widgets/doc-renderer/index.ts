@@ -1,1 +1,1 @@
-export { DocRenderer } from "./ui/doc-renderer";
+export { DocRenderer } from "@/widgets/doc-renderer/ui/doc-renderer";

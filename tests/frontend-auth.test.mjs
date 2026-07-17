@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import test from "node:test";
+import pg from "pg";
+
+const { Pool } = pg;
 
 const HOST = "127.0.0.1";
 const STARTUP_TIMEOUT_MS = 15_000;
@@ -18,19 +22,29 @@ async function getOpenPort() {
   return address.port;
 }
 
-function startFrontend(port) {
-  const child = spawn("pnpm", ["--filter", "@bumd/frontend", "start", "--hostname", HOST, "--port", String(port)], {
+function startFrontend(port, backendUrl) {
+  const child = spawn("pnpm", ["--filter", "@bumd/frontend", "dev", "--hostname", HOST, "--port", String(port)], {
     cwd: new URL("..", import.meta.url),
     detached: process.platform !== "win32",
     env: {
       ...process.env,
       AUTH_SECRET: "test_auth_secret_not_secret_32_chars",
-      BUMD_AUTH_TEST_INVITES: "invite_ok:acme:member:2099-01-01T00:00:00.000Z,invite_expired:acme:admin:2000-01-01T00:00:00.000Z",
+      BUMD_BACKEND_URL: backendUrl,
       NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
   return { baseUrl: `http://${HOST}:${port}`, stop: () => stopChild(child), wait: () => waitUntilReady(child, `http://${HOST}:${port}`) };
+}
+
+function startBackend(port) {
+  const child = spawn(process.execPath, ["--env-file=.env", "apps/backend/dist/testing/manual-server.js"], {
+    cwd: new URL("..", import.meta.url),
+    detached: process.platform !== "win32",
+    env: { ...process.env, PORT: String(port), AUTH_SECRET: "test_auth_secret_not_secret_32_chars", DASHBOARD_AUTH_SECRET: "test_dashboard_auth_secret_not_secret_32_chars" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return { baseUrl: `http://${HOST}:${port}`, stop: () => stopChild(child), wait: () => waitUntilReady(child, `http://${HOST}:${port}/v1/dashboard/me`) };
 }
 
 async function stopChild(child) {
@@ -60,12 +74,46 @@ async function waitUntilReady(child, baseUrl) {
 }
 
 async function withFrontend(callback) {
-  const frontend = startFrontend(await getOpenPort());
+  await resetDashboardFixtures();
+  const backend = startBackend(await getOpenPort());
+  const frontend = startFrontend(await getOpenPort(), backend.baseUrl);
   try {
+    await backend.wait();
     await frontend.wait();
     await callback(frontend.baseUrl);
   } finally {
     await frontend.stop();
+    await backend.stop();
+  }
+}
+
+async function resetDashboardFixtures() {
+  const pool = new Pool({ connectionString: process.env["DATABASE_URL"] ?? "postgresql://bumd:bumd@localhost:5436/bumd" });
+  const emails = ["owner@example.com", "logout@example.com", "invite@example.com"];
+  try {
+    const users = await pool.query('SELECT id FROM "User" WHERE email = ANY($1)', [emails]);
+    const userIds = users.rows.map((row) => row.id).filter((value) => typeof value === "string");
+    if (userIds.length > 0) {
+      await pool.query('DELETE FROM "Membership" WHERE "userId" = ANY($1)', [userIds]);
+      await pool.query('DELETE FROM "Organization" WHERE id = ANY($1)', [userIds.map((userId) => `org_personal_${userId}`)]);
+      await pool.query('DELETE FROM "User" WHERE id = ANY($1)', [userIds]);
+    }
+    await pool.query('DELETE FROM "Invite" WHERE "tokenHash" = ANY($1)', [
+      ["invite_ok", "invite_expired"].map((token) => createHash("sha256").update(token).digest("hex")),
+    ]);
+    await pool.query(
+      `INSERT INTO "Invite" (id, "tokenHash", "organizationId", role, "expiresAt", "createdBy", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'org_acme', 'member', '2099-01-01T00:00:00.000Z', 'test', NOW(), NOW()),
+              ($3, $4, 'org_acme', 'admin', '2000-01-01T00:00:00.000Z', 'test', NOW(), NOW())`,
+      [
+        `inv_frontend_ok_${Date.now()}`,
+        createHash("sha256").update("invite_ok").digest("hex"),
+        `inv_frontend_expired_${Date.now()}`,
+        createHash("sha256").update("invite_expired").digest("hex"),
+      ],
+    );
+  } finally {
+    await pool.end();
   }
 }
 

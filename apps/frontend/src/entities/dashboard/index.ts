@@ -1,5 +1,8 @@
-export * from "./model/api-tokens-store";
-export * from "./model/dashboard-store";
-export * from "./model/github-store";
-export * from "./model/members-invites-store";
-export * from "./model/webhooks-store";
+export * from "@/entities/dashboard/model/api-tokens-store";
+export * from "@/entities/dashboard/model/dashboard-store";
+export * from "@/entities/dashboard/model/github-store";
+export * from "@/entities/dashboard/model/members-invites-store";
+export * from "@/entities/dashboard/model/webhooks-store";
+export * from "@/entities/dashboard/ui/version-status-badge";
+export * from "@/entities/dashboard/ui/doc-action-group";
+
