@@ -8,6 +8,14 @@ import type {
   TestWorkflowRequestTemplate,
 } from "@/entities/test-workflow";
 import { WorkflowVariablePicker } from "@/features/test-workflow-editor/ui/workflow-variable-picker";
+import {
+  KeyValueEditor,
+  BodyEditor,
+  type ConsoleField,
+  type MultipartField,
+  buildMultipartBody,
+  parseMultipartBody,
+} from "@/entities/api-console";
 
 type RequestTemplateEditorProps = {
   readonly node: TestWorkflowNode;
@@ -16,150 +24,173 @@ type RequestTemplateEditorProps = {
   readonly onChange: (template: TestWorkflowRequestTemplate) => void;
 };
 
-type KeyValuePair = {
-  readonly key: string;
-  readonly value: string;
-};
-
 export function RequestTemplateEditor({ node, environment, testData, onChange }: RequestTemplateEditorProps) {
   const { requestTemplate } = node;
 
   const [serverUrl, setServerUrl] = useState(requestTemplate.serverUrl ?? "");
-  const [headers, setHeaders] = useState<KeyValuePair[]>([]);
-  const [query, setQuery] = useState<KeyValuePair[]>([]);
-  const [pathParams, setPathParams] = useState<KeyValuePair[]>([]);
-  const [bodyPairs, setBodyPairs] = useState<KeyValuePair[]>([]);
+  const [headers, setHeaders] = useState<ConsoleField[]>([]);
+  const [query, setQuery] = useState<ConsoleField[]>([]);
+  const [pathParams, setPathParams] = useState<ConsoleField[]>([]);
+  const [bodyType, setBodyType] = useState<"json" | "key-value" | "multipart">("json");
+  const [bodyText, setBodyText] = useState("");
+  const [keyValueFields, setKeyValueFields] = useState<ConsoleField[]>([]);
+  const [multipartFields, setMultipartFields] = useState<MultipartField[]>([]);
 
-  // Populate from template when node changes
-  useEffect(() => {
-    setServerUrl(requestTemplate.serverUrl ?? "");
-    setHeaders(recordToPairs(requestTemplate.headers));
-    setQuery(recordToPairs(requestTemplate.query));
-    setPathParams(recordToPairs(requestTemplate.pathParams));
-    
-    if (requestTemplate.body === undefined || requestTemplate.body === null) {
-      setBodyPairs([]);
-    } else if (typeof requestTemplate.body === "object") {
-      setBodyPairs(recordToPairs(requestTemplate.body as Record<string, unknown>));
-    } else {
-      try {
-        const parsed = JSON.parse(requestTemplate.body as string);
-        if (typeof parsed === "object" && parsed !== null) {
-          setBodyPairs(recordToPairs(parsed));
-        } else {
-          setBodyPairs([{ key: "body", value: String(requestTemplate.body) }]);
-        }
-      } catch {
-        setBodyPairs([{ key: "body", value: String(requestTemplate.body) }]);
-      }
-    }
-  }, [node.id]);
-
-  function recordToPairs(rec?: Record<string, unknown>): KeyValuePair[] {
+  // Convert record to fields
+  function recordToFields(rec?: Record<string, unknown>): ConsoleField[] {
     if (!rec) return [];
-    return Object.entries(rec).map(([k, v]) => ({ key: k, value: String(v) }));
+    return Object.entries(rec).map(([k, v]) => ({
+      id: `body-kv-${k}-${Math.random()}`,
+      key: k,
+      value: String(v),
+      enabled: true,
+      isCustom: true,
+    }));
   }
 
-  function pairsToRecord(pairs: KeyValuePair[]): Record<string, unknown> {
-    const rec: Record<string, unknown> = {};
-    for (const p of pairs) {
-      if (p.key.trim() !== "") {
-        rec[p.key.trim()] = p.value;
+  // Convert fields to record
+  function fieldsToRecord(fields: readonly ConsoleField[]): Record<string, string> {
+    const rec: Record<string, string> = {};
+    for (const f of fields) {
+      if (f.key.trim() !== "") {
+        rec[f.key.trim()] = f.value;
       }
     }
     return rec;
   }
 
-  const triggerChange = (updates: {
+  // Populate from template when node changes
+  useEffect(() => {
+    setServerUrl(requestTemplate.serverUrl ?? "");
+    setHeaders(recordToFields(requestTemplate.headers));
+    setQuery(recordToFields(requestTemplate.query));
+    setPathParams(recordToFields(requestTemplate.pathParams));
+
+    const ctHeader = Object.entries(requestTemplate.headers || {}).find(
+      ([k]) => k.toLowerCase() === "content-type"
+    )?.[1];
+    
+    const isMultipart = typeof ctHeader === "string" && ctHeader.toLowerCase().includes("multipart/form-data") && ctHeader.toLowerCase().includes("boundary=");
+    
+    if (isMultipart && typeof requestTemplate.body === "string") {
+      setBodyType("multipart");
+      setMultipartFields(parseMultipartBody(requestTemplate.body, ctHeader as string));
+      setBodyText("");
+      setKeyValueFields([]);
+    } else {
+      const isObject = typeof requestTemplate.body === "object" && requestTemplate.body !== null;
+      if (isObject) {
+        setBodyType("key-value");
+        setKeyValueFields(recordToFields(requestTemplate.body as Record<string, unknown>));
+        setBodyText("");
+        setMultipartFields([]);
+      } else {
+        setBodyType("json");
+        setKeyValueFields([]);
+        setMultipartFields([]);
+        if (requestTemplate.body === undefined || requestTemplate.body === null) {
+          setBodyText("");
+        } else {
+          setBodyText(String(requestTemplate.body));
+        }
+      }
+    }
+  }, [node.id]);
+
+  const triggerFieldsChange = (updates: {
     readonly serverUrl?: string;
-    readonly headers?: KeyValuePair[];
-    readonly query?: KeyValuePair[];
-    readonly pathParams?: KeyValuePair[];
-    readonly bodyPairs?: KeyValuePair[];
+    readonly headers?: ConsoleField[];
+    readonly query?: ConsoleField[];
+    readonly pathParams?: ConsoleField[];
+    readonly bodyType?: "json" | "key-value" | "multipart";
+    readonly bodyText?: string;
+    readonly keyValueFields?: ConsoleField[];
+    readonly multipartFields?: MultipartField[];
   }) => {
-    const nextBodyPairs = updates.bodyPairs || bodyPairs;
-    const bodyObj = pairsToRecord(nextBodyPairs);
+    const nextServerUrl = updates.serverUrl !== undefined ? updates.serverUrl : serverUrl;
+    const nextHeaders = updates.headers !== undefined ? updates.headers : headers;
+    const nextQuery = updates.query !== undefined ? updates.query : query;
+    const nextPathParams = updates.pathParams !== undefined ? updates.pathParams : pathParams;
+    const nextBodyType = updates.bodyType !== undefined ? updates.bodyType : bodyType;
+    const nextBodyText = updates.bodyText !== undefined ? updates.bodyText : bodyText;
+    const nextKeyValueFields = updates.keyValueFields !== undefined ? updates.keyValueFields : keyValueFields;
+    const nextMultipartFields = updates.multipartFields !== undefined ? updates.multipartFields : multipartFields;
+
+    let headersRecord = fieldsToRecord(nextHeaders);
+    let finalBody: unknown = undefined;
+
+    if (nextBodyType === "multipart") {
+      let boundary = "";
+      const existingCt = Object.entries(headersRecord).find(([k]) => k.toLowerCase() === "content-type")?.[1];
+      if (existingCt) {
+        const match = existingCt.match(/boundary=(.+)/i);
+        if (match) boundary = match[1]!.trim();
+      }
+      if (!boundary) {
+        boundary = `----BumdBoundary${Math.random().toString(36).substring(2)}${Date.now().toString(36)}`;
+      }
+      headersRecord = {
+        ...headersRecord,
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      };
+      finalBody = buildMultipartBody(nextMultipartFields, boundary);
+    } else if (nextBodyType === "key-value") {
+      if (headersRecord["Content-Type"]?.toLowerCase().includes("multipart/form-data")) {
+        delete headersRecord["Content-Type"];
+      }
+      finalBody = fieldsToRecord(nextKeyValueFields);
+    } else {
+      if (headersRecord["Content-Type"]?.toLowerCase().includes("multipart/form-data")) {
+        delete headersRecord["Content-Type"];
+      }
+      if (nextBodyText.trim().length > 0) {
+        try {
+          finalBody = JSON.parse(nextBodyText);
+        } catch {
+          finalBody = nextBodyText;
+        }
+      }
+    }
 
     onChange({
-      serverUrl: updates.serverUrl !== undefined ? updates.serverUrl : serverUrl || undefined,
-      headers: pairsToRecord(updates.headers || headers),
-      query: pairsToRecord(updates.query || query),
-      pathParams: pairsToRecord(updates.pathParams || pathParams),
-      body: Object.keys(bodyObj).length > 0 ? bodyObj : undefined,
+      serverUrl: nextServerUrl || undefined,
+      headers: headersRecord,
+      query: fieldsToRecord(nextQuery),
+      pathParams: fieldsToRecord(nextPathParams),
+      body: finalBody,
     });
   };
 
-  const renderVariablePicker = (
-    value: string,
-    onSelect: (value: string) => void,
-    fieldLabel: string,
-  ) => <WorkflowVariablePicker environment={environment} fieldLabel={fieldLabel} onSelect={onSelect} testData={testData} value={value} />;
-
-  const handlePairChange = (
-    type: "headers" | "query" | "pathParams" | "body",
-    index: number,
-    field: "key" | "value",
+  const renderVariablePickerWrapper = (
     val: string,
-  ) => {
-    const list =
-      type === "headers" ? headers :
-      type === "query" ? query :
-      type === "pathParams" ? pathParams :
-      bodyPairs;
-    const updated = list.map((item, idx) => (idx === index ? { ...item, [field]: val } : item));
-    if (type === "headers") {
-      setHeaders(updated);
-      triggerChange({ headers: updated });
-    } else if (type === "query") {
-      setQuery(updated);
-      triggerChange({ query: updated });
-    } else if (type === "pathParams") {
-      setPathParams(updated);
-      triggerChange({ pathParams: updated });
-    } else {
-      setBodyPairs(updated);
-      triggerChange({ bodyPairs: updated });
-    }
+    onSelect: (v: string) => void,
+    fieldLabel: string,
+  ) => (
+    <WorkflowVariablePicker
+      environment={environment}
+      fieldLabel={fieldLabel}
+      onSelect={onSelect}
+      testData={testData}
+      value={val}
+    />
+  );
+
+  const handleAddHeader = () => {
+    const updated = [...headers, { id: `header-${Date.now()}-${Math.random()}`, key: "", value: "", enabled: true, isCustom: true }];
+    setHeaders(updated);
+    triggerFieldsChange({ headers: updated });
   };
 
-  const handleAddPair = (type: "headers" | "query" | "pathParams" | "body") => {
-    const list =
-      type === "headers" ? headers :
-      type === "query" ? query :
-      type === "pathParams" ? pathParams :
-      bodyPairs;
-    const updated = [...list, { key: "", value: "" }];
-    if (type === "headers") {
-      setHeaders(updated);
-    } else if (type === "query") {
-      setQuery(updated);
-    } else if (type === "pathParams") {
-      setPathParams(updated);
-    } else {
-      setBodyPairs(updated);
-    }
+  const handleAddQuery = () => {
+    const updated = [...query, { id: `query-${Date.now()}-${Math.random()}`, key: "", value: "", enabled: true, isCustom: true }];
+    setQuery(updated);
+    triggerFieldsChange({ query: updated });
   };
 
-  const handleRemovePair = (type: "headers" | "query" | "pathParams" | "body", index: number) => {
-    const list =
-      type === "headers" ? headers :
-      type === "query" ? query :
-      type === "pathParams" ? pathParams :
-      bodyPairs;
-    const updated = list.filter((_, idx) => idx !== index);
-    if (type === "headers") {
-      setHeaders(updated);
-      triggerChange({ headers: updated });
-    } else if (type === "query") {
-      setQuery(updated);
-      triggerChange({ query: updated });
-    } else if (type === "pathParams") {
-      setPathParams(updated);
-      triggerChange({ pathParams: updated });
-    } else {
-      setBodyPairs(updated);
-      triggerChange({ bodyPairs: updated });
-    }
+  const handleAddPathParam = () => {
+    const updated = [...pathParams, { id: `path-${Date.now()}-${Math.random()}`, key: "", value: "", enabled: true, isCustom: true }];
+    setPathParams(updated);
+    triggerFieldsChange({ pathParams: updated });
   };
 
   return (
@@ -172,87 +203,59 @@ export function RequestTemplateEditor({ node, environment, testData, onChange }:
             type="text"
             value={serverUrl}
             onChange={(e) => setServerUrl(e.target.value)}
-            onBlur={() => triggerChange({ serverUrl })}
+            onBlur={() => triggerFieldsChange({ serverUrl })}
             placeholder="https://api.example.com/v1"
             className="min-w-0 flex-1 rounded border border-chalk bg-white px-2 py-1.5 focus:border-signal-orange focus:outline-none"
           />
-          {renderVariablePicker(serverUrl, (value) => {
+          {renderVariablePickerWrapper(serverUrl, (value) => {
             setServerUrl(value);
-            triggerChange({ serverUrl: value });
+            triggerFieldsChange({ serverUrl: value });
           }, "server URL")}
         </div>
       </div>
 
-      {/* Path Params */}
-      {renderKeyValueSection("Path Parameters", "pathParams", pathParams)}
+      <KeyValueEditor
+        title="Path Parameters"
+        fields={pathParams}
+        onChange={(updated) => { setPathParams(updated as ConsoleField[]); triggerFieldsChange({ pathParams: updated as ConsoleField[] }); }}
+        onAdd={handleAddPathParam}
+        hideCheckboxes={true}
+        forceEditableKeys={true}
+        renderVariablePicker={renderVariablePickerWrapper}
+      />
 
-      {/* Query Params */}
-      {renderKeyValueSection("Query Parameters", "query", query)}
+      <KeyValueEditor
+        title="Query Parameters"
+        fields={query}
+        onChange={(updated) => { setQuery(updated as ConsoleField[]); triggerFieldsChange({ query: updated as ConsoleField[] }); }}
+        onAdd={handleAddQuery}
+        hideCheckboxes={true}
+        forceEditableKeys={true}
+        renderVariablePicker={renderVariablePickerWrapper}
+      />
 
-      {/* Headers */}
-      {renderKeyValueSection("Headers", "headers", headers)}
+      <KeyValueEditor
+        title="Headers"
+        fields={headers}
+        onChange={(updated) => { setHeaders(updated as ConsoleField[]); triggerFieldsChange({ headers: updated as ConsoleField[] }); }}
+        onAdd={handleAddHeader}
+        hideCheckboxes={true}
+        forceEditableKeys={true}
+        renderVariablePicker={renderVariablePickerWrapper}
+      />
 
-      {/* Request Body */}
-      {renderKeyValueSection("Request Body (JSON)", "body", bodyPairs)}
+      <BodyEditor
+        bodyType={bodyType}
+        onBodyTypeChange={(type) => { setBodyType(type); triggerFieldsChange({ bodyType: type }); }}
+        bodyText={bodyText}
+        onBodyTextChange={(text) => { setBodyText(text); triggerFieldsChange({ bodyText: text }); }}
+        keyValueFields={keyValueFields}
+        onKeyValueFieldsChange={(fields) => { setKeyValueFields(fields as ConsoleField[]); triggerFieldsChange({ keyValueFields: fields as ConsoleField[] }); }}
+        multipartFields={multipartFields}
+        onMultipartFieldsChange={(fields) => { setMultipartFields(fields as MultipartField[]); triggerFieldsChange({ multipartFields: fields as MultipartField[] }); }}
+        renderVariablePicker={renderVariablePickerWrapper}
+        hideCheckboxes={true}
+      />
     </div>
   );
-
-  function renderKeyValueSection(
-    title: string,
-    type: "headers" | "query" | "pathParams" | "body",
-    pairs: KeyValuePair[],
-  ) {
-    return (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <label className="font-semibold text-carbon">{title}</label>
-          <button
-            type="button"
-            onClick={() => handleAddPair(type)}
-            className="text-[10px] font-bold text-signal-orange hover:opacity-80 cursor-pointer"
-          >
-            + Add
-          </button>
-        </div>
-        {pairs.length === 0 ? (
-          <span className="text-slate italic text-[11px]">No items configured</span>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {pairs.map((p, index) => (
-              <div key={index} className="flex items-start gap-1">
-                <input
-                  type="text"
-                  value={p.key}
-                  onChange={(e) => handlePairChange(type, index, "key", e.target.value)}
-                  placeholder="Key"
-                  className="w-1/2 min-w-0 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
-                />
-                <div className="flex w-1/2 min-w-0 flex-col gap-1">
-                  <input
-                    type="text"
-                    value={p.value}
-                    onChange={(e) => handlePairChange(type, index, "value", e.target.value)}
-                    placeholder="Value"
-                    className="w-full min-w-0 rounded border border-chalk px-1.5 py-1 focus:border-signal-orange focus:outline-none font-mono text-[11px]"
-                  />
-                  {renderVariablePicker(
-                    p.value,
-                    (value) => handlePairChange(type, index, "value", value),
-                    `${title} value`,
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemovePair(type, index)}
-                  className="text-slate hover:text-red-500 font-bold px-1.5 cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
 }

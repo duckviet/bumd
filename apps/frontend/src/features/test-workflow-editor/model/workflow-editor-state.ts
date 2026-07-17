@@ -84,14 +84,19 @@ export function createInitialEditorState(): TestWorkflowEditorState {
 }
 
 function loadWorkflow(state: TestWorkflowEditorState, workflow: TestWorkflowDto, defaultServerUrl?: string): TestWorkflowEditorState {
-  const hasServerUrl = workflow.definitionJson.nodes.some((node) => Boolean(node.requestTemplate.serverUrl));
-  const applyDefault = !hasServerUrl && Boolean(defaultServerUrl) && workflow.definitionJson.nodes.length > 0;
+  const definition = workflow.definitionJson;
+  const isV1 = (definition as { readonly schemaVersion?: number }).schemaVersion === 1;
+  const normalizedNodes = (isV1 ? definition.nodes.map(n => ({ ...n, phase: "test" })) : definition.nodes) as TestWorkflowNode[];
+
+  const hasServerUrl = normalizedNodes.some((node) => Boolean(node.requestTemplate.serverUrl));
+  const applyDefault = !hasServerUrl && Boolean(defaultServerUrl) && normalizedNodes.length > 0;
   const nodes = applyDefault
-    ? workflow.definitionJson.nodes.map((node) => ({
+    ? normalizedNodes.map((node) => ({
         ...node,
         requestTemplate: { ...node.requestTemplate, serverUrl: defaultServerUrl },
       }))
-    : workflow.definitionJson.nodes;
+    : normalizedNodes;
+
   return {
     ...state,
     workflowId: workflow.id,
@@ -100,9 +105,11 @@ function loadWorkflow(state: TestWorkflowEditorState, workflow: TestWorkflowDto,
     metadata: { tags: workflow.tags, priority: workflow.priority, type: workflow.type },
     revision: workflow.revision,
     definition: {
-      ...workflow.definitionJson,
-      context: workflow.definitionJson.context ?? { testData: {} },
+      schemaVersion: 2,
+      context: definition.context ?? { testData: {} },
       nodes,
+      edges: definition.edges,
+      ...(definition.viewport === undefined ? {} : { viewport: definition.viewport }),
     },
     defaultServerUrl: defaultServerUrl ?? state.defaultServerUrl,
     dirty: applyDefault,
