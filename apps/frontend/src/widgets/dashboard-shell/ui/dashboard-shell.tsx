@@ -1,34 +1,6 @@
-import { redirect } from "next/navigation";
 import { MembershipRole, type Membership } from "@/shared/auth/rbac";
-import { requireOrgRole } from "@/shared/auth/session";
-import { OrgSwitcher } from "@/app/app/[org]/docs/org-switcher";
 import { DashboardNavLink } from "@/shared/ui/dashboard-primitives";
-
-export const ManageRoles = [MembershipRole.Owner, MembershipRole.Admin, MembershipRole.Member] as const;
-export const ReadRoles = [MembershipRole.Owner, MembershipRole.Admin, MembershipRole.Member, MembershipRole.Guest] as const;
-
-export async function requireDashboardRead(organizationSlug: string) {
-  return requireOrgRole(organizationSlug, ReadRoles);
-}
-
-export async function requireDashboardManage(organizationSlug: string) {
-  return requireOrgRole(organizationSlug, ManageRoles);
-}
-
-export function canManage(role: MembershipRole): boolean {
-  switch (role) {
-    case MembershipRole.Owner:
-    case MembershipRole.Admin:
-    case MembershipRole.Member:
-      return true;
-    case MembershipRole.Guest:
-      return false;
-  }
-}
-
-export function redirectToDocs(organizationSlug: string): never {
-  redirect(`/app/${organizationSlug}/docs`);
-}
+import { OrgSwitcher } from "./org-switcher";
 
 type DashboardTab = "overview" | "portals" | "members" | "api-tokens" | "webhooks";
 

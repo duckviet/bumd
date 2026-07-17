@@ -21,8 +21,8 @@ function readFrontendSource(relativePath) {
 }
 
 test("selected environment variables can be inserted from the workflow node inspector", () => {
-  const pageSource = readFrontendSource("app/app/[org]/docs/[doc]/tests/tests-page-client.tsx");
-  const workspaceSource = readFrontendSource("app/app/[org]/docs/[doc]/tests/workflow-editor-workspace.tsx");
+  const pageSource = readFrontendSource("page/dashboard-tests/workflow/ui/tests-page-client.tsx");
+  const workspaceSource = readFrontendSource("page/dashboard-tests/workflow/ui/workflow-editor-workspace.tsx");
   const inspectorSource = readFrontendSource("features/test-workflow-editor/ui/node-inspector.tsx");
   const requestEditorSource = readFrontendSource("features/test-workflow-editor/ui/request-template-editor.tsx");
   const pickerSource = readFrontendSource("features/test-workflow-editor/ui/workflow-variable-picker.tsx");
@@ -37,7 +37,7 @@ test("selected environment variables can be inserted from the workflow node insp
 });
 
 test("loading the current workflow does not dispatch again after save synchronization", () => {
-  const pageSource = readFrontendSource("app/app/[org]/docs/[doc]/tests/tests-page-client.tsx");
+  const pageSource = readFrontendSource("page/dashboard-tests/workflow/ui/tests-page-client.tsx");
 
   assert.match(pageSource, /if \(state\.workflowId === current\.id\) \{\s*return;\s*\}/u);
 });

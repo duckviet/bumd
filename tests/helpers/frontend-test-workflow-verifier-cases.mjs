@@ -22,7 +22,7 @@ test("feature slices do not compose workflow widgets", () => {
     .map((name) => fs.readFileSync(path.join(featureDirectory, name), "utf8"))
     .join("\n");
   const pageSource = fs.readFileSync(
-    path.join(rootDir, "apps/frontend/src/app/app/[org]/docs/[doc]/tests/tests-page-client.tsx"),
+    path.join(rootDir, "apps/frontend/src/page/dashboard-tests/workflow/ui/tests-page-client.tsx"),
     "utf8",
   );
 

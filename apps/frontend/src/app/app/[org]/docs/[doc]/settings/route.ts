@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getDashboardDoc, updateDashboardDocSettings, deleteDashboardDoc } from "@/entities/dashboard";
-import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
+import { requireDashboardManage } from "@/shared/auth/dashboard-access";
 import { settingsForm } from "@/app/app/[org]/docs/[doc]/settings/settings-form";
 import {
   getLinkedRepoForDoc,

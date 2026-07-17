@@ -872,6 +872,12 @@ There is no standalone implemented `/app/[org]/settings` route. Doc settings mut
 apps/frontend/src/
   app/
     app/
+  page/
+    dashboard-docs/
+    dashboard-tests/
+      overview/
+      workflow/
+    portal-doc/
   widgets/
     doc-renderer/
     search-box/
@@ -895,6 +901,8 @@ apps/frontend/src/
 
 Rules:
 
+- App Router `page.tsx` files are thin adapters that import one public API from `page`; route-level ensembles do not live in `app`.
+- Each shipped route has its own folder under `page`; closely related routes may share a prefixed slice with separate route folders.
 - Server Components fetch doc metadata, version data, and static render payloads by default.
 - Client Components are reserved for search, Try it out, menus, forms, and other implemented interactions.
 - Entity models must not import features or widgets.

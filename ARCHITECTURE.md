@@ -95,9 +95,10 @@ Next.js 16 documentation portal and application UI. It owns:
 - diff/changelog views;
 - integration with the doc renderer package.
 
-The frontend follows a lite Feature-Sliced Design with `app`, `widgets`, `features`, `entities`, and `shared` boundaries. There is no separate source-level `pages` layer in the current implementation. Dependencies flow downward only:
+The frontend follows a lite Feature-Sliced Design with `app`, `page`, `widgets`, `features`, `entities`, and `shared` boundaries. The layer is named `page` (singular) so Next.js does not mistake it for the legacy `pages` router. Dependencies flow downward only:
 
-- `app` wires routes, server actions, providers, and access checks;
+- `app` contains thin App Router entries, route handlers, providers, and route configuration;
+- `page` owns route-level data loading, access checks, redirects, and screen composition behind per-route public APIs;
 - `widgets` compose visible page regions and own layout state for that region;
 - `features` own user actions and interaction workflows such as search, deploy, invites, and Try it out;
 - `entities` own normalized domain models and mappers for OpenAPI, docs, versions, organizations, diffs, and webhooks;

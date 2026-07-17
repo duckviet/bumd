@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createDashboardDoc } from "@/entities/dashboard";
-import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
+import { requireDashboardManage } from "@/shared/auth/dashboard-access";
 
 type RouteContext = {
   readonly params: Promise<{
