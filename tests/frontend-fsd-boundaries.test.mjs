@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const srcDir = path.join(rootDir, "apps/frontend/src");
-const layers = ["shared", "entities", "features", "widgets", "pages", "app"];
+const layers = ["shared", "entities", "features", "widgets", "page", "app"];
 const sourceExtensions = [".ts", ".tsx"];
 
 function getLayerIndex(layer) {
@@ -144,6 +144,33 @@ test("Enforce FSD import boundaries and cross-slice public API usage", () => {
     }
   }
 
+  assert.deepEqual(violations, []);
+});
+
+test("App Router page entries only expose FSD page slices", () => {
+  const appDir = path.join(srcDir, "app");
+  const pageFiles = getSourceFiles(appDir).filter((filePath) => path.basename(filePath) === "page.tsx");
+  const violations = [];
+
+  for (const pageFile of pageFiles) {
+    const source = fs.readFileSync(pageFile, "utf8");
+    const imports = getImports(source);
+    const location = path.relative(rootDir, pageFile);
+
+    if (imports.length !== 1 || !imports[0].startsWith("@/page/")) {
+      violations.push(`${location} must import exactly one FSD page public API`);
+    }
+
+    if (/\b(?:async\s+)?function\b|\breturn\b|<[A-Za-z]/u.test(source)) {
+      violations.push(`${location} contains page implementation instead of a thin route adapter`);
+    }
+
+    if (!/export default [A-Za-z][A-Za-z0-9]*;/u.test(source)) {
+      violations.push(`${location} must default-export the imported page`);
+    }
+  }
+
+  assert.ok(pageFiles.length > 0);
   assert.deepEqual(violations, []);
 });
 

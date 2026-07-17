@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireDashboardManage } from "@/app/app/[org]/docs/dashboard-helpers";
+import { requireDashboardManage } from "@/shared/auth/dashboard-access";
 import { dashboardDeploySpec } from "@/shared/api/dashboard-management-client";
 
 type RouteContext = {
