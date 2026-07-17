@@ -5,9 +5,9 @@ import type {
   TestWorkflowRunDetailDto,
   UpdateTestWorkflowBody,
 } from "@/shared/api/test-workflow-types";
-import { testWorkflowApiErrorFromResponse } from "./test-workflow-api-error.ts";
+import { testWorkflowApiErrorFromResponse } from "./test-workflow-api-error";
 
-export { TestWorkflowApiError } from "./test-workflow-api-error.ts";
+export { TestWorkflowApiError } from "./test-workflow-api-error";
 
 function getProxyUrl(org: string, doc: string, branch: string, subPath: string): string {
   return `/api/test-workflows/orgs/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}/branches/${encodeURIComponent(branch)}/${subPath}`;

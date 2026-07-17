@@ -1,5 +1,5 @@
-import type { WorkflowEditorAction } from "./workflow-editor-state.ts";
-import { TestWorkflowApiError } from "../../../shared/api/test-workflow-api-error.ts";
+import type { WorkflowEditorAction } from "./workflow-editor-state";
+import { TestWorkflowApiError } from "../../../shared/api/test-workflow-api-error";
 
 export function saveFailureAction(error: unknown): WorkflowEditorAction {
   if (

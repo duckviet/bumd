@@ -20,7 +20,7 @@ import {
 } from "./console-tabs";
 
 type RunConsoleProps = {
-  readonly run: TestWorkflowRunDetailDto;
+  readonly run: TestWorkflowRunDetailDto | null;
   readonly nodes: readonly { readonly id: string; readonly label: string }[];
   readonly onClose: () => void;
 };
@@ -35,13 +35,40 @@ export function RunConsole({ run, nodes, onClose }: RunConsoleProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"request" | "response" | "inputs" | "exports" | "assertions">("request");
 
+  // Reset selected step when run ID changes
+  const runId = run?.id;
+  useEffect(() => {
+    setSelectedStepId(null);
+  }, [runId]);
+
   // Default select first failed or first running step
   useEffect(() => {
-    if (run.steps.length > 0 && !selectedStepId) {
+    if (run && run.steps.length > 0 && !selectedStepId) {
       const active = run.steps.find((s) => s.status === "failed") || run.steps.find((s) => s.status === "running") || run.steps[0];
       if (active) setSelectedStepId(active.id);
     }
-  }, [run.steps, selectedStepId]);
+  }, [run, selectedStepId]);
+
+  if (!run) {
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-white text-xs">
+        <header className="border-b border-chalk p-3 flex justify-between items-center bg-white">
+          <span className="font-semibold text-carbon">Console</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate hover:text-carbon font-bold text-sm cursor-pointer"
+          >
+            &times;
+          </button>
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-center text-slate italic bg-white gap-2">
+          <span>No active test run</span>
+          <span className="text-[11px] text-slate/85">Click "Run Test" to execute the workflow.</span>
+        </div>
+      </div>
+    );
+  }
 
   const selectedStep = run.steps.find((s) => s.id === selectedStepId);
   const nodeLabel = (nodeId: string) => nodes.find((n) => n.id === nodeId)?.label || nodeId;
@@ -49,7 +76,7 @@ export function RunConsole({ run, nodes, onClose }: RunConsoleProps) {
   const phaseGroups = groupRunStepsByPhase(run.steps);
 
   return (
-    <div className="flex h-[320px] flex-col overflow-hidden border-t border-chalk bg-white text-xs">
+    <div className="flex h-full flex-col overflow-hidden bg-white text-xs">
       <div className="flex flex-wrap items-center gap-2 border-b border-chalk bg-fog px-3 py-2">
         <StatusBadge label={run.metadataSnapshot.priority} tone="warning" />
         <StatusBadge label={run.metadataSnapshot.type} />

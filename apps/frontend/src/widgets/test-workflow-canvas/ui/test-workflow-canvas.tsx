@@ -10,6 +10,7 @@ import {
   type Edge,
   type Node,
   type NodeMouseHandler,
+  type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -139,7 +140,7 @@ export function TestWorkflowCanvas({ store, operations }: TestWorkflowCanvasProp
   );
 
   // Sync node position dragging
-  const onNodeDragStop: NodeMouseHandler = useCallback(
+  const onNodeDragStop: OnNodeDrag = useCallback(
     (_event, node) => {
       const updatedNodes = definition.nodes.map((n) =>
         n.id === node.id ? { ...n, position: node.position } : n,

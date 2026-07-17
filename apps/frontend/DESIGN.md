@@ -1,7 +1,9 @@
-# Ventriloc — Style Reference
+# Bumd Frontend Design System
 > analytics console on parchment
 
 **Theme:** light
+
+This file is the implementation contract for the Bumd frontend. The Ventriloc material below is the visual source reference; the product-surface contract at the end records what the repository actually ships, how its responsive and interaction boundaries work, and which gaps remain open. A component or state named as open debt is not complete merely because its current rendering is described here.
 
 Ventriloc speaks in a quiet, professional whisper against an off-white canvas — a workspace where data feels approachable rather than intimidating. The interface is built on tight geometric type (PolySans) paired with Inter for UI, an almost-monochrome neutral palette, and a single warm orange (#ff682c) that punctuates charts, icons, and logo marks with restrained energy. Surfaces are flat and lightly tinted (white cards on warm-gray canvas), corners are soft (8px cards, pill-shaped controls), and elevation comes from gentle background shifts rather than shadows. Buttons are pill-shaped, nav is a floating rounded capsule, and dashboard mockups are presented as pristine white cards — the whole experience reads as analytical, airy, and deliberately unfussy.
 
@@ -372,3 +374,172 @@ The authenticated app uses a single command-center dashboard instead of forcing 
 - `StatusBadge`: domain-neutral compact label with `neutral`, `warning`, `success`, and `danger` tones. Domain slices map their own state unions to these tones.
 - `VersionStatusBadge`: dashboard entity adapter for `queued`, `processing`, `ready`, `failed`, and no-deploy states.
 - Dashboard shell surfaces use direct Tailwind utilities backed by this file's named tokens; semantic compatibility classes and `@apply` are not permitted.
+
+# Product Surface Implementation Contract
+
+## 1. Authority, Routes, And Ownership
+
+The current frontend is a Next.js App Router application using Lite Feature-Sliced Design. Dependencies flow from `app` to `widgets` to `features` to `entities` to `shared`; lower layers never import higher layers. Route files own authentication, authorization, transport parsing, redirects, and screen composition. Widgets compose visible regions. Features own user interactions. Entities own normalized domain models. `shared/ui` and generic shared utilities remain domain-neutral. `shared/api` is the intentional boundary-client exception: it may expose domain-shaped, strictly typed DTO schemas and transport functions so external responses are parsed at the boundary, but it must not own domain policy, presentation, or feature workflow state.
+
+Shipped route families:
+
+- Public portal: `/:org/:doc`, `/:org/:doc/changes`, and `/:org/:doc/changes/:id`.
+- Authentication: `/login`, `/signup`, `/logout`, `/accept-invite/:token`, and Auth.js callback routes.
+- Dashboard: `/app`, `/app/:org`, `/app/:org/docs`, `/app/:org/docs/:doc`, members, API tokens, webhooks, version list/detail/diff, and the HTML-rendered doc settings route.
+- Workflow builder: `/app/:org/docs/:doc/tests` and `/app/:org/docs/:doc/tests/:workflowId`.
+- Frontend proxy routes: `/api/search`, `/api/try-it-out`, `/api/test-workflows/*`, and GitHub/Auth.js callbacks.
+
+The public portal currently resolves only the default branch's latest ready version. Explicit branch/version portal routes and selectors are open debt (`PORTAL-004`), not shipped behavior. Custom-domain resolution remains open debt (`PORTAL-005`).
+
+## 2. Shared And Domain Visual Primitives
+
+### Shared dashboard primitives
+
+- `DashboardButton`: 40px pill button; `primary`, `secondary`, and `danger` tones; disabled state removes pointer affordance and lowers opacity.
+- `DashboardLinkButton`: small or medium pill link for route navigation and external actions.
+- `DashboardNavLink`: horizontally scrollable dashboard-tab item with a carbon active state.
+- `DashboardPageHeader`: paper surface containing kicker, PolySans title, description, and wrapping actions.
+- `DashboardSection`: paper section with optional kicker, title, actions, divider, and content region.
+- `InfoCard`: compact labelled metadata surface. It is not permission to nest cards recursively.
+- `FormField`, `fieldClassName`, `ModalHeader`, `ModalActions`, and `ModalError`: shared form/dialog anatomy with visible labels and alert semantics.
+- `DashboardModal`: labelled dialog with initial focus, keyboard focus loop, Escape/backdrop close when an `onClose` handler exists, and focus restoration. Viewport-safe maximum height and an explicit internal vertical scroll owner are target behavior, not currently established implementation.
+- `StatusBadge`: domain-neutral label with neutral, warning, success, and danger tones.
+- `VersionStatusBadge`: entity-owned mapping for queued, processing, ready, failed, and no-deploy states.
+
+### Shared portal primitives
+
+- `PortalShell`: public documentation page canvas.
+- `PortalContainer`: centered portal width capped at 1440px with responsive gutters.
+- `Surface`: paper panel with a chalk border and small radius.
+- `Badge`: neutral, signal, success, danger, info, or warning label.
+- `MethodBadge`: HTTP-method adapter over `Badge`; unknown methods stay neutral.
+
+Reusable domain behavior must not move into `shared/ui`. Method, version, run, workflow phase, webhook, role, and delivery state mappings belong to their entity or feature slice.
+
+## 3. Dashboard Structure And Responsive Contract
+
+`dashboardShell` owns the authenticated page canvas, organization identity, current user/role, logout, and top-level tabs. It is a server-composed shell; interactive forms and dialogs remain client leaves.
+
+| Width | Contract |
+| --- | --- |
+| 375px | Header groups wrap without covering identity or logout. Dashboard tabs are a single horizontal scroll owner. Page sections use one readable column; actions wrap; dialogs retain 16px viewport clearance. Primary content must not create horizontal page scroll. |
+| 768px | Header identity and actions may share a row when content fits. Forms may use two-column field groupings, while lists remain readable without hiding controls. Target contract: dialogs are viewport-bounded and keep an explicit internal vertical scroll owner; this is not yet shipped for `DashboardModal`. |
+| 1280px | Content is centered within `max-w-7xl`. Headers place copy and actions side by side. Lists, metadata grids, and management actions may use dense multi-column layouts without nested-card repetition. |
+
+Dashboard states that every surface must expose deliberately are loading, empty, error, forbidden/role-limited, disabled mutation, success, and one-time-secret reveal. Real-browser evidence for all dashboard workflows and those states remains open debt (`DASH-QA-001`, `DASH-QA-002`).
+
+`DashboardModal` viewport bounding is also open under `DASH-QA-001` and `ARCH-UI-F3`: exit requires a source implementation with a viewport-safe maximum block size and named internal scroll region, followed by keyboard/overflow evidence at 375px, 768px, and 1280px.
+
+## 4. Documentation Portal Structure
+
+`widgets/doc-renderer` is a composition widget, not the owner of request execution or OpenAPI parsing. It composes:
+
+- `SearchBox` and operation-anchor selection;
+- `OperationNav` grouped by tag;
+- `OperationDetail` cards and Try-It-Out triggers;
+- `SchemaRail` with referenced/all tabs;
+- `Collapsible` operation groups;
+- the feature-level `TryItOutModal`;
+- the temporary `widgets/try-it-out-panel` wrapper around the feature-level panel.
+
+`entities/openapi` owns normalized document, operation, parameter, request-body, server, schema, and Try-It-Out draft models. `features/try-it-out` owns draft editing, validation, proxy submission, and response presentation. `shared/api` owns generic request helpers and portal clients.
+
+Portal responsive layout:
+
+| Width | Contract |
+| --- | --- |
+| 375px | Header, search, operation content, navigation, and schema rail reflow to one column. Content is first in visual order; navigation and schemas follow. Operation paths, JSON, and schema text scroll within their local code/data region rather than widening the page. |
+| 768px | The portal remains a readable stacked layout unless available width safely supports side regions. Search controls may wrap and retain a visible label. A measured 40px minimum target is the target contract, not verified current behavior. |
+| 1280px | Three regions use approximately `300px / minmax(0,1fr) / 360px`. Navigation and schema/Try-It-Out rails are sticky and own their vertical overflow; the center document remains the page scroll owner. |
+
+Final portal interaction evidence for operation selection, schema tabs/copy, search, changelog, theme, empty/error/private states, and overflow remains open debt (`PORTAL-006`). The duplicated canonical modal plus legacy panel is open debt (`ARCH-FSD-005`); do not treat both surfaces as a permanent design decision.
+
+Search target sizing remains open under `SEARCH-002` and `SEARCH-003`: exit requires 40px-or-larger measured input/button targets at all three widths plus keyboard and browser evidence for loading, empty, error, retry, and result selection.
+
+## 5. Try-It-Out Modal And Panel
+
+The canonical intended workflow is `TryItOutModal`. Its current desktop anatomy is operation context, request builder, and response console. The request builder owns Params, Headers, and Body tabs; the response console owns Body and Headers tabs plus exact HTTP status presentation. All execution passes through `/api/try-it-out`; the browser never calls the target server directly.
+
+| Width | Contract |
+| --- | --- |
+| 375px | Operation rail is hidden. Request and response regions stack within a viewport-bounded dialog. Each data/code region owns overflow; the document behind the dialog must not scroll. Controls stay reachable without horizontal overflow. |
+| 768px | Stacked or two-region layout is acceptable only when request and response remain independently readable. The active operation remains visible in the dialog heading. |
+| 1280px | Use the shipped `240px / minmax(0,1fr) / 440px` grid, capped at 1160px wide and 760px tall with 24px viewport clearance. Operation list, request editor, and response data each own their internal overflow. |
+
+Required states are idle, editing, client validation error, sending, successful response, HTTP error response, transport failure, and empty headers/body. Required path/query/body validation is implemented. Required header/cookie and empty/invalid base-URL validation remain open debt (`TRY-REQ-002`).
+
+The modal currently renders `role="dialog"`, `aria-modal`, Close, Escape, and initial field focus. A reliable accessible name is not established: the current `aria-labelledby` relationship does not provide the verifier-required matching label contract. A stable in-dialog heading ID, focus trapping/restoration, explicit background-scroll locking, accessible validation announcements, and operation-switch reset coverage all remain open debt (`TRY-UX-002`). Behavioral and real-browser coverage remains open debt (`TRY-QA-001`). Parser debt is tracked by `TRY-MODEL-002` through `TRY-MODEL-005`; the UI contract must not imply those OpenAPI cases are already supported.
+
+## 6. Workflow Builder, Canvas, And Inspector
+
+The geometry and composition described in this section were verified against the current dirty working-tree revision, including uncommitted user-owned workflow UI changes. They are a stale-state snapshot for documentation alignment, not evidence of the committed baseline or final shipped revision. Reverify them on the final tree under `WF-QA-005` and `WF-QA-006` before treating the contract as complete.
+
+The workflow route composes route-owned toolbar/dialog state with these regions:
+
+- `EndpointPalette`: endpoint search, HTTP-method filters, grouped draggable endpoints, and empty state.
+- `TestWorkflowCanvas`: React Flow canvas, background, minimap, controls, endpoint nodes, connections, phase legend, validation feedback, selection, and run-status projection.
+- `NodeInspector`: selected endpoint summary, stale warning, phase control, Request, Exports, and Assertions tabs, and node deletion.
+- `WorkflowSettingsModal` and `EnvironmentsModal`: metadata, non-secret test data, environment descriptors, and secret-aware configuration.
+- `RunConsole`: resizable execution trace below the canvas.
+
+Workflow layout and scroll ownership:
+
+| Width | Contract |
+| --- | --- |
+| 375px | The canvas is the primary workspace and retains a minimum usable height. Desktop endpoint palette is hidden. Selected-node inspector is an overlay no wider than 90vw and owns vertical scrolling. Toolbar actions wrap or scroll without covering the canvas. Touch-accessible endpoint insertion/remapping is not yet proven and is open QA debt. |
+| 768px | Canvas remains primary. Palette/inspector may use overlays or staged panels; no panel may shrink the canvas below a usable interaction area. The run console must remain viewport-bounded. |
+| 1280px | Use `260px / minmax(0,1fr)` with an optional 340px inspector at extra-large widths. Palette and inspector own vertical scrolling; React Flow owns canvas pan/zoom; the page shell must not capture canvas gestures. |
+
+Canvas nodes expose method, path, label, phase, run status, selection, stale state, and connection handles. Connections reject cycles and phase-regressing edges with visible feedback. Stale nodes remain visible and block runs. Removal exists; real stale-operation remapping remains open debt (`WF-UI-007`). Viewport persistence remains open debt (`WF-UI-006`).
+
+The current workflow editor has known strict-type/style and module-cohesion debt (`WF-UI-009`, `ARCH-UI-003`, `ARCH-UI-008`, `ARCH-UI-009`). The currently failing focused Node test import is open debt (`WF-UI-005`). These are release blockers, not accepted completion exceptions.
+
+## 7. Run Console
+
+`RunConsole` is a bottom execution region with a resizable height in the current dirty working-tree revision. It groups setup, test, and teardown steps, defaults selection to a failed/running/first step, and separates primary failure from teardown failures. Its detail tabs are Request, Response, Inputs, Exports, and Assertions. These claims reflect uncommitted user-owned changes and are not committed-baseline evidence; they require final-revision source and browser verification under `WF-QA-005` and `WF-QA-006`.
+
+Scroll ownership rules:
+
+- The workspace owns the console height; the drag handle changes only the console region.
+- The step timeline and active tab panel own their vertical scrolling.
+- Code, headers, bodies, and unbroken identifiers use local horizontal scrolling or wrapping; they never widen the application shell.
+- At narrow widths the console must stack or provide an equally usable alternative to the current quarter/three-quarter split. This responsive behavior is not yet verified and remains under `WF-QA-005`/`WF-QA-006`.
+
+The console must preserve duration/error, resolved request, redacted headers, response/truncation state, inputs, exports, and assertion expected/actual values. Upstream export provenance for `vars` inputs remains open debt (`WF-UI-008`, `WF-CONSOLE-001`).
+
+## 8. Accessibility, Focus, And Motion
+
+### Accessibility constraints
+
+- Target WCAG 2.2 AA: 4.5:1 body-text contrast, 3:1 large-text/UI contrast, visible focus, semantic labels, and full keyboard reachability.
+- Use real buttons for actions and anchors for navigation. Every icon-only action has an accessible name.
+- Errors that block progress use `role="alert"` or an associated field description; color is never the only signal.
+- Target dialog contract: use `role="dialog"`, `aria-modal="true"`, and an `aria-labelledby` value with a guaranteed matching heading ID; focus begins inside, stays inside while open, and returns to the trigger on close. `DashboardModal` satisfies the focus portion, while `TryItOutModal` remains open under `TRY-UX-002`.
+- Secret inputs and outputs never reveal stored values after the allowed one-time display. Run-console secret inputs render redacted descriptors only.
+- Empty, long-label, unbroken-string, failed, stale, and permission-limited content must remain understandable at 375px.
+
+`DashboardModal` meets the focus-loop/restoration contract. `TryItOutModal` does not yet meet the complete focus contract; that difference is explicitly tracked by `TRY-UX-002`.
+
+### Motion
+
+- Motion communicates interaction or state only. Do not animate decorative non-interactive elements.
+- Use 180–220ms for hover/focus/state transitions and transform/opacity/background/border changes.
+- Programmatic operation navigation currently uses smooth scrolling without a verified `prefers-reduced-motion` fallback. Instant movement under reduced motion is the target contract and remains open under `ARCH-UI-F2` and `ARCH-UI-F3`; exit requires source handling plus browser evidence with reduced motion enabled.
+- Canvas pan/zoom and console resizing are direct manipulation, not decorative animation.
+- Avoid layout-property animation. The current mouse-driven console height and any remaining broad `transition-all` usage are implementation debt until audited under `ARCH-UI-F1`/`ARCH-UI-F2`.
+
+## 9. Accepted And Open Design Debt
+
+No incomplete item below is accepted as final product completion. “Accepted current behavior” means the repository may preserve it while the linked checklist item remains open; it does not waive the item.
+
+| Debt | Current status and exit condition |
+| --- | --- |
+| `PORTAL-004..006` | Default/latest portal and limited screenshots are accepted current behavior. Exit with branch/version selection, custom-domain decision where applicable, and final interaction/browser evidence. |
+| `ARCH-FSD-005..008` | Feature/entity ownership is mostly shipped, but duplicate Try-It-Out surfaces, `as any`, public-API enforcement, helper coverage, and Lite-FSD evidence remain open. |
+| `TRY-MODEL-002..005`, `TRY-REQ-002`, `TRY-UX-002`, `TRY-QA-001` | OpenAPI edge cases, request validation, complete modal focus/scroll behavior, and browser/component coverage remain open. |
+| `SEARCH-002/003` | Search lacks measured 40px targets, explicit loading, empty-result, error/retry, keyboard navigation, and final browser proof. Exit requires the source and three-width browser evidence named above. |
+| `DASH-QA-001/002` | Existing dashboard behavior is retained, but browser-QA completion claims require linked final-state evidence. `DashboardModal` also needs a viewport-safe maximum height and explicit internal scroll owner before responsive completion. |
+| `WF-UI-005..009`, `WF-CONSOLE-001`, `WF-QA-003..006` | Workflow tests, viewport persistence, remapping, provenance, strict style/type cleanup, complete console contract, responsive behavior, and live QA remain open. |
+| `ARCH-UI-001..009`, `ARCH-UI-F1..F4` | Tailwind/FSD migration is partial. Oversized management and workflow modules, raw/semantic style debt, strict typing, reduced-motion handling, complete route/state QA, and final reviews remain open. |
+
+New debt must be added here with a stable checklist ID, exact surface, reason, and exit condition. Silent debt is not permitted.

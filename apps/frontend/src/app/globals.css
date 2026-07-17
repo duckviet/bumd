@@ -141,3 +141,9 @@
   }
 }
 
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #858080 transparent;
+}

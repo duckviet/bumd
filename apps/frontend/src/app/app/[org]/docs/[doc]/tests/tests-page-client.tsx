@@ -52,6 +52,7 @@ const [createError, setCreateError] = useState<string | null>(null);
 const [creating, setCreating] = useState(false);
 const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
 const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const testsPath = `/app/${encodeURIComponent(org)}/docs/${encodeURIComponent(doc)}/tests`;
   const workflowPath = useCallback((workflowId: string) => `${testsPath}/${encodeURIComponent(workflowId)}`, [testsPath]);
 
@@ -155,6 +156,7 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleRun = () => {
     runWorkflowFn(selectedEnvId);
+    setIsConsoleOpen(true);
   };
 
   const handleCancel = async () => {
@@ -225,9 +227,17 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false);
         selectedEnvironmentId={selectedEnvId}
         state={state}
         workflows={workflows}
+        isConsoleOpen={isConsoleOpen}
+        onToggleConsole={() => setIsConsoleOpen((prev) => !prev)}
       />
 
-      <WorkflowEditorWorkspace environment={selectedEnvironment} operations={operations} store={store} />
+      <WorkflowEditorWorkspace
+        environment={selectedEnvironment}
+        operations={operations}
+        store={store}
+        isConsoleOpen={isConsoleOpen}
+        setIsConsoleOpen={setIsConsoleOpen}
+      />
 
       <WorkflowEditorDialogs
         branch={branch}

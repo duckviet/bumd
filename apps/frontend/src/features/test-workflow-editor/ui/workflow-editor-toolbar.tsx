@@ -20,6 +20,8 @@ type WorkflowEditorToolbarProps = {
   readonly onSave: () => void;
   readonly onRun: () => void;
   readonly onCancel: () => void;
+  readonly isConsoleOpen: boolean;
+  readonly onToggleConsole: () => void;
 };
 
 export function WorkflowEditorToolbar(props: WorkflowEditorToolbarProps) {
@@ -86,6 +88,22 @@ export function WorkflowEditorToolbar(props: WorkflowEditorToolbarProps) {
             type="button"
           >
             {props.state.saving ? "Saving..." : "Save"}
+          </button>
+        ) : null}
+        {props.state.workflowId ? (
+          <button
+            type="button"
+            onClick={props.onToggleConsole}
+            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              props.isConsoleOpen
+                ? "border-signal-orange bg-signal-orange/10 text-signal-orange hover:bg-signal-orange/20"
+                : "border-chalk bg-paper text-slate hover:border-carbon hover:text-carbon"
+            }`}
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            Console
           </button>
         ) : null}
         {props.state.workflowId ? <RunButton hasStaleNodes={props.hasStaleNodes} onCancel={props.onCancel} onRun={props.onRun} running={props.state.running} /> : null}
