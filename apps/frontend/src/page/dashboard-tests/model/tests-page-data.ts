@@ -1,8 +1,14 @@
-import { notFound } from "next/navigation";
+import { cache } from "react";
+import { notFound, redirect } from "next/navigation";
 
 import type { TestWorkflowDto } from "@/entities/test-workflow";
 import { fetchLatestReadyVersion } from "@/shared/api/portal-client";
-import { dashboardTestsContext } from "@/shared/api/dashboard-management-client";
+import {
+  DashboardManagementError,
+  dashboardTestsContext,
+} from "@/shared/api/dashboard-management-client";
+import { listTestEnvironmentsServer } from "@/shared/api/test-workflows-server";
+import type { TestEnvironmentDto } from "@/shared/api/test-workflow-types";
 import type { PaletteOperation } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
 
 type TestsPageData = {
@@ -13,6 +19,7 @@ type TestsPageData = {
   readonly workflows: readonly TestWorkflowDto[];
   readonly operations: readonly PaletteOperation[];
   readonly defaultServerUrl?: string | undefined;
+  readonly environments: readonly TestEnvironmentDto[];
 };
 
 type OpenApiOperation = {
@@ -22,14 +29,22 @@ type OpenApiOperation = {
   readonly description?: unknown;
 };
 
-export async function loadTestsPageData(orgSlug: string, docSlug: string): Promise<TestsPageData> {
+export const loadTestsPageData = cache(async function loadTestsPageData(
+  orgSlug: string,
+  docSlug: string,
+): Promise<TestsPageData> {
   const context = await dashboardTestsContext(orgSlug, docSlug);
   if (context === null) {
     notFound();
   }
-  const latest = context.branchSlug !== ""
-    ? await fetchLatestReadyVersion({ orgSlug, docSlug, branchSlug: context.branchSlug })
-    : null;
+
+  const specPromise = context.branchSlug !== "" ? fetchLatestReadyVersion({ orgSlug, docSlug, branchSlug: context.branchSlug }) : Promise.resolve(null);
+  const environmentsPromise = context.branchSlug !== "" ? listTestEnvironmentsServer({ orgSlug, docSlug, branchSlug: context.branchSlug }) : Promise.resolve([]);
+
+  const [latest, environments] = await Promise.all([
+    tryCatchNull(specPromise),
+    tryCatchEnvironments(environmentsPromise),
+  ]);
 
   return {
     organizationId: context.organizationId,
@@ -39,7 +54,39 @@ export async function loadTestsPageData(orgSlug: string, docSlug: string): Promi
     workflows: context.workflows.map((workflow) => ({ ...workflow, definitionJson: workflow.definitionJson as TestWorkflowDto["definitionJson"] })),
     operations: latest ? extractOperations(latest.spec) : [],
     defaultServerUrl: latest ? extractDefaultServerUrl(latest.spec) : undefined,
+    environments,
   };
+});
+
+export function handleTestsDataError(error: unknown, callbackPath: string): never {
+  if (error instanceof DashboardManagementError && error.statusCode === 401) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
+  }
+
+  if (error instanceof DashboardManagementError && error.statusCode === 403) {
+    notFound();
+  }
+
+  throw error;
+}
+
+async function tryCatchNull<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise;
+  } catch {
+    return null;
+  }
+}
+
+async function tryCatchEnvironments(promise: Promise<TestEnvironmentDto[]>): Promise<TestEnvironmentDto[]> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof DashboardManagementError && (error.statusCode === 401 || error.statusCode === 403)) {
+      throw error;
+    }
+    return [];
+  }
 }
 
 function extractDefaultServerUrl(spec: unknown): string | undefined {
