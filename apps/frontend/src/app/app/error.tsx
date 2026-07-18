@@ -1,0 +1,22 @@
+"use client";
+
+import { RouteErrorFallback } from "@/shared/ui/route-fallbacks";
+
+export default function DashboardError({
+  error,
+  reset,
+}: {
+  readonly error: Error;
+  readonly reset: () => void;
+}): React.ReactElement {
+  void error;
+
+  return (
+    <RouteErrorFallback
+      detail="The dashboard could not be loaded. If your session expired, sign in again."
+      resetAction={reset}
+      showSignIn
+      title="Something went wrong"
+    />
+  );
+}

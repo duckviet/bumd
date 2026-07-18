@@ -2,15 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import type {
-  TestWorkflowDto,
-  TestEnvironmentDto,
-} from "@/entities/test-workflow";
+import type { TestWorkflowDto } from "@/entities/test-workflow";
+import type { TestEnvironmentDto } from "@/shared/api/test-workflow-types";
 import type { PaletteOperation } from "@/widgets/test-workflow-canvas/ui/endpoint-palette";
 import {
   createWorkflow,
-  listWorkflows,
-  listEnvironments,
   deleteWorkflow,
   cancelRun,
 } from "@/shared/api/test-workflows-client";
@@ -29,6 +25,8 @@ type TestsPageClientProps = {
   readonly operations: readonly PaletteOperation[];
   readonly initialWorkflowId?: string;
   readonly defaultServerUrl?: string | undefined;
+  readonly initialEnvironments: readonly TestEnvironmentDto[];
+  readonly initialSelectedEnvId: string | null;
 };
 
 export function TestsPageClient({
@@ -39,13 +37,15 @@ export function TestsPageClient({
   operations,
   initialWorkflowId,
   defaultServerUrl,
+  initialEnvironments,
+  initialSelectedEnvId,
 }: TestsPageClientProps) {
   const router = useRouter();
 
   // Workflows and environments list state
 const [workflows, setWorkflows] = useState<TestWorkflowDto[]>(() => [...initialWorkflows]);
-const [environments, setEnvironments] = useState<TestEnvironmentDto[]>([]);
-const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
+const [environments, setEnvironments] = useState<TestEnvironmentDto[]>(() => [...initialEnvironments]);
+const [selectedEnvId, setSelectedEnvId] = useState<string | null>(initialSelectedEnvId);
 const [isCreateOpen, setIsCreateOpen] = useState(false);
 const [createName, setCreateName] = useState("");
 const [createError, setCreateError] = useState<string | null>(null);
@@ -61,23 +61,6 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { state, dispatch } = store;
   const saveWorkflowFn = useSaveWorkflow(org, doc, branch, store);
   const { run: runWorkflowFn, stopPolling: cancelPollingFn } = useRunWorkflow(org, doc, branch, store, saveWorkflowFn);
-
-  // Load environment variables on mount
-  useEffect(() => {
-    console.log("Loading environments for branch:", branch);
-    listEnvironments({ orgSlug: org, docSlug: doc, branchSlug: branch })
-      .then((envs) => {
-        console.log("Loaded environments from backend:", envs);
-        setEnvironments(envs);
-        const def = envs.find((e) => e.isDefault) || envs[0];
-        console.log("Default env selected:", def);
-        if (def) {
-          console.log("Setting selectedEnvId to:", def.id);
-          setSelectedEnvId(def.id);
-        }
-      })
-      .catch((err) => console.error("Failed to load environments:", err));
-  }, [org, doc, branch]);
 
   // Load current workflow definition
   useEffect(() => {

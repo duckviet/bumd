@@ -1,3 +1,4 @@
-import { TestWorkflowPage } from "@/page/dashboard-tests";
+import { TestWorkflowPage, generateMetadata } from "@/page/dashboard-tests";
 
 export default TestWorkflowPage;
+export { generateMetadata };

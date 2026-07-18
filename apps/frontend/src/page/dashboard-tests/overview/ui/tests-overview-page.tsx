@@ -14,6 +14,5 @@ export async function TestsOverviewPage({ params }: PageProps): Promise<React.Re
   const { org, doc } = await params;
   const data = await loadTestsPageData(org, doc);
 
-  console.log(org, doc, data)
   return <TestsListClient org={org} doc={doc} branch={data.branchSlug} initialWorkflows={data.workflows} />;
 }
